@@ -23,7 +23,11 @@ async function pick(page: Page, query = "oracle") {
     await dialog.getByRole("listbox").evaluate(el => el.scrollBy(0, el.clientHeight));
     await expect.poll(() => dialog.getByRole("option").first().getAttribute("aria-posinset")).not.toBe(previous);
   }
-  await dialog.locator(`.brand-logo-choice[id="brand-${query}"]`).click();
+  if (query === "microsoft-azure") {
+    await dialog.getByRole("option", { name: "Microsoft Azure", exact: true }).click();
+    await dialog.getByLabel("Logo variant").click();
+    await page.getByRole("option", { name: "Original · microsoft-azure", exact: true }).click();
+  } else await dialog.locator(`.brand-logo-choice[id="brand-${query}"]`).click();
   return dialog;
 }
 for (const theme of ["light", "dark"] as const) test(`${theme}: local catalog searches, stays bounded and fits Focus/narrow/reduced motion`, async ({page}) => {
