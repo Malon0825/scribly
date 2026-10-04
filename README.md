@@ -6,7 +6,7 @@ A free Windows notebook for writing, keeping a second note in view, and sketchin
 
 ## Install
 
-1. Open the [latest release](https://github.com/Malon0825/scribly/releases/latest) and download `Scribly_1.3.11_x64-setup.exe` from **Assets**. The source ZIP is for developers.
+1. Open the [latest release](https://github.com/Malon0825/scribly/releases/latest) and download `Scribly_1.3.12_x64-setup.exe` from **Assets**. The source ZIP is for developers.
 2. Run the setup EXE. Scribly installs for your Windows account without administrator access.
 3. Open Scribly from the Start menu.
 
@@ -26,7 +26,7 @@ To update, export a backup in Settings, close Scribly, and run the newer install
 - Choose Light, Dark, or System appearance and adjust interface size and note typography.
 - Autosave locally and export/import portable notebook backups.
 
-See the [user guide](docs/user-guide.md) for shortcuts and feature limits. [Version 1.3.11](docs/releases/v1.3.11.md) improves the running Windows taskbar icon's resolution while retaining theme-aware icons.
+See the [user guide](docs/user-guide.md) for shortcuts and feature limits. [Version 1.3.12](docs/releases/v1.3.12.md) starts new notebooks with only an Introduction folder and a getting-started note. Existing notebooks are preserved.
 
 ## Your data
 

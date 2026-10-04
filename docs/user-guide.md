@@ -13,7 +13,7 @@ Create a **New board** (Ctrl+Shift+N) or choose it from a folder's options menu.
 - Create notes and folders, rename notes directly, and search titles and text.
 - Drag the sidebar's right edge to resize it. Width is remembered on this device. Arrow keys resize the focused divider; Home/End set limits, Escape cancels a drag, and double-click restores the responsive default.
 - In a folder's `…` menu, enable **Copy last note** to start new notes with the most recently created non-archived note's content, including formatting and checked/unchecked tasks. Each new note gets its own title and date and can be edited independently. The option is off by default; empty folders start blank.
-- New notes start with the folder name and local date, such as `Work logs · Oct 2, 2026`. Further notes in that folder that day add mythology names in A–Z order (Anubis, Baldur, Cupid, …), with a small fun fact below the title. After Zeus, the names repeat as Anubis 2, Baldur 2, and so on. Titles remain editable; existing notes keep their titles.
+- New notes start with the folder name and local date, such as `Notes · Oct 2, 2026`. Further notes in that folder that day add mythology names in A–Z order (Anubis, Baldur, Cupid, …), with a small fun fact below the title. After Zeus, the names repeat as Anubis 2, Baldur 2, and so on. Titles remain editable; existing notes keep their titles.
 - Drag folders to reorder the sidebar. Drag notes between notes to reorder, or onto a folder to move them; closed and empty folders accept drops. Drop onto Unfiled notes to remove a note from its folder. Changes autosave.
 - Write paragraphs, headings, bold, italic, lists, and checklists. Formatting and undo are available in the toolbar.
 - **Stroke size** in Highlight and Drawing options offers Small, Medium and Large (Highlight: 8/16/24px; Draw: 1/3/6px). Each tool remembers its size during the editor session. New strokes retain the chosen width through saving, Undo/Redo, Reference and backups; size changes leave existing strokes intact.
@@ -50,4 +50,4 @@ Create a **New board** (Ctrl+Shift+N) or choose it from a folder's options menu.
 
 Notes live under `%LOCALAPPDATA%\com.still.notes\database`. Updates and uninstalling the app preserve that folder. Export backups periodically from Settings. Copying a live PostgreSQL data folder is not a supported backup method.
 
-The included sample notebook is editable. The browser preview uses browser local storage; **the installed Windows app uses PostgreSQL**. This version is a personal, single-laptop notebook with no cloud sync or collaboration.
+New notebooks start with a single Introduction folder and an editable Welcome to Scribly note. Create the folders that suit you. Existing notebooks retain their saved content. The browser preview uses browser local storage; **the installed Windows app uses PostgreSQL**. This version is a personal, single-laptop notebook with no cloud sync or collaboration.

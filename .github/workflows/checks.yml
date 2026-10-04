@@ -25,6 +25,6 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Production icon, saving, and recovery regressions
-        run: npx playwright test tests/app-icon.spec.ts tests/finalization.spec.ts tests/recovery.spec.ts --workers=2 --timeout=120000
+        run: npx playwright test tests/starter-notebook.spec.ts tests/app-icon.spec.ts tests/finalization.spec.ts tests/recovery.spec.ts --workers=2 --timeout=120000
         env:
           PLAYWRIGHT_PREVIEW: '1'
