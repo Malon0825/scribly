@@ -1,3 +1,4 @@
+import { boardCommand } from './boardCommandHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { emptyBoard, boardFromScene, validateBoard } from "../src/boardData";
 import type { Workspace } from "../src/types";
@@ -76,12 +77,12 @@ test("browser stale-save conflict retains both the saved copy and unsaved draft"
 test("missing clipboard provides Mermaid copy fallback without an uncaught error", async ({ page }) => {
   const errors: string[] = []; page.on("pageerror", (e) => errors.push(e.message));
   await seed(page, { ...fixture, activeId: "board" });
-  await page.getByRole("button", { name: "Import Mermaid", exact: true }).click();
+  await boardCommand(page, 'Import Mermaid\u2026');
   await page.getByRole("button", { name: "Preview drawing", exact: true }).click();
   await expect(page.locator(".board-preview-image svg")).toBeVisible();
   await page.getByRole("button", { name: "Create board", exact: true }).click();
   await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }));
-  await page.getByRole("button", { name: "Mermaid", exact: true }).click();
+  await boardCommand(page, 'Mermaid\u2026');
   await page.getByRole("button", { name: "Copy code", exact: true }).click();
   await expect(page.getByRole("dialog").getByText(/Clipboard unavailable/)).toBeVisible();
   expect(errors).toEqual([]);
@@ -89,7 +90,7 @@ test("missing clipboard provides Mermaid copy fallback without an uncaught error
 
 test("Mermaid file reading cannot preview the previous source or create stale content", async ({ page }) => {
   await seed(page, { ...fixture, activeId: "board" });
-  await page.getByRole("button", { name: "Import Mermaid", exact: true }).click();
+  await boardCommand(page, 'Import Mermaid\u2026');
   await page.evaluate(() => {
     const original = File.prototype.text;
     File.prototype.text = function () { return new Promise((resolve, reject) => setTimeout(() => original.call(this).then(resolve, reject), 1500)); };
@@ -104,7 +105,7 @@ test("failed board-dialog chunk keeps the current notebook available with a dism
   test.skip(process.env.PLAYWRIGHT_PREVIEW === "1", "Development route failure injection");
   await page.route("**/src/CreateBoardDialog.tsx*", (route) => route.abort("failed"));
   await seed(page, { ...fixture, activeId: "board" });
-  await page.getByRole("button", { name: "Import Mermaid", exact: true }).click();
+  await boardCommand(page, 'Import Mermaid\u2026');
   await expect(page.getByRole("dialog").getByText(/could not open/i)).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await page.locator(".note-select").filter({ hasText: "Writing" }).click();

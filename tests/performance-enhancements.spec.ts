@@ -1,3 +1,4 @@
+import { chooseTheme } from './themeHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 
@@ -52,7 +53,7 @@ test("startup thumb stays inside the track across reversal, scaling, keyboard an
   const off = await geometry(page); expect(off.left).toBeGreaterThan(2); expect(off.right).toBeGreaterThan(off.left);
   await button.click(); await expect(button).toHaveAttribute("aria-checked", "true");
   await page.screenshot({ path: "release/startup-switch-fixed.png" });
-  await page.getByRole("button", { name: "Use dark mode", exact: true }).click();
+  await chooseTheme(page, "dark");
   const dark = await geometry(page); expect(dark.right).toBeGreaterThan(2); expect(dark.left).toBeGreaterThan(dark.right);
   await page.screenshot({ path: "release/startup-switch-fixed-dark.png" });
 });
@@ -165,7 +166,11 @@ test("file-backed image nodes preserve resize, Reference, copy and Undo while se
 });
 test("repeated note switching keeps editor instances bounded and records collected browser heap", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("button", { name: "New note", exact: true }).click();
   const notes = page.locator(".note-select");
+  await expect(notes).toHaveCount(2);
+  await notes.first().click({ modifiers: ["Alt"] });
+  await expect(page.locator(".reference-editor")).toHaveCount(1);
   for (let i = 0; i < 20; i++) await notes.nth(i % 2).click();
   const session = await page.context().newCDPSession(page);
   await session.send("HeapProfiler.enable"); await session.send("HeapProfiler.collectGarbage");

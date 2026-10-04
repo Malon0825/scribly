@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 const preview = process.env.PLAYWRIGHT_PREVIEW === "1";
-const baseURL = preview ? "http://127.0.0.1:1421" : "http://127.0.0.1:1420";
+const port = Number(process.env.PLAYWRIGHT_PORT || (preview ? 1421 : 1420));
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: "./tests",
@@ -15,7 +16,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: preview ? "npm run preview -- --port 1421" : "npm run dev",
+    command: `node node_modules/vite/bin/vite.js ${preview ? 'preview' : ''} --host 127.0.0.1 --port ${port} --strictPort`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
   },

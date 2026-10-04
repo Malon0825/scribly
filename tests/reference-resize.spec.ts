@@ -11,6 +11,8 @@ async function start(page: Page) {
 }
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByRole('button', { name: 'Reference', exact: true }).click();
+  await page.locator('.workspace').evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished.catch(() => {}))));
   await expect(handle(page)).toBeVisible();
 });
 
@@ -40,6 +42,7 @@ test("drag tracks both directions, preserves the draft and selection, and rememb
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(selection);
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("still-notes-browser-v1") || "null")?.document.notes.some((note: { content: string }) => note.content.includes("Keep this selected draft while resizing Reference.")))).toBe(true);
   await page.reload();
+  await page.getByRole('button', { name: 'Reference', exact: true }).click();
   await expect.poll(() => width(page)).toBeCloseTo(initial + 30, 0);
   await expect(editor).toHaveText(selection!);
 });

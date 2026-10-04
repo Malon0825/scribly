@@ -7,8 +7,9 @@ import BoardPreview from "./BoardPreview";
 import type { BoardData } from "./boardData";
 import "./board.css";
 
-export default function CreateBoardDialog({ mode, dark, onClose, onCreate }: {
+export default function CreateBoardDialog({ mode, dark, onClose, onCreate, returnFocus }: {
   mode: "import" | "template"; dark: boolean; onClose: () => void; onCreate: (title: string, board: BoardData) => void;
+  returnFocus?: () => HTMLElement | null;
 }) {
   const [template, setTemplate] = useState<string>(boardTemplates[0].id);
   const [title, setTitle] = useState(mode === "template" ? boardTemplates[0].title : "Imported architecture");
@@ -23,7 +24,7 @@ export default function CreateBoardDialog({ mode, dark, onClose, onCreate }: {
     catch (e) { if (token === request.current) setError(String(e)); }
     finally { if (token === request.current) setBusy(false); }
   };
-  return <Dialog title={mode === "template" ? "Architecture templates" : "Import Mermaid"} className="mermaid-dialog board-create-dialog" onClose={onClose}>
+  return <Dialog title={mode === "template" ? "Architecture templates" : "Import Mermaid"} className="mermaid-dialog board-create-dialog" onClose={onClose} returnFocus={returnFocus}>
     <p className="modal-subtitle">Create an editable board in the current folder. Existing drawings stay intact. Preview the flowchart before creating it.</p>
     {mode === "template" && <AppSelect label="Architecture template" value={template} options={boardTemplates.map((t) => ({ value: t.id, label: t.title }))}
       onChange={(id) => { const next = boardTemplates.find((t) => t.id === id)!; invalidate(); setTemplate(id); setTitle(next.title); setCode(next.code); }} />}

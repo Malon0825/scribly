@@ -1,3 +1,4 @@
+import { boardCommand } from './boardCommandHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { emptyBoard, boardFromScene, portableBoard, type BoardData } from "../src/boardData";
 import { boardToMermaid, canAssignBoundary } from "../src/boardMermaid";
@@ -15,10 +16,10 @@ const fixture: Workspace = { schemaVersion: 2, folders: [{ id: "work", name: "Wo
 const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem("still-notes-browser-v1")!).document as Workspace);
 async function open(page: Page, doc = fixture) {
   await page.addInitScript((document) => { if (!sessionStorage.getItem("extension-fixture")) { localStorage.clear(); localStorage.setItem("still-notes-browser-v1", JSON.stringify({ revision: 1, document, dataPath: "Board extensions" })); sessionStorage.setItem("extension-fixture", "1"); } }, doc);
-  await page.goto("/"); await expect(page.getByRole("button", { name: "Import Mermaid", exact: true })).toBeVisible({ timeout: 30000 });
+  await page.goto("/"); await expect(page.getByRole("button", { name: "Insert", exact: true })).toBeVisible({ timeout: 30000 });
 }
 async function importCode(page: Page, code: string, title: string) {
-  await page.getByRole("button", { name: "Import Mermaid", exact: true }).click();
+  await boardCommand(page, 'Import Mermaid\u2026');
   const dialog = page.getByRole("dialog", { name: "Import Mermaid", exact: true });
   await dialog.getByRole("textbox", { name: "Board title" }).fill(title);
   await dialog.getByRole("textbox", { name: "Mermaid flowchart" }).fill(code);
@@ -92,14 +93,14 @@ worker --> db`, "Nested architecture");
   expect(board.elements.find((e) => e.id === "api")?.customData?.notifyArchitecture.parentId).toBe("cluster");
   expect(boardToMermaid(board).nodes).toBe(3); expect(boardToMermaid(board).edges).toBe(3); expect(boardToMermaid(board).issues).toEqual([]);
   await page.reload(); await expect(page.getByLabel("Board title", { exact: true })).toHaveValue("Nested architecture");
-  await page.getByRole("button", { name: "Mermaid", exact: true }).click();
+  await boardCommand(page, 'Mermaid\u2026');
   await expect(page.getByLabel("Mermaid preview").locator("svg")).toBeVisible({ timeout: 30000 });
 });
 
 test("every packaged architecture template previews and creates an independent folder board", async ({ page }) => {
   await open(page);
   for (const template of boardTemplates) {
-    await page.getByRole("button", { name: "Templates", exact: true }).click();
+    await boardCommand(page, 'Templates\u2026');
     const dialog = page.getByRole("dialog", { name: "Architecture templates" });
     await dialog.getByRole("combobox", { name: "Architecture template" }).click();
     await page.getByRole("option", { name: template.title, exact: true }).click();
@@ -115,7 +116,7 @@ test("every packaged architecture template previews and creates an independent f
 
 test("invalid source and changed previews cannot create a board; cancellation preserves focus and canvas", async ({ page }) => {
   await open(page); const canvas = await page.locator(".board-canvas canvas").first().elementHandle();
-  await page.getByRole("button", { name: "Import Mermaid", exact: true }).click();
+  await boardCommand(page, 'Import Mermaid\u2026');
   const dialog = page.getByRole("dialog", { name: "Import Mermaid", exact: true });
   await dialog.getByRole("textbox", { name: "Mermaid flowchart" }).fill("flowchart LR\nA[broken");
   await dialog.getByRole("button", { name: "Preview drawing" }).click();
@@ -125,7 +126,7 @@ test("invalid source and changed previews cannot create a board; cancellation pr
   await dialog.getByRole("textbox", { name: "Mermaid flowchart" }).fill("flowchart LR\nA-->C");
   await expect(dialog.getByRole("button", { name: "Create board", exact: true })).toBeDisabled();
   await page.keyboard.press("Escape"); expect(await canvas!.evaluate((el) => el.isConnected)).toBe(true);
-  await expect(page.getByRole("button", { name: "Import Mermaid", exact: true })).toBeFocused(); expect((await saved(page)).notes).toEqual(fixture.notes);
+  await expect(page.getByRole("button", { name: "Insert", exact: true })).toBeFocused(); expect((await saved(page)).notes).toEqual(fixture.notes);
 });
 
 test("board Reference stays read-only beside writing and persists selection", async ({ page }) => {
@@ -147,14 +148,14 @@ test("board Reference stays read-only beside writing and persists selection", as
 test("template preview fits the dark minimum viewport, preserves keyboard access and cancels immediately", async ({ page }) => {
   const doc = structuredClone(fixture); doc.theme = "dark";
   await page.setViewportSize({ width: 850, height: 600 }); await page.emulateMedia({ reducedMotion: "reduce" }); await open(page, doc);
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await boardCommand(page, 'Templates\u2026');
   const dialog = page.getByRole("dialog", { name: "Architecture templates" });
   await dialog.getByRole("button", { name: "Preview drawing" }).click();
   await expect(dialog.locator(".board-preview-image svg")).toBeVisible({ timeout: 30000 });
   const bounds = await dialog.boundingBox(); expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.y).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(850); expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(600);
   await dialog.getByRole("button", { name: "Create board", exact: true }).focus(); await page.keyboard.press("Tab"); await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeFocused();
   await page.screenshot({ path: "release/boards-template-dark-1.1.1.png" });
-  await page.keyboard.press("Escape"); await expect(page.getByRole("button", { name: "Templates", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape"); await expect(page.getByRole("button", { name: "Insert", exact: true })).toBeFocused();
   expect((await saved(page)).notes).toHaveLength(2);
 });
 
@@ -164,7 +165,7 @@ test("Mermaid import preserves cycles, self-loops, disconnected nodes and quoted
   const board = (await saved(page)).notes.at(-1)!.board!;
   expect(board.exportDirection).toBe("RL"); const result = boardToMermaid(board);
   expect(result.nodes).toBe(3); expect(result.edges).toBe(3); expect(result.issues).toEqual([]); expect(result.code).toContain("日本語"); expect(result.code).toContain("#quot;");
-  await page.getByRole("button", { name: "Mermaid", exact: true }).click();
+  await boardCommand(page, 'Mermaid\u2026');
   await expect(page.getByLabel("Mermaid preview").locator("svg")).toBeVisible({ timeout: 30000 });
 });
 
@@ -173,7 +174,7 @@ test("Mermaid files import into the chosen folder and export retains semantic me
   await page.getByRole("button", { name: "Options for Work" }).click(); await page.getByRole("button", { name: "Import files…", exact: true }).click();
   await page.getByLabel("Import files", { exact: true }).setInputFiles({ name: "Imported pipeline.mmd", mimeType: "text/plain", buffer: Buffer.from(boardTemplates[1].code) });
   await expect(page.getByLabel("Board title", { exact: true })).toHaveValue("Imported pipeline", { timeout: 30000 });
-  const download = page.waitForEvent("download"); await page.locator(".board-commands").getByRole("button", { name: "Drawing", exact: true }).click();
+  const download = page.waitForEvent("download"); await boardCommand(page, 'Drawing (.excalidraw)');
   const board = boardFromScene(JSON.parse(await readFile((await (await download).path())!, "utf8")));
   expect(boardToMermaid(board).edges).toBe(3); expect(boardToMermaid(board).issues).toEqual([]);
   await expect.poll(async () => (await saved(page)).notes.at(-1)?.folderId).toBe("work");

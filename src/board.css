@@ -1,16 +1,15 @@
 .board-editor { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; position: relative; }
-.board-top-controls { flex-shrink: 1; min-height: 0; max-height: 35%; overflow-y: auto; overflow-x: hidden; }
-.board-commands { display: flex; align-items: center; gap: calc(4px * var(--element-scale)); padding: calc(10px * var(--element-scale)) calc(14px * var(--element-scale)); flex-wrap: wrap; border-block: 1px solid var(--line); background: var(--chrome); font-size: calc(13px * var(--text-scale)); }
+.board-top-controls { flex-shrink: 0; min-height: 0; }
+.board-commands { display: flex; align-items: center; gap: calc(4px * var(--element-scale)); padding: calc(6px * var(--element-scale)) calc(10px * var(--element-scale)); flex-wrap: wrap; border-bottom: 1px solid var(--line); background: var(--chrome); font-size: calc(13px * var(--text-scale)); }
 .board-commands button { padding: calc(7px * var(--element-scale)) calc(9px * var(--element-scale)); border-radius: calc(8px * var(--element-scale)); gap: calc(6px * var(--element-scale)); }
-.board-commands button[aria-pressed="true"] { background: var(--active); }
-.board-command-spacer { flex: 1; }
-.board-export-actions { display: flex; flex-wrap: wrap; align-items: center; gap: calc(4px * var(--element-scale)); margin-inline-start: auto; }
-/* Export stays visible in Focus; authoring controls keep their existing toggle. */
+.board-commands button[aria-pressed="true"], .board-commands button[aria-expanded="true"] { background: var(--active); }
+.board-command-host .board-commands { padding: 0; border: 0; background: transparent; flex-wrap: nowrap; }
+.board-command-menu { width: calc(240px * var(--element-scale)); }
+.board-commands button:active:not(:disabled), .board-command-menu button:active:not(:disabled) { background: var(--active); transition-duration: 0s; }
+/* Portalled topbar commands remain available throughout Focus mode. */
 .focus-mode:not(.focus-tools-visible) .board-top-controls { display: block; }
-.focus-mode:not(.focus-tools-visible) .board-commands > :not(.board-export-actions),
 .focus-mode:not(.focus-tools-visible) .board-top-controls .architecture-inspector { display: none; }
-.focus-mode .board-commands { justify-content: flex-end; padding-block: calc(6px * var(--element-scale)); }
-@media (max-width: 1000px) { .board-export-actions { order: -1; flex-basis: 100%; justify-content: flex-end; } }
+.focus-mode .board-top-controls .board-commands { justify-content: flex-end; }
 .board-direction.app-select { padding: calc(6px * var(--element-scale)) calc(8px * var(--element-scale)); font-size: inherit; background: var(--panel); }
 .architecture-inspector { display: flex; gap: calc(9px * var(--element-scale)); align-items: center; flex-wrap: wrap; padding: calc(10px * var(--element-scale)) calc(14px * var(--element-scale)); font-size: calc(12px * var(--text-scale)); border-bottom: 1px solid var(--line); background: var(--panel); }
 .architecture-inspector > span, .conversion-issues strong { display: flex; gap: calc(6px * var(--element-scale)); align-items: center; }
@@ -20,13 +19,6 @@
 .architecture-roles button[aria-pressed="true"] { background: var(--active); color: var(--fg); }
 .boundary-picker { padding: calc(6px * var(--element-scale)) calc(8px * var(--element-scale)); font-size: inherit; max-width: min(100%, calc(200px * var(--element-scale))); }
 .board-canvas { flex: 1; min-height: 0; min-width: 0; overflow: hidden; position: relative; }
-.board-canvas .excalidraw .board-brand-trigger { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); font: inherit; white-space: nowrap; }
-.board-canvas .excalidraw .board-brand-trigger:hover { background: var(--hover); }
-.board-canvas .excalidraw .board-brand-trigger:active { background: var(--active); }
-/* Focus hides engine Library chrome; keep this insertion tool accessible. */
-.focus-mode:not(.focus-tools-visible) .board-canvas .layer-ui__wrapper__top-right:has(> .board-brand-trigger) { display: flex; }
-.focus-mode:not(.focus-tools-visible) .board-canvas .layer-ui__wrapper__top-right > :not(.board-brand-trigger) { display: none; }
-@media (max-width: 1000px) { .board-brand-trigger > span { display: none; } }
 .brand-logo-dialog { width: min(850px, 100%); font-size: calc(14px * var(--text-scale)); }
 .brand-logo-filters { display: flex; gap: 10px; margin-block: 16px; flex-wrap: wrap; }
 .brand-logo-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: min(260px, 100%); padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--chrome); }

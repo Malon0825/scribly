@@ -47,23 +47,23 @@ export function HighlighterTools({ editor, settings, change }: { editor: Editor;
   const colors = drawing ? drawingColors : inkColors;
   const toggle = () => change({ mode: settings.mode === "guided" ? "free" : "guided" });
   const modeControl = <button className="highlighter-mode" aria-label={`${label} mode: ${settings.mode === "guided" ? "Guided" : "Free"}`}
-    title={`Switch ${drawing ? "Draw" : "Highlight"} mode · also scroll the wheel while drawing`} onClick={toggle}>
+    title={`Switch to ${settings.mode === "guided" ? "freehand" : "guided"} ${drawing ? "drawing" : "highlighting"} · wheel while drawing also switches modes`} onClick={toggle}>
     <span aria-live="polite">{settings.mode === "guided" ? "Guided" : "Free"}</span></button>;
   const options = (tool: Tool) => { choose(tool); setOpen(value => value === tool ? null : tool); };
   return <div className="highlighter-tools">
     <div className={`pen-tool-group${settings.active && !drawing ? " active" : ""}`} role="group" aria-label="Highlight tool">
-    <button ref={penButton} className="checklist-button" aria-label="Highlighter pen" aria-pressed={settings.active && !drawing}
-      title="Highlighter pen · drag over the note · Escape returns to writing"
+    <button ref={penButton} className="checklist-button" aria-label={settings.active && !drawing ? "Stop highlighting" : "Start highlighting"} aria-pressed={settings.active && !drawing}
+      title={`${settings.active && !drawing ? "Stop highlighting" : "Start highlighting"} · drag over the note · Esc returns to writing`}
       onClick={() => choose("highlight", !(settings.active && !drawing))}><AnimatedIcon kind="highlight" size={23} /><span>Highlight</span></button>
     {settings.active && !drawing && modeControl}
-    <button ref={markerTrigger} aria-label="Highlighter options" aria-expanded={open === "highlight"} title="Highlighter options" onClick={() => options("highlight")}><AnimatedIcon kind="down" size={14} /></button>
+    <button ref={markerTrigger} aria-label="Highlighter options" aria-haspopup="dialog" aria-expanded={open === "highlight"} title="Open highlighter options: mode, color and size" onClick={() => options("highlight")}><AnimatedIcon kind="down" size={14} /></button>
     </div>
     <div className={`pen-tool-group${settings.active && drawing ? " active" : ""}`} role="group" aria-label="Draw tool">
-    <button ref={drawButton} className="checklist-button" aria-label="Draw pen" aria-pressed={settings.active && drawing}
-      title="Draw · drag on the note · Escape returns to writing"
+    <button ref={drawButton} className="checklist-button" aria-label={settings.active && drawing ? "Stop drawing" : "Start drawing"} aria-pressed={settings.active && drawing}
+      title={`${settings.active && drawing ? "Stop drawing" : "Start drawing"} · drag on the note · Esc returns to writing`}
       onClick={() => choose("draw", !(settings.active && drawing))}><AnimatedIcon kind="draw" size={23} /><span>Draw</span></button>
     {settings.active && drawing && modeControl}
-    <button ref={drawTrigger} aria-label="Drawing options" aria-expanded={open === "draw"} title="Drawing options" onClick={() => options("draw")}><AnimatedIcon kind="down" size={14} /></button>
+    <button ref={drawTrigger} aria-label="Drawing options" aria-haspopup="dialog" aria-expanded={open === "draw"} title="Open drawing options: mode, color and size" onClick={() => options("draw")}><AnimatedIcon kind="down" size={14} /></button>
     </div>
     {open && <ActionPopover anchor={open === "draw" ? drawTrigger.current : markerTrigger.current} label={`${label} options`} className="highlighter-options" onClose={() => setOpen(null)}>
       <div className="color-section-heading">Stroke mode</div>

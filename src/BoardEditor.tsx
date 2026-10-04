@@ -1,11 +1,13 @@
 import { AnimatedIcon } from "./AnimatedIcon";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { Excalidraw, CaptureUpdateAction, restoreElements, getNonDeletedElements, exportToBlob, exportToSvg, newElementWith, convertToExcalidrawElements, viewportCoordsToSceneCoords } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI, AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement, FileId } from "@excalidraw/excalidraw/element/types";
 import type { DataURL } from "@excalidraw/excalidraw/types";
 import { Selection, WarningCircle } from "@phosphor-icons/react";
 import { AppSelect } from "./AppSelect";
+import { ActionPopover } from "./ActionPopover";
 import { Dialog } from "./Dialog";
 import { BoardBoundary } from "./BoardBoundary";
 import { architectureTag, activeBoardFiles, portableBoard, validateBoard, MAX_BOARD_ELEMENTS, MAX_WORKSPACE_BYTES, type BoardData, type ArchitectureRole } from "./boardData";
@@ -23,6 +25,7 @@ import "./board.css";
 export type BoardEditorProps = {
   id: string; title: string; board: BoardData; dark: boolean; readOnly: boolean;
   focusMode?: boolean;
+  controlsHost?: HTMLElement | null;
   checkpoint: () => Workspace | null;
   registerDraft: (id: string, reader: (force?: boolean) => BoardData | null) => () => void;
   onDirty: () => void;
@@ -41,10 +44,11 @@ const fileSignature = (file: BinaryFiles[string]) => {
 const fingerprint = (elements: readonly ExcalidrawElement[], state: BoardData["appState"], files: BinaryFiles) =>
   `${elements.map((e) => `${e.id}:${e.version}:${e.versionNonce}:${e.isDeleted}:${e.index}`).join("|")}/${state.viewBackgroundColor}/${state.gridSize}/${Object.keys(files).sort().map((id) => `${id}:${fileSignature(files[id])}`).join("|")}`;
 
-export default function BoardEditor({ id, title, board, dark, readOnly, focusMode = false, checkpoint, registerDraft, onDirty, onCreateBoard, onShowTools }: BoardEditorProps) {
+export default function BoardEditor({ id, title, board, dark, readOnly, focusMode = false, controlsHost, checkpoint, registerDraft, onDirty, onCreateBoard, onShowTools }: BoardEditorProps) {
   const initial = useRef(board), live = useRef(board);
   const api = useRef<ExcalidrawImperativeAPI | null>(null);
-  const brandTrigger = useRef<HTMLButtonElement | null>(null);
+  const canvasOwner = useRef<HTMLElement | null>(null);
+  const insertTrigger = useRef<HTMLButtonElement | null>(null);
   const exportTrigger = useRef<HTMLButtonElement | null>(null), codeField = useRef<HTMLTextAreaElement | null>(null), copyButton = useRef<HTMLButtonElement | null>(null);
   const copyAttempt = useRef(0), copying = useRef(false);
   const returnToCanvas = useRef(false);
@@ -55,6 +59,8 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
   const [selection, setSelection] = useState<string[]>([]), selectionKey = useRef("");
   const [inspector, setInspector] = useState(false), [exporting, setExporting] = useState(false);
   const [brandPicker, setBrandPicker] = useState(false);
+  const [commandMenu, setCommandMenu] = useState<"insert" | "export" | null>(null);
+  const [snap, setSnap] = useState(true);
   const [error, setError] = useState(""), [message, setMessage] = useState("");
   const [direction, setDirection] = useState(board.exportDirection);
   const [conversion, setConversion] = useState(() => boardToMermaid(board));
@@ -136,6 +142,7 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
     if (!pointers.current.size) timer.current = setTimeout(safeCheckpoint, 350);
   };
   const capture = (elements: readonly ExcalidrawElement[], state: AppState, files: BinaryFiles) => {
+    setSnap(state.objectsSnapModeEnabled);
     const selected = Object.keys(state.selectedElementIds).filter((key) => state.selectedElementIds[key]);
     const key = selected.join("|");
     if (key !== selectionKey.current) { selectionKey.current = key; setSelection(selected); }
@@ -248,7 +255,8 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
       else await save("png", await exportToBlob(options), "image/png");
     } catch (e) { setError(String(e)); }
   };
-  const initialData = useMemo(() => ({ ...initial.current, elements: restoreElements(initial.current.elements, null, { repairBindings: true }).map((e) => architectureTag(e) ? { ...e, customData: { ...e.customData, notifyArchitecture: { ...architectureTag(e), sourceId: e.id } } } : e), appState: { ...initial.current.appState, activeTool: { type: "selection" as const, customType: null, locked: false, lastActiveTool: null }, scrollX: 0, scrollY: 0 } }), []);
+  // Defaults affect newly drawn elements only; existing scene styles stay intact.
+  const initialData = useMemo(() => ({ ...initial.current, elements: restoreElements(initial.current.elements, null, { repairBindings: true }).map((e) => architectureTag(e) ? { ...e, customData: { ...e.customData, notifyArchitecture: { ...architectureTag(e), sourceId: e.id } } } : e), appState: { ...initial.current.appState, currentItemRoughness: 0, currentItemArrowType: "elbow" as const, objectsSnapModeEnabled: true, activeTool: { type: "selection" as const, customType: null, locked: false, lastActiveTool: null }, scrollX: 0, scrollY: 0 } }), []);
   const duplicate = (next: readonly ExcalidrawElement[], prev: readonly ExcalidrawElement[]) => {
     const oldIds = new Set(prev.map((e) => e.id)), remap = new Map<string, string>();
     for (const copy of next.filter((e) => !oldIds.has(e.id))) {
@@ -260,20 +268,15 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
       return !oldIds.has(e.id) && tag ? newElementWith(e, { customData: { ...e.customData, notifyArchitecture: { ...tag, sourceId: e.id, ...(parent && remap.has(parent) ? { parentId: remap.get(parent) } : {}) } } }) : e;
     });
   };
-  return <section className="board-editor" aria-label="Architecture board">
+  const commands = <div className="board-commands" role="group" aria-label="Board commands">
+    {!readOnly && <button id="board-insert-trigger" ref={insertTrigger} aria-haspopup="dialog" aria-expanded={commandMenu === "insert"} onClick={() => setCommandMenu(commandMenu === "insert" ? null : "insert")} title="Insert logos, templates, Mermaid or library shapes"><AnimatedIcon kind="add" size={18} />Insert<AnimatedIcon kind="down" size={14} /></button>}
+    <button aria-pressed={inspector} aria-expanded={inspector} aria-controls="architecture-inspector" onClick={() => { setCommandMenu(null); onShowTools(); setInspector(!inspector); }} title="Architecture roles, boundaries and snapping"><AnimatedIcon kind="board" size={18} /><span>Architecture</span></button>
+    <button ref={exportTrigger} aria-haspopup="dialog" aria-expanded={commandMenu === "export"} onClick={() => setCommandMenu(commandMenu === "export" ? null : "export")} title="Export this board"><AnimatedIcon kind="download" size={18} />Export<AnimatedIcon kind="down" size={14} /></button>
+  </div>;
+  return <section ref={canvasOwner} className="board-editor" aria-label="Architecture board">
+    {controlsHost && createPortal(commands, controlsHost)}
     <div className="board-top-controls" id="board-secondary-controls" role="group" aria-label="Board commands and architecture properties">
-    <div className="board-commands">
-      <button aria-pressed={inspector} aria-expanded={inspector} aria-controls="architecture-inspector" onClick={() => setInspector(!inspector)}><AnimatedIcon kind="board" size={19} />Architecture</button>
-      <button onClick={() => onCreateBoard("template")}>Templates</button>
-      <button onClick={() => onCreateBoard("import")}>Import Mermaid</button>
-      <div className="board-command-spacer" />
-      <div className="board-export-actions" role="group" aria-label="Export flowchart">
-      <button onClick={exportScene} title="Save an editable drawing"><AnimatedIcon kind="download" size={18} />Drawing</button>
-      <button onClick={() => void exportImage("svg")}>SVG</button><button onClick={() => void exportImage("png")}>PNG</button>
-      <button ref={exportTrigger} onClick={() => openExport()} aria-haspopup="dialog"><AnimatedIcon kind="code" size={19} />Mermaid</button>
-      <button className="primary" disabled={copyBusy} onClick={(e) => { exportTrigger.current = e.currentTarget; safeCheckpoint(); void copyMermaid(boardToMermaid(live.current)); }}><AnimatedIcon kind="copy" size={18} />{copyBusy ? "Copying…" : "Copy for Miro"}</button>
-      </div>
-    </div>
+    {!controlsHost && commands}
     {inspector && <div className="architecture-inspector" id="architecture-inspector">
       <span><Selection size={18} />{editableSelection.length ? `${editableSelection.length} selected` : "Select a shape or connection"}</span>
       <div className="architecture-roles" role="group" aria-label="Architecture role">
@@ -281,7 +284,8 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
       </div>
       <AppSelect label="Architecture boundary" className="boundary-picker" value={tag?.parentId || ""} disabled={readOnly || !canChooseParent}
         options={[{ value: "", label: "No boundary" }, ...boundaries.filter((e) => canAssignBoundary(live.current.elements, selection, e.id)).map((e) => ({ value: e.id, label: elementLabel(e, live.current.elements) || "Untitled boundary" }))]} onChange={(value) => changeTag(null, value || undefined)} />
-      <small>Boundaries become Mermaid subgraphs. Annotations stay in the drawing.</small>
+      <button disabled={readOnly} aria-pressed={snap} onClick={() => api.current?.updateScene({ appState: { objectsSnapModeEnabled: !snap, gridModeEnabled: false }, captureUpdate: CaptureUpdateAction.NEVER })}>Snap to objects</button>
+      <small>Boundaries become Mermaid subgraphs. Annotations stay in the drawing. Select multiple shapes to align them with the canvas controls.</small>
     </div>}
     </div>
     <div className="board-canvas" onKeyDownCapture={contextMenuKey} onPointerDownCapture={(e) => {
@@ -290,18 +294,31 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
     }} onKeyDown={(e) => { if (e.key === "Escape") e.stopPropagation(); }}>
       <BoardBoundary board={board} recovery={() => live.current}>
       <Excalidraw name={title} theme={dark ? "dark" : "light"} initialData={initialData} excalidrawAPI={(value) => { api.current = value; }} handleKeyboardGlobally={false} viewModeEnabled={readOnly} aiEnabled={false} validateEmbeddable={false}
-        renderTopRightUI={() => readOnly ? null : <button ref={brandTrigger} className="board-brand-trigger" aria-label="Brand logos" aria-haspopup="dialog" onClick={() => setBrandPicker(true)} title="Search theSVG brand and cloud-service logos"><AnimatedIcon kind="search" size={18} /><span>Brand logos</span></button>}
         onChange={capture} onDuplicate={duplicate}
         generateIdForFile={async (file) => { await readImage(file); return crypto.randomUUID(); }}
         onPaste={async (_data, event) => { for (const file of Array.from(event?.clipboardData?.files || [])) { try { await readImage(file); } catch (e) { setError(String(e)); return false; } } return true; }}
         UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false } }} />
       </BoardBoundary>
     </div>
-    {brandPicker && !readOnly && <BrandLogoPicker onClose={() => setBrandPicker(false)} onInsert={insertBrand} returnFocus={() => brandTrigger.current} />}
+    {commandMenu && <ActionPopover anchor={commandMenu === "insert" ? insertTrigger.current : exportTrigger.current} label={commandMenu === "insert" ? "Insert into board" : "Export this board"} className="board-command-menu" onClose={() => setCommandMenu(null)}>
+      {commandMenu === "insert" ? <>
+        <button onClick={() => { setCommandMenu(null); setBrandPicker(true); }}><AnimatedIcon kind="search" size={18} />Brand logos</button>
+        <button onClick={() => { setCommandMenu(null); onCreateBoard("template"); }}><AnimatedIcon kind="board" size={18} />Templates…</button>
+        <button onClick={() => { setCommandMenu(null); onCreateBoard("import"); }}><AnimatedIcon kind="code" size={18} />Import Mermaid…</button>
+        <button onClick={() => { setCommandMenu(null); onShowTools(); api.current?.toggleSidebar({ name: "library", force: true }); }}><AnimatedIcon kind="reference" size={18} />Shape library</button>
+      </> : <>
+        <button onClick={() => { setCommandMenu(null); exportScene(); }}><AnimatedIcon kind="board" size={18} />Drawing (.excalidraw)</button>
+        <button onClick={() => { setCommandMenu(null); void exportImage("svg"); }}><AnimatedIcon kind="image" size={18} />SVG image</button>
+        <button onClick={() => { setCommandMenu(null); void exportImage("png"); }}><AnimatedIcon kind="image" size={18} />PNG image</button>
+        <button onClick={() => { setCommandMenu(null); openExport(); }}><AnimatedIcon kind="code" size={18} />Mermaid…</button>
+        <button disabled={copyBusy} onClick={() => { setCommandMenu(null); safeCheckpoint(); void copyMermaid(boardToMermaid(live.current)); }}><AnimatedIcon kind="copy" size={18} />{copyBusy ? "Copying…" : "Copy for Miro"}</button>
+      </>}
+    </ActionPopover>}
+    {brandPicker && !readOnly && <BrandLogoPicker onClose={() => setBrandPicker(false)} onInsert={insertBrand} returnFocus={() => insertTrigger.current} />}
     {!exporting && (error || message) && <div className={`board-message ${error ? "error" : ""}`} role={error ? "alert" : "status"}><span>{error || message}</span><button onClick={() => { setError(""); setMessage(""); }}>Dismiss</button></div>}
     {exporting && <Dialog title="Export flowchart" className="mermaid-dialog" onClose={closeExport}
       initialFocus={() => manualCopy ? codeField.current : !needsReview && conversion.nodes ? copyButton.current : null}
-      returnFocus={() => returnToCanvas.current ? exportTrigger.current?.closest(".board-editor")?.querySelector<HTMLElement>(".excalidraw") || null : exportTrigger.current}>
+      returnFocus={() => returnToCanvas.current ? canvasOwner.current?.querySelector<HTMLElement>(".excalidraw") || null : exportTrigger.current}>
       <p className="modal-subtitle">Copy the Mermaid code, then paste onto your Miro board. You can also use it in other Mermaid tools.</p>
       <div className="mermaid-summary"><span>{conversion.nodes} component{conversion.nodes !== 1 ? "s" : ""} · {conversion.edges} connection{conversion.edges !== 1 ? "s" : ""} · Entire board</span>
         <AppSelect label="Diagram direction" value={direction} disabled={readOnly || copyBusy} className="board-direction" options={["LR", "TB", "RL", "BT"].map((value) => ({ value, label: ({ LR: "Left to right", TB: "Top to bottom", RL: "Right to left", BT: "Bottom to top" } as Record<string, string>)[value] }))}

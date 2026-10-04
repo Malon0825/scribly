@@ -1,3 +1,4 @@
+import { chooseTheme } from './themeHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { newNoteContent } from "../src/newNoteContent";
 import { mergeBackup } from "../src/importBackup";
@@ -127,7 +128,7 @@ test.describe("folder copy UI", () => {
 
   test("the option is keyboard operable and fits the dark narrow viewport", async ({ page }) => {
     await page.setViewportSize({ width: 960, height: 700 });
-    await page.getByRole("button", { name: "Use dark mode" }).click();
+    await chooseTheme(page, "dark");
     const toggle = await option(page);
     await toggle.focus();
     await expect(toggle).toBeFocused();

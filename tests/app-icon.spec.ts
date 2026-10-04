@@ -1,18 +1,19 @@
+import { chooseTheme } from './themeHelper';
 import { test, expect } from "@playwright/test";
 
 test("icon follows explicit theme, rapid reversals, and the saved preference", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
   const icon = page.locator('link[rel="icon"]');
-  await expect(page.getByRole("button", { name: "Use dark mode" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Appearance", exact: true })).toBeVisible();
   await expect(icon).toHaveAttribute("href", "/scribly-icon.png");
   for (let i = 0; i < 3; i++) {
-    await page.getByRole("button", { name: "Use dark mode" }).click();
+    await chooseTheme(page, "dark");
     await expect(icon).toHaveAttribute("href", "/scribly-icon-dark.png");
-    await page.getByRole("button", { name: "Use light mode" }).click();
+    await chooseTheme(page, "light");
     await expect(icon).toHaveAttribute("href", "/scribly-icon.png");
   }
-  await page.getByRole("button", { name: "Use dark mode" }).click();
+  await chooseTheme(page, "dark");
   await expect.poll(() => page.evaluate(() => {
     const stored = localStorage.getItem("still-notes-browser-v1");
     return stored && JSON.parse(stored).document.theme;

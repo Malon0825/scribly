@@ -39,19 +39,16 @@ for (const theme of ['light', 'dark'] as const) test(`board focus uses the full 
   expect((await page.locator('.board-canvas').boundingBox())!.height).toBeGreaterThan(before.height);
   await expect(page.locator('[data-testid="toolbar-rectangle"]')).toBeVisible();
   await expect(page.getByText('Stroke width', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Architecture', exact: true })).toBeHidden();
-  await expect(page.getByRole('button', { name: 'Copy for Miro', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Mermaid', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Brand logos', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Library', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Architecture', exact: true })).toBeVisible();
+  for (const name of ['Insert', 'Export']) await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Board actions', exact: true })).toHaveCount(0);
   expect(await canvas!.evaluate(el => el.isConnected)).toBe(true);
   await page.screenshot({ path: `release/focus-board-${theme}.png` });
-  const tools = page.getByRole('button', { name: 'Board actions', exact: true });
-  await tools.click(); await expect(tools).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByRole('button', { name: 'Mermaid', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Architecture', exact: true }).click();
+  await expect(page.locator('.architecture-inspector')).toBeVisible();
   await page.getByRole('button', { name: 'Architecture', exact: true }).focus();
   await page.keyboard.press('Control+Shift+f');
-  await expect(page.getByRole('button', { name: 'Focus', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Architecture', exact: true })).toBeFocused();
   await expect(page.getByRole('textbox', { name: 'Board title' })).toBeVisible();
   for (let i = 0; i < 3; i++) { await page.getByRole('button', { name: 'Focus', exact: true }).click(); await page.getByRole('button', { name: 'Focus', exact: true }).click(); }
   expect(await canvas!.evaluate(el => el.isConnected)).toBe(true);
@@ -62,14 +59,14 @@ test('minimum-window focus with large text and reduced motion keeps exit, action
   await page.setViewportSize({ width: 850, height: 600 }); await page.emulateMedia({ reducedMotion: 'reduce' });
   await open(page, fixture('dark', false, true));
   await page.getByRole('button', { name: 'Focus', exact: true }).click(); await focused(page);
-  for (const locator of [page.getByRole('button', { name: 'Focus', exact: true }), page.getByRole('button', { name: 'Board actions', exact: true }), page.locator('.save-state')]) {
+  for (const locator of [page.getByRole('button', { name: 'Focus', exact: true }), page.getByRole('button', { name: 'Export', exact: true }), page.locator('.save-state')]) {
     const box = (await locator.boundingBox())!; expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(850); expect(box.y + box.height).toBeLessThanOrEqual(600);
   }
   expect((await page.locator('.board-canvas').boundingBox())!.height).toBeGreaterThan(400);
   await page.evaluate(() => { document.documentElement.dataset.window = 'maximized'; });
   await expect(page.locator('.app')).toHaveCSS('border-top-left-radius', '0px');
-  await page.getByRole('button', { name: 'Board actions', exact: true }).focus(); await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Focus', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Export', exact: true }).focus(); await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeFocused();
   await expect(page.getByRole('textbox', { name: 'Board title' })).toBeVisible();
 });
 test('writing focus preserves the editor and selection; formatting, saving failure and retry stay available', async ({ page }) => {

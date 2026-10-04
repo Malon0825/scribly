@@ -1,3 +1,4 @@
+import { chooseTheme } from './themeHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { applySidebarDrop } from "../src/sidebarOrder";
 import type { Workspace } from "../src/types";
@@ -29,8 +30,23 @@ async function saved(page: Page) {
 async function drag(page: Page, kind: "folder" | "note", id: string, target: string, after = true) {
   const source = control(page, kind, id);
   const destination = page.locator(target);
+  await source.scrollIntoViewIfNeeded();
+  const start = await source.boundingBox();
+  const x = start!.x + 30;
+  const y = start!.y + start!.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  // Start native dragging before scrolling a distant destination. dragTo can
+  // scroll after pointer-down and start the drag on a different row.
+  await page.mouse.move(x, y + 12, { steps: 3 });
+  await destination.scrollIntoViewIfNeeded();
   const rect = await destination.boundingBox();
-  await source.dragTo(destination, { targetPosition: { x: 30, y: after ? rect!.height - 4 : 4 } });
+  const targetX = rect!.x + 30;
+  const targetY = rect!.y + (after ? rect!.height - 4 : 4);
+  await page.mouse.move(targetX, targetY, { steps: 5 });
+  // Native dragenter precedes dragover; send both at the hit-tested position.
+  await page.mouse.move(targetX, targetY);
+  await page.mouse.up();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -136,7 +152,7 @@ test("search-result drags transfer without losing hidden notes", async ({ page }
 
 test("dark theme and reduced motion support the same drag outcomes", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.getByRole("button", { name: "Use dark mode" }).click();
+  await chooseTheme(page, "dark");
   await drag(page, "note", "a2", '.folder-row:has([data-sidebar-item="folder:data"])');
   await expect(page.locator('.folder-group:has([data-sidebar-item="folder:data"]) .note-name')).toHaveText(["Other note", "Second note"]);
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

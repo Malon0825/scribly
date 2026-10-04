@@ -26,9 +26,8 @@ export function Dialog({
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
     const el = ref.current;
-    const first =
-      initialOwner.current?.() || el?.querySelector<HTMLElement>('input:not([type="range"])') ||
-      el?.querySelector<HTMLElement>('button,select,[tabindex="0"]');
+    const available = (item: HTMLElement) => item.getClientRects().length > 0 && !item.closest('[hidden], [inert]');
+    const first = initialOwner.current?.() || Array.from(el?.querySelectorAll<HTMLElement>('input:not([type="range"]),button,select,[tabindex="0"]') || []).find(available);
     first?.focus();
     const key = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
@@ -41,7 +40,7 @@ export function Dialog({
           el.querySelectorAll<HTMLElement>(
             'button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]',
           ),
-        );
+        ).filter(available);
         const a = items[0],
           b = items[items.length - 1];
         if (e.shiftKey && document.activeElement === a) {
