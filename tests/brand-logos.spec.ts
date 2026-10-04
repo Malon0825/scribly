@@ -16,7 +16,13 @@ const board = (page: Page) => page.evaluate(() => (JSON.parse(localStorage.getIt
 async function pick(page: Page, query = "oracle") {
   if (!await page.getByRole("dialog", { name: "Brand logos", exact: true }).isVisible()) await boardCommand(page, 'Brand logos');
   const dialog = page.getByRole("dialog", { name: "Brand logos", exact: true });
+  await expect(dialog.getByRole("option").first()).toBeVisible();
   await dialog.getByRole("textbox", { name: "Search brand logos" }).fill(query);
+  if (query === "aws") for (let attempt = 0; attempt < 80 && !await dialog.locator('.brand-logo-choice[id="brand-aws"]').count(); attempt++) {
+    const previous = await dialog.getByRole("option").first().getAttribute("aria-posinset");
+    await dialog.getByRole("listbox").evaluate(el => el.scrollBy(0, el.clientHeight));
+    await expect.poll(() => dialog.getByRole("option").first().getAttribute("aria-posinset")).not.toBe(previous);
+  }
   await dialog.locator(`.brand-logo-choice[id="brand-${query}"]`).click();
   return dialog;
 }
