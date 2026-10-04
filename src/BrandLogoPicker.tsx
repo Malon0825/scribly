@@ -97,7 +97,7 @@ export function BrandLogoPicker({ onClose, onInsert, returnFocus }: { onClose: (
     {loading ? <p role="status">Opening the offline logo catalog…</p> : !icons.length && error ? <button onClick={() => setRetry(n => n + 1)}>Retry catalog</button> : <div className="brand-logo-results">
       <div>
         <p className="brand-logo-count">{results.length.toLocaleString()} brands{view === "popular" && !query && !category ? " · Common architecture tools first" : ""}</p>
-        <div ref={scroll} className="brand-logo-window" role="listbox" aria-label="Brands. Arrow keys browse; Space adds to selection." aria-activedescendant={selected && visible.includes(selected) ? `brand-${selected.icon.slug}` : undefined} tabIndex={0} onScroll={e => setViewport(v => ({ ...v, top: e.currentTarget.scrollTop }))} onKeyDown={e => {
+        <div ref={scroll} className="brand-logo-window" role="listbox" aria-label="Brands. Arrow keys browse; Space adds to selection." aria-activedescendant={selected && visible.includes(selected) ? `brand-${selected.icon.slug}` : undefined} tabIndex={0} onScroll={e => { const top = e.currentTarget.scrollTop; setViewport(v => ({ ...v, top })); }} onKeyDown={e => {
           const index = selected ? results.indexOf(selected) : 0;
           let next = index;
           if (e.key === "ArrowRight") next++; else if (e.key === "ArrowLeft") next--; else if (e.key === "ArrowDown") next += columns; else if (e.key === "ArrowUp") next -= columns; else if (e.key === "Home") next = 0; else if (e.key === "End") next = results.length - 1;
