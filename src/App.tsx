@@ -394,10 +394,14 @@ export default function App() {
       ),
     }));
   }
-  function createBoard(folderId: string | null, title = "Untitled board", board = emptyBoard(), strict = false) {
+  function createBoard(folderId: string | null, title?: string, board = emptyBoard(), strict = false) {
     validateBoard(board);
-    const now = new Date().toISOString(), id = crypto.randomUUID();
-    if (!update((w) => ({ ...w, schemaVersion: w.schemaVersion || 2, notes: [...w.notes, { id, folderId, kind: "board", board, title, content: "", createdAt: now, updatedAt: now, archived: false }], activeId: id }))) {
+    const created = new Date();
+    const now = created.toISOString(), id = crypto.randomUUID();
+    if (!update((w) => {
+      const naming = title === undefined ? defaultNoteTitle(w, folderId, created) : { title };
+      return { ...w, schemaVersion: w.schemaVersion || 2, notes: [...w.notes, { id, folderId, kind: "board", board, ...naming, content: "", createdAt: now, updatedAt: now, archived: false }], activeId: id };
+    })) {
       if (strict) throw Error("The board could not be added. Resolve the notebook save error before creating it.");
       return;
     }

@@ -35,7 +35,7 @@ export function BrandLogoPicker({ onClose, onInsert, returnFocus }: { onClose: (
     finally { if (!controller.signal.aborted) setBusy(false); }
   };
   return <Dialog title="Brand logos" className="brand-logo-dialog" onClose={onClose} returnFocus={returnFocus}>
-    <p className="modal-subtitle">Find a brand or cloud service. Insert a labeled component, then connect it with arrows.</p>
+    <p className="modal-subtitle">Find a brand or cloud service. Insert a compact logo component, then connect it with arrows.</p>
     <div className="brand-logo-filters">
       <label className="brand-logo-search"><AnimatedIcon kind="search" size={20} /><input aria-label="Search brand logos" placeholder="Search brands, services or categories…" value={query} maxLength={100} onChange={e => { setQuery(e.target.value); setPage(0); }} /></label>
       <AppSelect label="Logo category" value={category} options={[{value:"",label:"All categories"},...categories.map(value => ({value,label:value}))]} onChange={value => { setCategory(value); setPage(0); }} />
@@ -55,7 +55,7 @@ export function BrandLogoPicker({ onClose, onInsert, returnFocus }: { onClose: (
             <AppSelect label="Logo variant" value={variant} disabled={busy} options={selected.variants.map(value => ({value,label:value === "default" ? "Original" : value.replace(/([A-Z])/g," $1")}))} onChange={value => { setVariant(value); setPreviewFailed(false); }} />
             <label className="brand-logo-background"><input type="checkbox" checked={darkBackground} disabled={busy} onChange={e => setDarkBackground(e.target.checked)} />Dark component background</label>
             <small>Source: theSVG · {selected.license}</small>
-            <small>Logo proportions and colors are preserved. Inserted as a PNG with an editable component label.</small>
+            <small>Logo proportions and colors are preserved. Inserted with a close-fitting container and no visible name.</small>
             {previewFailed && <p role="alert">This variant could not be displayed. Choose another.</p>}
           </> : <p>Choose a logo to preview it.</p>}
         </div>

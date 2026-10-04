@@ -133,10 +133,11 @@ test("drawing edits survive immediate note switch, reload and backup", async ({ 
 });
 
 test("new board, folder creation, duplicate, archive/restore and reference isolation", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-02T12:00:00"));
   await open(page);
   await expect(page.getByRole("button", { name: "Copy to current note" })).toBeDisabled();
   await page.getByRole("button", { name: "New board", exact: true }).click();
-  await expect(page.getByLabel("Board title")).toHaveValue("Untitled board");
+  await expect(page.getByLabel("Board title")).toHaveValue("Work · Oct 2, 2026");
   await page.getByLabel("Board title").fill("New architecture");
   await page.getByRole("button", { name: "Board options", exact: true }).click(); await page.getByRole("button", { name: "Duplicate board" }).click();
   await expect(page.getByLabel("Board title")).toHaveValue("New architecture (copy)");

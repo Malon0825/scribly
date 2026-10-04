@@ -1,5 +1,4 @@
 import type { Note, Workspace } from "./types";
-import { isBoard } from "./types";
 
 export const mythologyNames = [
   { name: "Anubis", description: "Egyptian god of the underworld." },
@@ -64,7 +63,6 @@ export function defaultNoteTitle(workspace: Workspace, folderId: string | null, 
 }
 
 export function noteTitleFact(note: Note | undefined) {
-  if (isBoard(note)) return null;
   const myth = note?.autoTitle ? mythologyFor(note.autoTitle.ordinal) : null;
   // A custom rename can remove the name without resetting its reserved place.
   return myth && note!.title.endsWith(` · ${myth.label}`) ? myth.description : null;

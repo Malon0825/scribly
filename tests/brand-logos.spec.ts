@@ -12,10 +12,15 @@ async function open(page: Page, theme: "light" | "dark" = "light", archived = fa
   await page.goto("/"); await expect(page.locator(".board-canvas canvas").first()).toBeVisible({ timeout: 30000 });
 }
 const board = (page: Page) => page.evaluate(() => (JSON.parse(localStorage.getItem("still-notes-browser-v1")!).document as Workspace).notes[0].board!);
-async function pick(page: Page, query = "oracle") {
+async function pick(page: Page, query = "oracle", search = query) {
   await page.getByRole("button", { name: "Brand logos", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Brand logos", exact: true });
-  await dialog.getByRole("textbox", { name: "Search brand logos" }).fill(query);
+  await expect(dialog.locator(".brand-logo-choice").first()).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Search brand logos" }).fill(search);
+  if (query === "aws") for (let pageIndex = 0; pageIndex < 20 && !await dialog.locator('.brand-logo-choice[data-brand-slug="aws"]').count(); pageIndex++) {
+    await dialog.getByRole("button", { name: "Next logo page" }).click();
+    await expect(dialog.getByRole("status")).toContainText(`Page ${pageIndex + 2} of`);
+  }
   await dialog.locator(`.brand-logo-choice[data-brand-slug="${query}"]`).click();
   return dialog;
 }
@@ -50,18 +55,22 @@ for (const theme of ["light", "dark"] as const) test(`${theme}: local catalog se
 test("inserting a brand creates one reversible component with offline image, Mermaid label and portable exports", async ({page}) => {
   await open(page); const dialog = await pick(page);
   await dialog.getByRole("button",{name:"Insert component"}).click(); await expect(dialog).toHaveCount(0);
-  await expect.poll(async()=> (await board(page)).elements.length).toBe(3);
+  await expect.poll(async()=> (await board(page)).elements.length).toBe(2);
   let saved = await board(page); const component = saved.elements.find(e=>e.type==="rectangle")!;
   expect(component.customData?.notifyBrand.slug).toBe("oracle"); expect(boardToMermaid(saved).code).toContain('["Oracle"]'); expect(boardToMermaid(saved).issues).toEqual([]);
-  const label = saved.elements.find(e=>e.type==='text')!;
-  expect(label.x).toBeGreaterThan(component.x); expect(label.x + label.width).toBeLessThan(component.x + component.width);
-  expect(label.y).toBeGreaterThan(saved.elements.find(e=>e.type==='image')!.y + saved.elements.find(e=>e.type==='image')!.height);
+  expect(saved.elements.some(e=>e.type==='text')).toBe(false);
+  const image = saved.elements.find(e=>e.type==='image')!;
+  expect(image.x - component.x).toBeGreaterThan(0);
+  expect(image.x - component.x).toBeLessThanOrEqual(10);
+  expect(image.y - component.y).toBeCloseTo(image.x - component.x);
+  expect(component.width - image.width).toBeCloseTo(2 * (image.x - component.x));
+  expect(component.height - image.height).toBeCloseTo(2 * (image.y - component.y));
   expect(Object.values(saved.files)[0].dataURL).toMatch(/^data:image\/png;base64,/);
   const drawing = page.waitForEvent("download"); await page.getByRole("button",{name:"Drawing",exact:true}).first().click();
   const restored = boardFromScene(JSON.parse(await readFile((await (await drawing).path())!,"utf8"))); expect(boardToMermaid(restored).code).toContain('["Oracle"]'); expect(restored.files).toEqual(saved.files);
   const png = page.waitForEvent("download"); await page.getByRole("button",{name:"PNG",exact:true}).click(); expect((await readFile((await (await png).path())!)).subarray(0,8).toString("hex")).toBe("89504e470d0a1a0a");
   await page.getByRole("button",{name:"Undo",exact:true}).click(); await expect.poll(async()=> (await board(page)).elements.filter(e=>!e.isDeleted).length).toBe(0);
-  await page.getByRole("button",{name:"Redo",exact:true}).click(); await expect.poll(async()=> (await board(page)).elements.filter(e=>!e.isDeleted).length).toBe(3);
+  await page.getByRole("button",{name:"Redo",exact:true}).click(); await expect.poll(async()=> (await board(page)).elements.filter(e=>!e.isDeleted).length).toBe(2);
   await page.reload(); await expect(page.getByRole("button",{name:"Brand logos",exact:true})).toBeVisible({timeout:30000});
   saved = await board(page); expect(boardToMermaid(saved).code).toContain('["Oracle"]');
   const github = await pick(page,"github"); await github.getByLabel("Logo variant").click(); await page.getByRole("option",{name:"mono",exact:true}).click(); await github.getByRole("button",{name:"Insert component"}).click();
@@ -69,15 +78,15 @@ test("inserting a brand creates one reversible component with offline image, Mer
   const components = (await board(page)).elements.filter(e=>!e.isDeleted && e.type === "rectangle");
   expect(components[1].x).toBeGreaterThanOrEqual(components[0].x + components[0].width);
   const repeated = await pick(page); await repeated.getByRole("button",{name:"Insert component"}).click();
-  await expect.poll(async()=> (await board(page)).elements.filter(e=>!e.isDeleted).length).toBe(9);
+  await expect.poll(async()=> (await board(page)).elements.filter(e=>!e.isDeleted).length).toBe(6);
   expect(Object.keys((await board(page)).files)).toHaveLength(2);
   await page.getByRole('button', {name:'Reference',exact:true}).click();
   await expect.poll(async()=>(await page.locator('.board-canvas').boundingBox())!.width).toBeGreaterThan(900);
   const canvas = (await page.locator('.board-canvas').boundingBox())!;
   await page.locator('label:has([data-testid="toolbar-arrow"])').click();
-  await page.mouse.move(canvas.x + components[0].x + components[0].width + 3, canvas.y + components[0].y + 80);
+  await page.mouse.move(canvas.x + components[0].x + components[0].width + 3, canvas.y + components[0].y + components[0].height / 2);
   await page.mouse.down();
-  await page.mouse.move(canvas.x + components[1].x - 3, canvas.y + components[1].y + 80, {steps:8});
+  await page.mouse.move(canvas.x + components[1].x - 3, canvas.y + components[1].y + components[1].height / 2, {steps:8});
   await page.mouse.up();
   await expect.poll(async()=>boardToMermaid(await board(page)).edges).toBe(1);
   await page.screenshot({path:"release/brand-components-light.png"});
@@ -97,16 +106,57 @@ test("catalog and artwork failures are recoverable and closing during insertion 
   await dialog.getByRole("button",{name:"Insert component"}).click(); await dialog.getByRole("button",{name:"Cancel",exact:true}).click(); await page.waitForTimeout(800); expect((await board(page)).elements).toHaveLength(0);
 });
 
+for (const theme of ["light", "dark"] as const) test(`${theme}: AWS and Azure fit their artwork without bottom labels`, async ({ page }) => {
+  await open(page, theme);
+  await page.getByRole("button", { name: "Reference", exact: true }).click();
+  for (const slug of ["aws", "microsoft-azure"]) {
+    const dialog = await pick(page, slug);
+    await dialog.getByRole("button", { name: "Insert component" }).click();
+    await expect(dialog).toHaveCount(0);
+  }
+  await expect.poll(async () => (await board(page)).elements.length).toBe(4);
+  const saved = await board(page);
+  expect(saved.elements.some(e => e.type === "text")).toBe(false);
+  const components = saved.elements.filter(e => e.type === "rectangle");
+  for (const component of components) {
+    const image = saved.elements.find(e => e.type === "image" && e.groupIds[0] === component.groupIds[0])!;
+    expect(component.width - image.width).toBeLessThanOrEqual(20);
+    expect(component.height - image.height).toBeLessThanOrEqual(20);
+    // Tightness includes transparent padding authored inside the SVG viewBox.
+    const bounds = await page.evaluate(async dataURL => {
+      const image = new Image(); image.src = dataURL; await image.decode();
+      const canvas = document.createElement("canvas"); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d")!; context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const occupied = (x: number, y: number) => pixels[(y * canvas.width + x) * 4 + 3] > 0;
+      return [Array.from({ length: canvas.width }, (_, x) => occupied(x, 0)).some(Boolean),
+        Array.from({ length: canvas.width }, (_, x) => occupied(x, canvas.height - 1)).some(Boolean),
+        Array.from({ length: canvas.height }, (_, y) => occupied(0, y)).some(Boolean),
+        Array.from({ length: canvas.height }, (_, y) => occupied(canvas.width - 1, y)).some(Boolean)];
+    }, saved.files[image.type === "image" ? image.fileId! : ""].dataURL);
+    expect(bounds).toEqual([true, true, true, true]);
+  }
+  const canvas = (await page.locator(".board-canvas").boundingBox())!;
+  await page.locator('label:has([data-testid="toolbar-arrow"])').click();
+  await page.mouse.move(canvas.x + components[0].x + components[0].width + 3, canvas.y + components[0].y + components[0].height / 2);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + components[1].x - 3, canvas.y + components[1].y + components[1].height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => boardToMermaid(await board(page)).edges).toBe(1);
+  expect(boardToMermaid(await board(page)).issues).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath(`compact-logos-${theme}.png`) });
+});
+
 test("archived boards cannot insert logos", async ({page}) => {
   await open(page,"light",true); await expect(page.getByRole("button",{name:"Brand logos",exact:true})).toHaveCount(0);
 });
 
 test("board capacity is checked before adding logo files or scene elements", async ({page}) => {
   const full = emptyBoard();
-  full.elements = Array.from({length:2498},(_,index)=>({id:`limit-${index}`,type:'rectangle',x:2000+(index%50)*220,y:2000+Math.floor(index/50)*180,width:180,height:140,isDeleted:false})) as BoardData['elements'];
+  full.elements = Array.from({length:2499},(_,index)=>({id:`limit-${index}`,type:'rectangle',x:2000+(index%50)*220,y:2000+Math.floor(index/50)*180,width:180,height:140,isDeleted:false})) as BoardData['elements'];
   await open(page,"light",false,full); const dialog = await pick(page);
   await dialog.getByRole('button',{name:'Insert component'}).click();
   await expect(dialog.getByRole('alert')).toContainText('2,500 element limit');
-  expect((await board(page)).elements).toHaveLength(2498); expect(Object.keys((await board(page)).files)).toHaveLength(0);
+  expect((await board(page)).elements).toHaveLength(2499); expect(Object.keys((await board(page)).files)).toHaveLength(0);
   await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
 });

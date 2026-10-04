@@ -208,25 +208,24 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
     const engine = api.current;
     if (!engine || readOnly) throw Error("This board is no longer editable.");
     const current = engine.getSceneElementsIncludingDeleted();
-    if (current.filter(e => !e.isDeleted).length + 3 > MAX_BOARD_ELEMENTS) throw Error("This board has reached its 2,500 element limit. Remove some elements before inserting a logo.");
+    if (current.filter(e => !e.isDeleted).length + 2 > MAX_BOARD_ELEMENTS) throw Error("This board has reached its 2,500 element limit. Remove some elements before inserting a logo.");
     const state = engine.getAppState();
     const center = viewportCoordsToSceneCoords({ clientX: state.offsetLeft + state.width / 2, clientY: state.offsetTop + state.height / 2 }, state);
-    // Reserve a separate label area even for long cloud-resource names.
-    const componentHeight = Math.max(160, 112 + Math.ceil(icon.title.length / 16) * 20);
-    let x = center.x - 100, y = center.y - componentHeight / 2;
+    const width = Math.min(112, 64 * rendered.ratio), height = width / rendered.ratio;
+    const padding = 8, componentWidth = width + padding * 2, componentHeight = height + padding * 2;
+    let x = center.x - componentWidth / 2, y = center.y - componentHeight / 2;
     // Place neighboring components with a gap, rather than stacking logos.
     const occupied = current.filter(e => !e.isDeleted && isNodeShape(e) && architectureTag(e)?.role !== "boundary");
     for (let slot = 0; slot < 60; slot++) {
       const column = [0, 1, -1][slot % 3], row = Math.ceil(Math.floor(slot / 3) / 2) * (Math.floor(slot / 3) % 2 ? 1 : -1);
-      x = center.x - 100 + column * 240; y = center.y - componentHeight / 2 + row * (componentHeight + 40);
-      if (!occupied.some(e => x < e.x + e.width + 16 && x + 200 + 16 > e.x && y < e.y + e.height + 16 && y + componentHeight + 16 > e.y)) break;
+      x = center.x - componentWidth / 2 + column * (componentWidth + 40); y = center.y - componentHeight / 2 + row * (componentHeight + 40);
+      if (!occupied.some(e => x < e.x + e.width + 16 && x + componentWidth + 16 > e.x && y < e.y + e.height + 16 && y + componentHeight + 16 > e.y)) break;
     }
     const group = crypto.randomUUID(), component = crypto.randomUUID();
-    const fileId = `brand-${icon.slug}-${variant}-v3.3.12` as FileId;
-    const width = Math.min(112, 64 * rendered.ratio), height = width / rendered.ratio;
+    const fileId = `brand-${icon.slug}-${variant}-v3.3.12-trimmed` as FileId;
     const elements = convertToExcalidrawElements([
-      { type: "rectangle", id: component, x, y, width: 200, height: componentHeight, strokeColor: "#64748b", backgroundColor: darkBackground ? "#1e293b" : "#ffffff", fillStyle: "solid", roughness: 0, strokeWidth: 1, groupIds: [group], label: { text: icon.title, fontSize: 16, fontFamily: 2, strokeColor: darkBackground ? "#ffffff" : "#1e293b", textAlign: "center", verticalAlign: "bottom", groupIds: [group] }, customData: { notifyArchitecture: { version: 1, role: "component", sourceId: component }, notifyBrand: { source: "theSVG", version: "3.3.12", slug: icon.slug, variant, title: icon.title, license: icon.license, url: icon.url } } },
-      { type: "image", x: x + (200 - width) / 2, y: y + 20 + (64 - height) / 2, width, height, fileId, status: "saved", scale: [1, 1], groupIds: [group] },
+      { type: "rectangle", id: component, x, y, width: componentWidth, height: componentHeight, strokeColor: "#64748b", backgroundColor: darkBackground ? "#1e293b" : "#ffffff", fillStyle: "solid", roughness: 0, strokeWidth: 1, groupIds: [group], customData: { notifyArchitecture: { version: 1, role: "component", sourceId: component }, notifyBrand: { source: "theSVG", version: "3.3.12", slug: icon.slug, variant, title: icon.title, license: icon.license, url: icon.url } } },
+      { type: "image", x: x + padding, y: y + padding, width, height, fileId, status: "saved", scale: [1, 1], groupIds: [group] },
     ], { regenerateIds: false });
     const file = { id: fileId, dataURL: rendered.dataURL as DataURL, mimeType: "image/png" as const, created: Date.now() };
     const candidate = { ...live.current, elements: [...current, ...elements], files: { ...activeBoardFiles(current, engine.getFiles()), [fileId]: file } };

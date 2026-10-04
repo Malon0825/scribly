@@ -116,6 +116,36 @@ test.describe("new-note UI", () => {
     await expect(page.getByRole("textbox", { name: "Note title" })).toHaveValue("Unfiled notes · Oct 2, 2026");
   });
 
+  test("new boards share note naming across buttons, folders, shortcuts and reload", async ({ page }) => {
+    const boardTitle = page.getByRole("textbox", { name: "Board title" });
+    await page.getByRole("button", { name: "New board", exact: true }).click();
+    await expect(boardTitle).toHaveValue("Work logs · Oct 2, 2026");
+    await expect.poll(async () => (await saved(page)).notes.find((n) => n.kind === "board")?.autoTitle)
+      .toEqual({ folderId: "work", day: "2026-10-02", ordinal: 0 });
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Note title" })).toHaveValue("Work logs · Oct 2, 2026 · Anubis");
+    await page.getByRole("button", { name: "Options for Work logs", exact: true }).click();
+    await page.getByRole("dialog", { name: "Folder options" }).getByRole("button", { name: "New board", exact: true }).click();
+    await expect(boardTitle).toHaveValue("Work logs · Oct 2, 2026 · Baldur");
+    await expect(page.locator(".note-title-fact")).toHaveText("– Norse god of light.");
+    await boardTitle.fill("Custom board");
+    await expect(page.locator(".note-title-fact")).toHaveCount(0);
+    await expect.poll(async () => (await saved(page)).notes.at(-1)?.title).toBe("Custom board");
+    await page.reload();
+    await expect(boardTitle).toHaveValue("Custom board");
+    await page.keyboard.press("Control+Shift+n");
+    await expect(boardTitle).toHaveValue("Work logs · Oct 2, 2026 · Cupid");
+    await page.getByRole("button", { name: "Options for Data integration", exact: true }).click();
+    await page.getByRole("dialog", { name: "Folder options" }).getByRole("button", { name: "New board", exact: true }).click();
+    await expect(boardTitle).toHaveValue("Data integration · Oct 2, 2026");
+    await page.locator(".sidebar-bottom").getByRole("button", { name: /Unfiled notes/ }).click();
+    await page.keyboard.press("Control+Shift+n");
+    await expect(boardTitle).toHaveValue("Unfiled notes · Oct 2, 2026");
+    await page.clock.setFixedTime(new Date("2026-10-02T16:05:00Z"));
+    await page.keyboard.press("Control+Shift+n");
+    await expect(boardTitle).toHaveValue("Unfiled notes · Oct 3, 2026");
+  });
+
   test("custom renaming keeps its sequence reservation and hides the unrelated fact", async ({ page }) => {
     await page.keyboard.press("Control+n");
     await page.keyboard.press("Control+n");

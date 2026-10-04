@@ -46,7 +46,22 @@ export async function renderBrandLogo(icon: BrandLogo, variant: string, signal: 
     const context = canvas.getContext("2d");
     if (!context) throw Error("The logo could not be rendered. Retry after reopening the board.");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return { dataURL: canvas.toDataURL("image/png"), ratio };
+    // Some catalog viewBoxes contain substantial transparent margins. Fit the
+    // component to the visible artwork rather than those empty source pixels.
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let left = canvas.width, top = canvas.height, right = -1, bottom = -1;
+    for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+      if (!pixels[(y * canvas.width + x) * 4 + 3]) continue;
+      left = Math.min(left, x); right = Math.max(right, x);
+      top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
+    if (right < left || bottom < top) throw Error("This logo has no visible artwork.");
+    const cropped = document.createElement("canvas");
+    cropped.width = right - left + 1; cropped.height = bottom - top + 1;
+    const croppedContext = cropped.getContext("2d");
+    if (!croppedContext) throw Error("The logo could not be rendered.");
+    croppedContext.drawImage(canvas, left, top, cropped.width, cropped.height, 0, 0, cropped.width, cropped.height);
+    return { dataURL: cropped.toDataURL("image/png"), ratio: cropped.width / cropped.height };
   } catch (error) {
     if (signal.aborted) throw error;
     throw Error("This logo could not be rendered. Choose another variant or logo.");

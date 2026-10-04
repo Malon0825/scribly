@@ -8,7 +8,8 @@ const quote = (label: string) => `"${label.replace(/#/g, "#35;").replace(/&/g, "
 export function elementLabel(e: ExcalidrawElement, elements: readonly ExcalidrawElement[]) {
   if (e.type === "text") return e.text.trim();
   const bound = elements.find((t) => t.type === "text" && !t.isDeleted && t.containerId === e.id);
-  return bound?.type === "text" ? bound.text.trim() : e.type === "frame" ? e.name?.trim() || "" : "";
+  return bound?.type === "text" ? bound.text.trim() : e.type === "frame" ? e.name?.trim() || "" :
+    typeof e.customData?.notifyBrand?.title === "string" ? e.customData.notifyBrand.title.trim() : "";
 }
 
 export function canAssignBoundary(elements: readonly ExcalidrawElement[], selection: readonly string[], candidate: string) {
@@ -67,9 +68,16 @@ export function boardToMermaid(board: BoardData): MermaidConversion {
   for (const b of sortedBoundaries.filter((b) => !members.has(b.id))) writeBoundary(b, 1);
   for (const n of nodes.filter((n) => !members.has(n.id)).sort((a, z) => a.id.localeCompare(z.id))) lines.push(`  ${definition(n)}`);
   let edges = 0, omitted = 0;
+  const componentForBinding = (id: string | undefined) => {
+    const target = id ? byId.get(id) : undefined;
+    if (target?.type !== "image") return id;
+    // Native arrows can snap to the artwork inside a tightly fitted logo.
+    // Its grouped brand container remains the logical architecture node.
+    return nodes.find(n => n.customData?.notifyBrand && n.groupIds.some(group => target.groupIds.includes(group)))?.id || id;
+  };
   for (const e of elements.filter((e) => e.type === "arrow" || e.type === "line").sort((a, z) => a.id.localeCompare(z.id))) {
     if (architectureTag(e)?.role === "annotation" || (e.type !== "arrow" && e.type !== "line")) continue;
-    let from = e.startBinding?.elementId, to = e.endBinding?.elementId;
+    let from = componentForBinding(e.startBinding?.elementId), to = componentForBinding(e.endBinding?.elementId);
     if (!from || !to || !ids.has(from) || !ids.has(to) || !byId.has(from) || !byId.has(to)) {
       issue(e, "Connect both ends to components or boundaries. This connection is omitted until repaired.", true); omitted++; continue;
     }
