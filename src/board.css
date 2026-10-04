@@ -1,0 +1,219 @@
+.board-editor { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; position: relative; }
+.board-top-controls { flex-shrink: 1; min-height: 0; max-height: 35%; overflow-y: auto; overflow-x: hidden; }
+.board-commands { display: flex; align-items: center; gap: calc(4px * var(--element-scale)); padding: calc(10px * var(--element-scale)) calc(14px * var(--element-scale)); flex-wrap: wrap; border-block: 1px solid var(--line); background: var(--chrome); font-size: calc(13px * var(--text-scale)); }
+.board-commands button { padding: calc(7px * var(--element-scale)) calc(9px * var(--element-scale)); border-radius: calc(8px * var(--element-scale)); gap: calc(6px * var(--element-scale)); }
+.board-commands button[aria-pressed="true"] { background: var(--active); }
+.board-command-spacer { flex: 1; }
+.board-export-actions { display: flex; flex-wrap: wrap; align-items: center; gap: calc(4px * var(--element-scale)); margin-inline-start: auto; }
+/* Export stays visible in Focus; authoring controls keep their existing toggle. */
+.focus-mode:not(.focus-tools-visible) .board-top-controls { display: block; }
+.focus-mode:not(.focus-tools-visible) .board-commands > :not(.board-export-actions),
+.focus-mode:not(.focus-tools-visible) .board-top-controls .architecture-inspector { display: none; }
+.focus-mode .board-commands { justify-content: flex-end; padding-block: calc(6px * var(--element-scale)); }
+@media (max-width: 1000px) { .board-export-actions { order: -1; flex-basis: 100%; justify-content: flex-end; } }
+.board-direction.app-select { padding: calc(6px * var(--element-scale)) calc(8px * var(--element-scale)); font-size: inherit; background: var(--panel); }
+.architecture-inspector { display: flex; gap: calc(9px * var(--element-scale)); align-items: center; flex-wrap: wrap; padding: calc(10px * var(--element-scale)) calc(14px * var(--element-scale)); font-size: calc(12px * var(--text-scale)); border-bottom: 1px solid var(--line); background: var(--panel); }
+.architecture-inspector > span, .conversion-issues strong { display: flex; gap: calc(6px * var(--element-scale)); align-items: center; }
+.architecture-inspector small { color: var(--muted); flex-basis: 100%; }
+.architecture-roles { display: flex; gap: calc(2px * var(--element-scale)); }
+.architecture-roles button { padding: calc(6px * var(--element-scale)) calc(8px * var(--element-scale)); border: 1px solid var(--line); border-radius: calc(7px * var(--element-scale)); }
+.architecture-roles button[aria-pressed="true"] { background: var(--active); color: var(--fg); }
+.boundary-picker { padding: calc(6px * var(--element-scale)) calc(8px * var(--element-scale)); font-size: inherit; max-width: min(100%, calc(200px * var(--element-scale))); }
+.board-canvas { flex: 1; min-height: 0; min-width: 0; overflow: hidden; position: relative; }
+.board-canvas .excalidraw .board-brand-trigger { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); font: inherit; white-space: nowrap; }
+.board-canvas .excalidraw .board-brand-trigger:hover { background: var(--hover); }
+.board-canvas .excalidraw .board-brand-trigger:active { background: var(--active); }
+/* Focus hides engine Library chrome; keep this insertion tool accessible. */
+.focus-mode:not(.focus-tools-visible) .board-canvas .layer-ui__wrapper__top-right:has(> .board-brand-trigger) { display: flex; }
+.focus-mode:not(.focus-tools-visible) .board-canvas .layer-ui__wrapper__top-right > :not(.board-brand-trigger) { display: none; }
+@media (max-width: 1000px) { .board-brand-trigger > span { display: none; } }
+.brand-logo-dialog { width: min(850px, 100%); font-size: calc(14px * var(--text-scale)); }
+.brand-logo-filters { display: flex; gap: 10px; margin-block: 16px; flex-wrap: wrap; }
+.brand-logo-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: min(260px, 100%); padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--chrome); }
+.brand-logo-search input { border: 0; padding: 0; background: transparent; color: var(--fg); width: 100%; min-width: 0; font: inherit; }
+.brand-logo-search:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.brand-logo-results { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 16px; }
+.brand-logo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; align-content: start; max-height: min(370px, 44dvh); overflow-y: auto; padding: 3px; }
+.brand-logo-choice { flex-direction: column; gap: 7px; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+.brand-logo-choice > span:last-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; min-height: 2.6em; line-height: 1.3; }
+.brand-logo-choice[aria-pressed="true"] { background: var(--active); border-color: var(--accent); }
+/* White is the authored-artwork background, not app chrome. It keeps original
+   dark/color marks legible in both themes without recoloring brand assets. */
+.brand-logo-art { display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 6px; width: 100%; height: 60px; padding: 6px; }
+.brand-logo-art img { object-fit: contain; max-width: 100%; max-height: 100%; }
+.brand-logo-large { height: 110px; }
+.brand-logo-art-dark { background: #1e293b; }
+.brand-logo-background { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; }
+.brand-logo-large img { width: 100%; height: 100%; }
+.brand-logo-preview { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding-inline-start: 16px; border-left: 1px solid var(--line); }
+.brand-logo-preview small, .brand-logo-pagination span, .brand-logo-dialog .dialog-actions small { color: var(--muted); line-height: 1.5; }
+.brand-logo-preview strong { overflow-wrap: anywhere; }
+.brand-logo-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; padding-block: 14px; }
+.brand-logo-pagination span { flex: 1; }
+.brand-logo-empty { grid-column: 1 / -1; }
+.brand-logo-dialog .dialog-actions { flex-wrap: wrap; }
+.brand-logo-dialog .dialog-actions small { flex: 1; min-width: 140px; }
+@media (max-width: 700px) { .brand-logo-results { grid-template-columns: minmax(0, 1fr); } .brand-logo-preview { border-left: 0; border-top: 1px solid var(--line); padding: 12px 0 0; } .brand-logo-large { height: 60px; } .brand-logo-grid { max-height: 30dvh; } }
+/* These variables style engine chrome only. Authored drawing colors and fonts
+   remain scene data. Include engine portals, which live outside the canvas. */
+:root .excalidraw, :root .excalidraw.theme--dark {
+  --ui-font: "Segoe UI", system-ui, sans-serif;
+  --font-family: var(--ui-font);
+  --color-primary: var(--accent);
+  --color-primary-darker: var(--accent);
+  --color-primary-darkest: var(--accent);
+  --color-primary-light: var(--active);
+  --color-primary-light-darker: var(--hover);
+  --color-primary-hover: var(--accent);
+  --color-brand-hover: var(--accent);
+  --color-brand-active: var(--accent);
+  --color-selection: var(--accent);
+  --color-on-primary-container: var(--fg);
+  --color-surface-primary-container: var(--active);
+  --color-surface-high: var(--hover);
+  --color-surface-mid: var(--chrome);
+  --color-surface-low: var(--chrome);
+  --color-surface-lowest: var(--panel);
+  --color-on-surface: var(--fg);
+  --color-border-outline: var(--muted);
+  --color-border-outline-variant: var(--line);
+  --text-primary-color: var(--fg);
+  --island-bg-color: var(--panel);
+  --input-bg-color: var(--chrome);
+  --input-border-color: var(--line);
+  --input-hover-bg-color: var(--hover);
+  --input-label-color: var(--muted);
+  --popup-bg-color: var(--panel);
+  --popup-secondary-bg-color: var(--chrome);
+  --popup-text-color: var(--fg);
+  --popup-text-inverted-color: var(--panel);
+  --dialog-border-color: var(--line);
+  --sidebar-border-color: var(--line);
+  --keybinding-color: var(--muted);
+  --link-color: var(--accent);
+  --focus-highlight-color: var(--accent);
+  --select-highlight-color: var(--accent);
+  --button-gray-1: var(--chrome);
+  --button-gray-2: var(--line);
+  --button-gray-3: var(--muted);
+  --scrollbar-thumb: var(--line);
+  --scrollbar-thumb-hover: var(--muted);
+  --color-slider-track: var(--active);
+  --color-slider-thumb: var(--fg);
+  --shadow-island: var(--floating-shadow);
+  --sidebar-shadow: var(--floating-shadow);
+  --library-dropdown-shadow: var(--floating-shadow);
+  --modal-shadow: var(--dialog-shadow);
+}
+/* Engine controls own their geometry; app icon zoom must not change drawings. */
+.board-canvas svg, .board-preview-image svg, .mermaid-preview svg { zoom: 1; }
+.board-canvas .excalidraw button { transition: background 100ms, color 100ms; transform: none; gap: initial; }
+.board-canvas .excalidraw button:active { transition-duration: 0s; }
+:root .excalidraw .RadioGroup__choice, :root .excalidraw .ExcTextField__label, :root .excalidraw .ExcTextField__input input { font-family: var(--ui-font); }
+:root .excalidraw.theme--dark.excalidraw .App-menu__left, :root .excalidraw.theme--dark.excalidraw .App-mobile-menu { --button-hover-bg: var(--hover); }
+/* Engine dialogs otherwise rely on a keyframe to escape opacity:0, making
+   them invisible under the app's reduced-motion rule. Entry/exit is instant. */
+:root .excalidraw .Modal__content { animation: none; opacity: 1; transform: none; }
+:root .excalidraw .Modal:not(.Dialog--fullscreen) .Modal__content { border-radius: calc(23px * var(--element-scale)); }
+:root .excalidraw .Modal__background { animation: none; }
+/* The engine's drawing context menu is a nonmodal app action surface. */
+:root .excalidraw .context-menu {
+  margin: 0;
+  padding: calc(6px * var(--element-scale));
+  min-width: 0;
+  max-width: min(calc(420px * var(--element-scale)), calc(100vw - 20px));
+  border: 1px solid var(--line);
+  border-radius: calc(12px * var(--element-scale));
+  background: var(--panel);
+  color: var(--fg);
+  box-shadow: var(--floating-shadow);
+  font-family: var(--ui-font);
+  font-size: calc(14px * var(--text-scale));
+  animation: none;
+  transition: opacity 100ms;
+}
+:root .excalidraw .popover:has(> .context-menu) {
+  border-radius: calc(12px * var(--element-scale));
+  overscroll-behavior: contain;
+}
+:root .excalidraw .context-menu-item {
+  min-width: 0;
+  min-height: calc(36px * var(--element-scale));
+  padding: calc(8px * var(--element-scale)) calc(10px * var(--element-scale));
+  border-radius: calc(7px * var(--element-scale));
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: calc(18px * var(--element-scale));
+  white-space: normal;
+  line-height: 1.4;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  color: var(--fg);
+  transform: none;
+  transition: background 100ms, color 100ms;
+}
+:root .excalidraw .context-menu-item .context-menu-item__label { margin: 0; overflow-wrap: anywhere; }
+:root .excalidraw .context-menu-item .context-menu-item__shortcut {
+  opacity: 1;
+  color: var(--muted);
+  font-size: calc(11px * var(--text-scale));
+  white-space: nowrap;
+}
+:root .excalidraw .context-menu-item:hover,
+:root .excalidraw .context-menu-item:hover.dangerous,
+:root .excalidraw .context-menu-item:focus-visible { background: var(--hover); color: var(--fg); }
+:root .excalidraw .context-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+:root .excalidraw .context-menu-item:active { background: var(--active); transition-duration: 0s; }
+:root .excalidraw .context-menu-item.dangerous .context-menu-item__label,
+:root .excalidraw .context-menu-item:hover.dangerous .context-menu-item__label { color: var(--danger); }
+:root .excalidraw .context-menu-item.checkmark .context-menu-item__label { padding-inline-start: calc(14px * var(--element-scale)); }
+:root .excalidraw .context-menu-item.checkmark::before { left: calc(8px * var(--element-scale)); color: var(--accent); }
+:root .excalidraw .context-menu-item-separator { border: 0; border-top: 1px solid var(--line); margin: calc(5px * var(--element-scale)) calc(4px * var(--element-scale)); }
+@starting-style { :root .excalidraw .context-menu { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { :root .excalidraw .context-menu, :root .excalidraw .context-menu-item { transition: none; } }
+.board-top-controls button:active:not(.primary):not(:disabled), .board-preview-controls button:active:not(:disabled) { background: var(--active); transition-duration: 0s; }
+.board-canvas .excalidraw .App-toolbar__extra-tools-dropdown [data-testid="toolbar-embeddable"] { display: none; }
+.board-message { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: calc(12px * var(--element-scale)); padding: calc(8px * var(--element-scale)) calc(14px * var(--element-scale)); font-size: calc(13px * var(--text-scale)); background: var(--panel); border-top: 1px solid var(--line); }
+.board-message > span { min-width: 0; overflow-wrap: anywhere; }
+.board-message > button { flex-shrink: 0; }
+.board-message.error { color: var(--danger); }
+.mermaid-dialog { width: min(1080px, calc(100vw - 40px)); max-width: calc(100vw - 40px); max-height: calc(100vh - 40px); overflow-y: auto; animation: none; }
+.mermaid-dialog { display: flex; flex-direction: column; overflow: hidden; }
+.mermaid-dialog > :not(.mermaid-export-content) { flex-shrink: 0; }
+.mermaid-export-content { overflow-y: auto; min-height: 0; }
+.mermaid-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-block: 10px 16px; color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.mermaid-dialog .mermaid-columns { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+.mermaid-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: calc(12px * var(--element-scale)); }
+.mermaid-columns textarea { height: 330px; min-width: 0; resize: vertical; border: 1px solid var(--line); border-radius: 10px; padding: calc(12px * var(--element-scale)); background: var(--chrome); color: var(--text); font: calc(12px * var(--text-scale))/1.65 Consolas, monospace; }
+.mermaid-preview { overflow: auto; max-height: 460px; min-height: 200px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--panel); }
+.mermaid-preview svg { width: 100%; height: auto; min-height: 200px; }
+.mermaid-hint { color: var(--muted); font-size: calc(12px * var(--text-scale)); line-height: 1.5; }
+.conversion-issues { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 14px; font-size: calc(13px * var(--text-scale)); }
+.conversion-issues ul { max-height: 150px; overflow-y: auto; margin: 8px 0; padding-left: 18px; }
+.conversion-issues li { padding: 4px 0; }
+.conversion-issues li button { margin-left: calc(8px * var(--element-scale)); padding: calc(3px * var(--element-scale)) calc(6px * var(--element-scale)); text-decoration: underline; }
+.conversion-issues label { display: flex; align-items: center; gap: 8px; }
+.mermaid-dialog .dialog-actions { flex-wrap: wrap; }
+.mermaid-dialog .dialog-actions > span { margin-right: auto; font-size: calc(12px * var(--text-scale)); color: var(--muted); }
+.mermaid-dialog .dialog-actions > span:empty { display: none; }
+@media (max-width: 850px) { .mermaid-columns { grid-template-columns: minmax(0, 1fr); } .mermaid-columns textarea { height: 180px; } }
+@media (max-width: 850px) { .mermaid-dialog .mermaid-columns { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .board-canvas .excalidraw * { animation: none !important; transition: none !important; } }
+.board-title-field { display: flex; gap: calc(10px * var(--element-scale)); align-items: center; margin-block: calc(14px * var(--element-scale)); font-size: calc(13px * var(--text-scale)); }
+.board-title-field input { flex: 1; min-width: 0; border: 1px solid var(--line); padding: calc(9px * var(--element-scale)) calc(12px * var(--element-scale)); border-radius: calc(9px * var(--element-scale)); background: var(--chrome); color: var(--fg); }
+.board-source { display: flex; flex-direction: column; gap: calc(8px * var(--element-scale)); min-width: 0; font-size: calc(13px * var(--text-scale)); }
+.board-source textarea { width: 100%; }
+.board-source > button { align-self: flex-start; padding: calc(6px * var(--element-scale)) calc(9px * var(--element-scale)); }
+.board-import-preview { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--panel); }
+.board-import-preview > p { color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.board-preview { min-width: 0; }
+.board-preview-controls { display: flex; justify-content: flex-end; gap: calc(4px * var(--element-scale)); padding-bottom: calc(8px * var(--element-scale)); }
+.board-preview-controls button { border-radius: calc(7px * var(--element-scale)); padding: calc(5px * var(--element-scale)) calc(9px * var(--element-scale)); font-size: calc(12px * var(--text-scale)); background: var(--chrome); }
+.board-preview-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.board-preview-scroll { overflow: auto; max-height: 440px; min-height: 160px; border: 1px solid var(--line); border-radius: 8px; }
+.board-preview-image svg { width: 100%; height: auto; display: block; }
+.board-preview-scroll > p { padding: 12px; color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+@media (min-width: 600px) and (max-width: 850px) {
+  .board-create-dialog .mermaid-columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .board-create-dialog .board-preview-scroll { max-height: 220px; }
+}

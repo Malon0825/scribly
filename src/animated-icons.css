@@ -1,0 +1,14 @@
+.animated-icon, .animated-icon > div {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  pointer-events: none;
+  line-height: 0;
+}
+.animated-icon svg { overflow: visible; }
+/* JS also observes preference changes and discards the running icon only. */
+@media (prefers-reduced-motion: reduce) {
+  .animated-icon svg, .animated-icon svg * { transform: none !important; }
+  .animated-icon svg * { opacity: 1 !important; stroke-dashoffset: 0 !important; }
+}

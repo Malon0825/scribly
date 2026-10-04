@@ -1,0 +1,29 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/resources/postgres/
+tools/
+release/
+test-results/
+test-results-*/
+.build-import-*/
+.build-images-*/
+playwright-report/
+*.log
+
+# Generated assets, local profiles, and development output
+dist-*/
+src-tauri/gen/
+public/brand-logos/
+.build-*/
+.database-test-*/
+.performance-*/
+.startup-test-*/
+.21st/
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.p12
+ChatGPT Image *.png
