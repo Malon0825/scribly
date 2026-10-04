@@ -8,24 +8,30 @@ type ItemBase = {
   createdAt: string;
   updatedAt: string;
   archived: boolean;
+  deletedAt?: string;
+  pinned?: boolean;
+  template?: { titlePattern: string; resetChecklist: boolean };
   autoTitle?: { folderId: string | null; day: string; ordinal: number };
 };
 // Keep the ordered `notes` collection and HTML field readable by legacy drafts.
 // Boards have an empty content field; all drawing data lives in a typed payload.
 export type Note = ItemBase & (
-  | { kind?: "note"; board?: never }
+  | { kind?: "note" | "template"; board?: never }
   | { kind: "board"; board: BoardData }
 );
 export type Board = Extract<Note, { kind: "board" }>;
 export const isBoard = (item: Note | undefined | null): item is Board => item?.kind === "board";
-export type Folder = { id: string; name: string; copyLastNote?: boolean };
+export const isTemplate = (item: Note | undefined | null) => item?.kind === "template";
+export const isLiveItem = (item: Note) => !isTemplate(item) && !item.archived && !item.deletedAt;
+export type Folder = { id: string; name: string; copyLastNote?: boolean; templateId?: string };
 export type Workspace = {
-  schemaVersion?: 2 | 3;
+  schemaVersion?: 2 | 3 | 4 | 5;
   folders: Folder[];
   notes: Note[];
   theme: "light" | "dark" | "system";
   activeId: string;
   referenceId: string | null;
+  recentIds?: string[];
   appearance?: Appearance;
 };
 export type StoredWorkspace = {
@@ -43,6 +49,7 @@ export const plainText = (html: string) => {
 export const textExport = (html: string) => {
   const div = document.createElement("div");
   div.innerHTML = html;
+  div.querySelectorAll("a[data-item-id]").forEach(link => link.append(` (Scribly item: ${link.getAttribute("data-item-id")})`));
   div
     .querySelectorAll("li")
     .forEach((li) =>

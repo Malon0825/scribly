@@ -58,6 +58,7 @@ pub fn database_self_test(root: PathBuf, runtime: PathBuf) -> Result<Value, Stri
     {
         let mut db = Database::open(root.clone(), runtime)?;
         let loaded = db.load()?;
+        doc["schemaVersion"] = json!(5);
         if loaded["document"] != doc || loaded["revision"] != revision {
             return Err("Persistence across restarts failed".into());
         }

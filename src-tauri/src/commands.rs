@@ -25,6 +25,151 @@ pub(crate) async fn open_releases() -> Result<(), String> {
     #[cfg(not(windows))]
     Err("Open https://github.com/Malon0825/scribly/releases/latest in your browser.".into())
 }
+
+#[tauri::command]
+pub(crate) async fn open_external_link(url: String) -> Result<(), String> {
+    if !crate::workspace::valid_external_link(&url) {
+        return Err("Only http and https web links can be opened.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let status = std::process::Command::new("rundll32.exe")
+                .args(["url.dll,FileProtocolHandler", &url])
+                .creation_flags(0x08000000)
+                .status()
+                .map_err(|error| error.to_string())?;
+            if !status.success() {
+                return Err("Windows could not open the web link.".into());
+            }
+            Ok(())
+        }
+        #[cfg(not(windows))]
+        {
+            Err("External link opening is available in the Windows app.".into())
+        }
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub(crate) async fn list_history(app: tauri::AppHandle, item_id: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DatabaseState>();
+        let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+        guard
+            .as_mut()
+            .ok_or("Open the notebook first")?
+            .list_history(&item_id)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn read_history(app: tauri::AppHandle, id: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DatabaseState>();
+        let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+        guard
+            .as_mut()
+            .ok_or("Open the notebook first")?
+            .read_history(&id)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn checkpoint_history(
+    app: tauri::AppHandle,
+    item_id: String,
+    revision: i64,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DatabaseState>();
+        let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+        guard
+            .as_mut()
+            .ok_or("Open the notebook first")?
+            .checkpoint_history(&item_id, revision)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn backup_status(app: tauri::AppHandle) -> Result<crate::backups::Config, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::backups::load(&attachment_root(&app)?))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn choose_backup_directory(
+    app: tauri::AppHandle,
+) -> Result<Option<crate::backups::Config>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(folder) = app.dialog().file().blocking_pick_folder() else {
+            return Ok(None);
+        };
+        let state = app.state::<DatabaseState>();
+        let guard = state.0.lock().map_err(|e| e.to_string())?;
+        let root = &guard.as_ref().ok_or("Open the notebook first")?.root;
+        crate::backups::select(root, folder.into_path().map_err(|e| e.to_string())?).map(Some)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn set_backup_enabled(
+    app: tauri::AppHandle,
+    enabled: bool,
+) -> Result<crate::backups::Config, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DatabaseState>();
+        let guard = state.0.lock().map_err(|e| e.to_string())?;
+        let root = &guard.as_ref().ok_or("Open the notebook first")?.root;
+        let mut config = crate::backups::load(root)?;
+        if enabled && config.directory.is_none() {
+            return Err("Choose a backup folder first.".into());
+        }
+        config.enabled = enabled;
+        crate::backups::save(root, &config)?;
+        Ok(config)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn commit_backup(
+    app: tauri::AppHandle,
+    source_id: String,
+    time: String,
+    revision: i64,
+    protected: bool,
+) -> Result<crate::backups::Config, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DatabaseState>();
+        let guard = state.0.lock().map_err(|e| e.to_string())?;
+        let root = &guard.as_ref().ok_or("Open the notebook first")?.root;
+        crate::backups::commit(root, &source_id, time, revision, protected)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn read_backup_chunk(
+    app: tauri::AppHandle,
+    id: String,
+    offset: u64,
+    length: usize,
+) -> Result<tauri::ipc::Response, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::backups::read(&attachment_root(&app)?, &id, offset, length)
+            .map(tauri::ipc::Response::new)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 fn runtime_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let bundled = app
         .path()
@@ -201,6 +346,7 @@ pub(crate) async fn prune_attachments(
                 .collect()
         };
         retain.extend(keep);
+        retain.extend(db.history_attachments()?);
         attachments::prune(&db.root, &retain)
     })
     .await
@@ -282,7 +428,7 @@ async fn write_export(
     .map_err(|e| e.to_string())?
 }
 
-fn attachment_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn attachment_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let state = app.state::<DatabaseState>();
     let guard = state.0.lock().map_err(|e| e.to_string())?;
     Ok(guard
@@ -290,6 +436,111 @@ fn attachment_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .ok_or("The notebook database has not opened yet")?
         .root
         .clone())
+}
+
+#[tauri::command]
+pub(crate) async fn begin_source(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sources::begin(&attachment_root(&app)?, &id)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn append_source_chunk(
+    app: tauri::AppHandle,
+    request: tauri::ipc::Request<'_>,
+) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("Source upload requires binary data.".into());
+    };
+    if bytes.len() > 1024 * 1024 {
+        return Err("Source upload chunk is too large.".into());
+    }
+    let id = request
+        .headers()
+        .get("X-Scribly-Source-Id")
+        .and_then(|v| v.to_str().ok())
+        .ok_or("Missing source ID")?
+        .to_owned();
+    let offset: u64 = request
+        .headers()
+        .get("X-Scribly-Source-Offset")
+        .and_then(|v| v.to_str().ok())
+        .ok_or("Missing source offset")?
+        .parse()
+        .map_err(|_| "Invalid source offset")?;
+    let bytes = bytes.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sources::append(&attachment_root(&app)?, &id, offset, &bytes)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn finish_source(
+    app: tauri::AppHandle,
+    id: String,
+    size: u64,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sources::finish(&attachment_root(&app)?, &id, size)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn abort_source(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sources::remove(&attachment_root(&app)?, &id, true)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn remove_source(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sources::remove(&attachment_root(&app)?, &id, false)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn read_source_chunk(
+    app: tauri::AppHandle,
+    id: String,
+    offset: u64,
+    length: usize,
+    size: u64,
+) -> Result<tauri::ipc::Response, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sources::read(&attachment_root(&app)?, &id, offset, length, size)
+            .map(tauri::ipc::Response::new)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub(crate) async fn export_source(
+    app: tauri::AppHandle,
+    id: String,
+    file_name: String,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(file) = app
+            .dialog()
+            .file()
+            .set_file_name(&file_name)
+            .blocking_save_file()
+        else {
+            return Ok(None);
+        };
+        let path = file.into_path().map_err(|e| e.to_string())?;
+        crate::sources::export(&attachment_root(&app)?, &id, &path)?;
+        Ok(Some(path.to_string_lossy().to_string()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]

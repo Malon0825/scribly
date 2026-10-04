@@ -30,7 +30,10 @@ pub(crate) fn replace(path: &Path, bytes: &[u8]) -> io::Result<()> {
     replace_with(path, |file| file.write_all(bytes))
 }
 
-fn replace_with(path: &Path, write: impl FnOnce(&mut File) -> io::Result<()>) -> io::Result<()> {
+pub(crate) fn replace_with(
+    path: &Path,
+    write: impl FnOnce(&mut File) -> io::Result<()>,
+) -> io::Result<()> {
     let parent = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())

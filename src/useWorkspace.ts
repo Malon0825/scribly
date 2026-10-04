@@ -2,17 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { initialWorkspace } from "./seed";
 import { loadWorkspace, saveWorkspace } from "./storage";
 import { isBoard, type Note, type Workspace } from "./types";
-import { MAX_WORKSPACE_BYTES, validateBoard, type BoardData } from "./boardData";
+import { validateBoard, type BoardData } from "./boardData";
 import { RecoveryJournal, LEGACY_RECOVERY_KEY as DRAFT } from "./recovery";
+import { RecoveryStorage } from "./recoveryStorage";
 import { validateWorkspace } from "./workspaceValidation";
 import { attachmentSchema, compactImages, pruneAttachments } from "./attachments";
-import { workspaceBytes } from "./workspaceSize";
+import { normalizeNavigation, recordOpened } from "./itemNavigation";
 export function useWorkspace() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [status, setStatus] = useState<
     "loading" | "saving" | "saved" | "error"
   >("loading");
   const [error, setError] = useState("");
+  const openingWarning = useRef("");
   const [dataPath, setDataPath] = useState("");
   const latest = useRef<Workspace | null>(null),
     persisted = useRef<Workspace | null>(null);
@@ -21,6 +23,7 @@ export function useWorkspace() {
   const mounted = useRef(true);
   const loadGeneration = useRef(0);
   const recoveryJournal = useRef<RecoveryJournal | null>(null);
+  const recoveryStore = useRef<RecoveryStorage | null>(null);
   const canClearLegacy = useRef(true);
   const boardDrafts = useRef(new Map<string, (force?: boolean) => BoardData | null>());
   const pending = useRef(false);
@@ -40,10 +43,10 @@ export function useWorkspace() {
           ? { ...n, board, updatedAt: new Date().toISOString() } : n) };
       }
       if (next !== latest.current) {
-        if (workspaceBytes(next) > MAX_WORKSPACE_BYTES) throw Error("Notebook exceeds 20 MB. Export this board and remove large images before saving.");
         latest.current = next;
         try { recoveryJournal.current?.write(next, revision.current, true); }
         catch { setError("Recovery storage is full. Keep this window open until the database save finishes."); }
+        void recoveryStore.current?.flush().catch(() => { if (mounted.current) setError("Recovery storage could not be written. Keep this window open until saving finishes."); });
         setWorkspace(next);
       }
       if (captured) pending.current = false;
@@ -66,6 +69,8 @@ export function useWorkspace() {
           if (force && !pending.current) {
             try {
               recoveryJournal.current?.write(snapshot, revision.current, false);
+              await recoveryStore.current?.flush();
+              openingWarning.current = "";
               if (mounted.current) { setStatus("saved"); setError(""); }
             } catch {
               if (mounted.current) setError("Notes are saved. Recovery storage could not be refreshed.");
@@ -82,6 +87,7 @@ export function useWorkspace() {
           let recoveryWarning = "";
           try {
             if (latest.current) recoveryJournal.current?.write(latest.current, revision.current, latest.current !== snapshot);
+            await recoveryStore.current?.flush();
             if (canClearLegacy.current) localStorage.removeItem(DRAFT);
           } catch {
             // The database acknowledgement is still valid. Keep recovery
@@ -92,7 +98,8 @@ export function useWorkspace() {
           }
           if (mounted.current) {
             setStatus(latest.current === snapshot && !pending.current ? "saved" : "saving");
-            setError(recoveryWarning);
+            if (force) openingWarning.current = "";
+            setError(recoveryWarning || openingWarning.current);
           }
         } catch (e) {
           if (mounted.current) {
@@ -109,6 +116,8 @@ export function useWorkspace() {
     const generation = ++loadGeneration.current;
     setStatus("loading");
     setError("");
+    openingWarning.current = "";
+    const warn = (message: string) => { openingWarning.current = message; setError(message); };
     try {
       const loaded = await loadWorkspace();
       if (!mounted.current || generation !== loadGeneration.current) return;
@@ -121,7 +130,7 @@ export function useWorkspace() {
       canClearLegacy.current = true;
       let recovery: string | null = null;
       try { recovery = localStorage.getItem(DRAFT); }
-      catch { setError("Recovery storage is unavailable. The saved notebook is open."); }
+      catch { warn("Recovery storage is unavailable. The saved notebook is open."); }
       if (recovery) {
         try {
           const draft = JSON.parse(recovery);
@@ -129,26 +138,27 @@ export function useWorkspace() {
           if (draft.revision === loaded.revision) doc = draft.document;
           else if (draft.document) {
             localStorage.setItem(`${DRAFT}-conflict-${Date.now()}`, recovery);
-            setError(
+            warn(
               "A previous draft is kept in recovery storage. The latest database copy is open.",
             );
           }
         } catch {
           try { localStorage.setItem(`${DRAFT}-conflict-${crypto.randomUUID()}`, recovery); }
           catch { canClearLegacy.current = false; }
-          setError("A damaged or unsupported draft is kept in recovery storage. The saved notebook is open.");
+          warn("A damaged or unsupported draft is kept in recovery storage. The saved notebook is open.");
         }
       }
       recoveryJournal.current = null;
       try {
-        recoveryJournal.current = new RecoveryJournal(localStorage);
+        recoveryStore.current = await RecoveryStorage.open();
+        recoveryJournal.current = new RecoveryJournal(recoveryStore.current);
         const restored = recoveryJournal.current.restore(doc, loaded.revision);
         doc = restored.document;
-        if (restored.warning) setError(restored.warning);
+        if (restored.warning) warn(restored.warning);
       } catch {
-        setError("A damaged draft is kept in recovery storage. The latest database copy is open.");
+        warn("A damaged draft is kept in recovery storage. The latest database copy is open.");
       }
-      const restored = attachmentSchema(await compactImages(doc || initialWorkspace()));
+      const restored = recordOpened(attachmentSchema(await compactImages(doc || initialWorkspace())));
       validateWorkspace(restored);
       if (!mounted.current || generation !== loadGeneration.current) return;
       latest.current = restored;
@@ -172,12 +182,9 @@ export function useWorkspace() {
   const update = useCallback((updater: (w: Workspace) => Workspace) => {
     const current = checkpoint();
     if (!current) return;
-    const next = attachmentSchema(updater(current));
+    let next = normalizeNavigation(attachmentSchema(updater(current)));
+    if (next.activeId !== current.activeId || !current.notes.some(note => note.id === next.activeId && !note.archived && !note.deletedAt)) next = recordOpened(next);
     if (next === latest.current) return;
-    if (workspaceBytes(next) > MAX_WORKSPACE_BYTES) {
-      setStatus("error"); setError("Notebook exceeds 20 MB. Use smaller images or export and remove an old board.");
-      throw Error("Notebook exceeds 20 MB.");
-    }
     try {
       recoveryJournal.current?.write(next, revision.current, true);
     } catch {
@@ -185,6 +192,7 @@ export function useWorkspace() {
         "Recovery storage is full. Keep this window open until the database save finishes.",
       );
     }
+    void recoveryStore.current?.flush().catch(() => { if (mounted.current) setError("Recovery storage could not be written. Keep this window open until saving finishes."); });
     latest.current = next;
     setWorkspace(next);
     setStatus("saving");
@@ -211,5 +219,5 @@ export function useWorkspace() {
       window.removeEventListener("beforeunload", before);
     };
   }, [flush, checkpoint]);
-  return { workspace, update, status, error, dataPath, flush, reload, checkpoint, registerBoardDraft, boardChanged };
+  return { workspace, update, status, error, dataPath, flush, reload, checkpoint, registerBoardDraft, boardChanged, savedRevision: () => revision.current };
 }

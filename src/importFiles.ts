@@ -3,11 +3,13 @@ import { attachmentId, compactImages } from "./attachments";
 import { normalizeCodeLanguage } from "./codeLanguages";
 import { isImageFile, readImage } from "./imageFiles";
 import { boardFromScene } from "./boardData";
+import { SOURCE_IMPORT_THRESHOLD, sourceHtml } from "./sourceFileData";
+import { storeSource } from "./sourceFiles";
 
 export const MAX_IMPORT_FILE_SIZE = 20 * 1024 * 1024;
 export const MAX_IMPORT_FILES = 25;
 const MAX_TEXT = 2_000_000;
-export const importAccept = ".excalidraw,.mmd,.mermaid,.txt,.md,.markdown,.json,.csv,.tsv,.log,.pdf,.docx,.png,.jpg,.jpeg,.webp,.gif,.js,.jsx,.ts,.tsx,.py,.rs,.html,.xml,.svg,.css,.sql,.sh,.bash,.java,.c,.h,.cpp,.hpp,.cs,.go,.yaml,.yml,.ini,.toml,.env";
+export const importAccept = ".scribly,.excalidraw,.mmd,.mermaid,.txt,.md,.markdown,.json,.csv,.tsv,.log,.pdf,.docx,.png,.jpg,.jpeg,.webp,.gif,.js,.jsx,.ts,.tsx,.py,.rs,.html,.xml,.svg,.css,.sql,.sh,.bash,.java,.c,.h,.cpp,.hpp,.cs,.go,.yaml,.yml,.ini,.toml,.env";
 const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
 export const paragraphs = (text: string) => text.split(/\r\n|\r|\n/).map((line) => `<p>${escape(line)}</p>`).join("");
 
@@ -73,9 +75,15 @@ async function docxText(bytes: Uint8Array): Promise<string> {
   return Array.from(document.getElementsByTagNameNS("*", "p")).map(read).join("\n");
 }
 
-export async function parseImportFile(file: File) {
-  if (file.size > MAX_IMPORT_FILE_SIZE) throw Error("File exceeds 20 MB.");
+export async function parseImportFile(file: File, onProgress?: (label: string) => void) {
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  if (ext === "scribly") {
+    const { importFileBackup } = await import("./fileBackup");
+    return { kind: "backup" as const, backup: await importFileBackup(file) };
+  }
+  // Expensive document conversion stays bounded independently of storage.
+  if (["pdf", "docx", "excalidraw", "mmd", "mermaid"].includes(ext) && file.size > MAX_IMPORT_FILE_SIZE)
+    throw Error("This format exceeds its 20 MiB conversion budget. Text and code files of this size can use the section viewer.");
   if (ext === "excalidraw") {
     const scene = JSON.parse(await file.text());
     return { kind: "board" as const, title: file.name.replace(/\.excalidraw$/i, ""), board: boardFromScene(scene) };
@@ -86,6 +94,30 @@ export async function parseImportFile(file: File) {
       content: `<figure data-notify-image="" data-width="100" data-align="center"><img ${attachmentId(image.src) ? `data-notify-attachment="${attachmentId(image.src)}"` : `src="${image.src}"`} alt="${escape(image.alt)}" title="${escape(image.title)}"></figure><p></p>` };
   }
   if (ext === "doc") throw Error("Save this legacy Word file as .docx, then import it.");
+  if (!["pdf", "docx"].includes(ext) && file.size > SOURCE_IMPORT_THRESHOLD) {
+    const head = new Uint8Array(await file.slice(0, 64 * 1024).arrayBuffer());
+    const encoding = head[0] === 255 && head[1] === 254 ? "utf-16le" : head[0] === 254 && head[1] === 255 ? "utf-16be" : "utf-8";
+    const sample = new TextDecoder(encoding).decode(head);
+    // Keep legacy portable notebook imports working above the old file limit.
+    const backup = ext === "json" && /^\s*\{/.test(sample) && /"folders"\s*:\s*\[/.test(sample) && /"notes"\s*:\s*\[/.test(sample);
+    if (backup) {
+      const value = JSON.parse(decode(new Uint8Array(await file.arrayBuffer())));
+      if (value && typeof value === "object" && "folders" in value && "notes" in value)
+        return { kind: "backup" as const, backup: await compactImages(parseBackup(value)) };
+    }
+    const decoder = new TextDecoder(encoding, { fatal: true });
+    try {
+      for (let offset = 0; offset < file.size; offset += 1024 * 1024) {
+        onProgress?.(`Checking ${file.name} · ${Math.floor(offset / file.size * 100)}%`);
+        const part = decoder.decode(await file.slice(offset, offset + 1024 * 1024).arrayBuffer(), { stream: true });
+        if (/[\u0000-\u0008\u000e-\u001f]/.test(part)) throw Error("Binary content");
+      }
+      decoder.decode();
+    } catch { throw Error("This file is not readable UTF-8 or UTF-16 text. The original was not imported."); }
+    onProgress?.(`Saving original ${file.name}…`);
+    const source = await storeSource(file, file.name, encoding);
+    return { kind: "note" as const, title: file.name.replace(/\.[^.]+$/, "") || file.name, content: sourceHtml(source) };
+  }
   const bytes = new Uint8Array(await file.arrayBuffer());
   const text = ext === "pdf" ? await pdfText(bytes) : ext === "docx" ? await docxText(bytes) : decode(bytes);
   if (ext === "mmd" || ext === "mermaid") {

@@ -1,9 +1,11 @@
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
+import { itemIdFromHref, safeExternalHref } from "./itemLinks";
 import { safeImageSource } from "./imageFiles";
 
 export const MAX_BOARD_ELEMENTS = 2500;
-export const MAX_WORKSPACE_BYTES = 20 * 1024 * 1024;
+// A rendering budget for one drawing, never a quota on the notebook.
+export const MAX_BOARD_BYTES = 20 * 1024 * 1024;
 export type ArchitectureRole = "component" | "boundary" | "annotation";
 export type ArchitectureTag = { version: 1; role: ArchitectureRole; parentId?: string; sourceId?: string };
 export type BoardData = {
@@ -49,7 +51,7 @@ export function validateBoard(value: unknown): asserts value is BoardData {
     for (const name of ["angle", "fontSize", "lineHeight", "strokeWidth", "roughness", "opacity", "version", "versionNonce", "seed"]) {
       if (e[name] !== undefined && (typeof e[name] !== "number" || !Number.isFinite(e[name]))) throw Error("Invalid board appearance or version.");
     }
-    if (e.link != null && (typeof e.link !== "string" || !/^https?:\/\//i.test(e.link))) throw Error("Board links must use http or https.");
+    if (e.link != null && !itemIdFromHref(e.link) && !safeExternalHref(e.link)) throw Error("Board links must target a Scribly item or use http/https.");
     if (e.type === "text" && (typeof e.text !== "string" || e.text.length > 50_000)) throw Error("Invalid board text.");
     if (["arrow", "line", "freedraw"].includes(String(e.type)) && (!Array.isArray(e.points) || e.points.length > 20_000
       || !e.points.every((p) => Array.isArray(p) && p.length === 2 && p.every(finite)))) throw Error("Invalid connector or drawing points.");
@@ -67,7 +69,7 @@ export function validateBoard(value: unknown): asserts value is BoardData {
       || !safeImageSource(file.dataURL) || !file.dataURL.startsWith(`data:${file.mimeType};base64,`)
       || !["image/png", "image/jpeg", "image/webp", "image/gif"].includes(String(file.mimeType))) throw Error("Use local PNG, JPEG, WebP or GIF images up to 5 MB.");
   }
-  if (Object.keys(value.files).length > MAX_BOARD_ELEMENTS || JSON.stringify(value).length > MAX_WORKSPACE_BYTES) throw Error("Board exceeds the 20 MB notebook limit.");
+  if (Object.keys(value.files).length > MAX_BOARD_ELEMENTS || new TextEncoder().encode(JSON.stringify(value)).length > MAX_BOARD_BYTES) throw Error("This drawing exceeds its 20 MiB rendering budget. Split it into separate boards.");
 }
 
 export function portableBoard(board: BoardData) {

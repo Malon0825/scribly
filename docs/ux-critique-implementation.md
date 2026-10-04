@@ -20,7 +20,7 @@ The logo picker opens on Popular with the first matching brand previewed. Popula
 
 Settings uses Appearance, Startup, Backup & restore and About tabs with keyboard navigation and a persistent Done footer. Appearance has one text-size slider plus independent app-element presets. About holds shortcuts, updates and expandable storage details. The note footer's Back up notebook exports directly, with amber emphasis when no export exists or the last export is at least seven days old; Export note names its scope.
 
-Reference's empty state offers up to six recently modified, non-archived notes and boards. Selecting one preserves the writing focus path; the topbar Reference button exposes pressed state. Unfiled notes and Archive remain discoverable when empty. No Trash workflow was introduced, and permanent deletion still requires confirmation.
+Reference's empty state offers up to six recently modified, non-archived notes and boards. Selecting one preserves the writing focus path; the topbar Reference button exposes pressed state. Unfiled notes and Archive remain discoverable when empty. The usability pass itself introduced no Trash workflow. Integration with the restored main changes retains the existing Trash, restore and recovery workflows; permanent deletion still requires confirmation and cannot be recovered from Trash. Earlier verification below describes the usability pass before that integration, not validation of the combined application.
 
 ## C. Motion specification
 

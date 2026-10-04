@@ -14,12 +14,18 @@ import { InkLayer, type PenSettings } from "./InkLayer";
 import { HighlighterTools } from "./HighlighterTools";
 import { reportEditorReady } from "./startupTiming";
 import { NotifyImage } from "./ImageBlock";
+import { NotifySourceFile } from "./SourceFileBlock";
 import { readImage, isImageFile, IMAGE_ACCEPT } from "./imageFiles";
 import { TextSelection, type Transaction } from "@tiptap/pm/state";
 import { DOMSerializer, DOMParser as ProseMirrorParser } from "@tiptap/pm/model";
 import { closeHistory } from "@tiptap/pm/history";
 import { Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
+import { NoteSearch } from "./textSearch";
+import { NoteFind, type FindRequest } from "./NoteFind";
+import { ItemLink } from "./ItemLink";
+import { Link as LinkIcon } from "@phosphor-icons/react";
+import type { Note } from "./types";
 export function NoteEditor({
   content,
   readOnly = false,
@@ -27,6 +33,9 @@ export function NoteEditor({
   onAppendReady,
   onImagesReady,
   validateContent,
+  findRequest,
+  onFindOpen,
+  onLinkRequest, onItemLink, onExternalLink, onLinkReady,
 }: {
   content: string;
   readOnly?: boolean;
@@ -34,8 +43,18 @@ export function NoteEditor({
   onAppendReady?: (append: (html: string) => void) => void;
   onImagesReady?: (insert: (files: File[], point?: { left: number; top: number }) => void) => void;
   validateContent?: (html: string) => void;
+  findRequest?: FindRequest;
+  onFindOpen?: () => void;
+  onLinkRequest?: (insert: (note: Note) => void, cancel: () => void) => void;
+  onItemLink?: (id: string, anchor: HTMLElement, action: "open" | "reference" | "options", restoreFocus: () => void) => void;
+  onExternalLink?: (href: string) => void;
+  onLinkReady?: (request: () => void) => void;
 }) {
   const imageInput = useRef<HTMLInputElement>(null);
+  const linkHandlers = useRef({ onLinkRequest, onItemLink, onExternalLink, readOnly });
+  linkHandlers.current = { onLinkRequest, onItemLink, onExternalLink, readOnly };
+  const pendingLink = useRef<(() => void) | null>(null);
+  const linkReady = useRef(onLinkReady); linkReady.current = onLinkReady;
   const surface = useRef<HTMLDivElement>(null);
   const [pen, setPen] = useState<PenSettings>({ active: false, tool: "highlight", mode: "guided", color: "yellow", width: 16, smooth: true });
   const changePen = useCallback((next: Partial<PenSettings>) => setPen(current => ({ ...current, ...next })), []);
@@ -51,6 +70,15 @@ export function NoteEditor({
   const imageBusy = useRef(false);
   const [imageStatus, setImageStatus] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
+  const [find, setFind] = useState<FindRequest | null>(null);
+  const findOpen = useRef(onFindOpen); findOpen.current = onFindOpen;
+  useEffect(() => {
+    if (!find) return;
+    const reveal = () => findOpen.current?.();
+    reveal(); window.addEventListener("resize", reveal);
+    return () => window.removeEventListener("resize", reveal);
+  }, [!!find]);
+  useEffect(() => { if (findRequest) setFind(findRequest); }, [findRequest]);
   const editor = useEditor({
     shouldRerenderOnTransaction: false,
     extensions: [
@@ -76,6 +104,13 @@ export function NoteEditor({
       }),
       NotifyCodeBlock,
       NotifyImage,
+      NotifySourceFile,
+      NoteSearch,
+      ItemLink.configure({
+        readOnly: () => linkHandlers.current.readOnly,
+        activate: (id, anchor, action) => linkHandlers.current.onItemLink?.(id,anchor,action,() => editor?.commands.focus()),
+        external: href => linkHandlers.current.onExternalLink?.(href),
+      }),
       NoteTextColor,
       NoteBackgroundColor,
       NoteInk,
@@ -86,6 +121,7 @@ export function NoteEditor({
       }),
     ],
     content,
+    parseOptions: { preserveWhitespace: "full" },
     editable: !readOnly,
     editorProps: {
       handlePaste: (view, event) => {
@@ -116,6 +152,26 @@ export function NoteEditor({
       onChange?.(html);
     },
   });
+  useEffect(() => { editor?.setEditable(!readOnly,false); }, [editor,readOnly]);
+  function requestItemLink() {
+    if (!editor || !editor.isEditable || !linkHandlers.current.onLinkRequest) return;
+    pendingLink.current?.();
+    let bookmark = editor.state.selection.getBookmark();
+    const map = ({ transaction }: { transaction: Transaction }) => { bookmark = bookmark.map(transaction.mapping); };
+    editor.on("transaction",map);
+    const release = () => { editor.off("transaction",map); pendingLink.current = null; };
+    pendingLink.current = release;
+    const cancel = () => { release(); if (!editor.isDestroyed) { editor.view.dispatch(editor.state.tr.setSelection(bookmark.resolve(editor.state.doc))); editor.commands.focus(); } };
+    linkHandlers.current.onLinkRequest(note => {
+      if (editor.isDestroyed || !editor.isEditable) { release(); return; }
+      const tr = closeHistory(editor.state.tr.setSelection(bookmark.resolve(editor.state.doc)));
+      const mark = editor.schema.marks.itemLink.create({ targetId:note.id });
+      if (tr.selection.empty) tr.replaceSelectionWith(editor.schema.text(note.title || "Untitled",[mark]),false);
+      else tr.addMark(tr.selection.from,tr.selection.to,mark);
+      release(); editor.view.dispatch(tr.scrollIntoView()); editor.view.dispatch(closeHistory(editor.state.tr)); editor.commands.focus();
+    },cancel);
+  }
+  useEffect(() => { linkReady.current?.(requestItemLink); return () => { pendingLink.current?.(); linkReady.current?.(() => {}); }; }, [editor]);
   useEffect(() => { if (editor && !readOnly) reportEditorReady(); }, [editor, readOnly]);
   insertImagesRef.current = (files, point) => { void (async () => {
     if (!editor || editor.isDestroyed || !editor.isEditable) return;
@@ -162,7 +218,7 @@ export function NoteEditor({
   }, [editor, onImagesReady]);
   useEffect(() => {
     if (!editor || content === lastEmittedHtml.current) return;
-    if (editor.getHTML() !== content) editor.commands.setContent(content, { emitUpdate: false });
+    if (editor.getHTML() !== content) editor.commands.setContent(content, { emitUpdate: false, parseOptions: { preserveWhitespace: "full" } });
     lastEmittedHtml.current = content;
   }, [content, editor]);
   useEffect(() => {
@@ -180,8 +236,9 @@ export function NoteEditor({
   return (
     <>
       {!readOnly && (
-        <EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} pen={pen} changePen={changePen} />
+        <EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} onFindRequest={() => setFind({ serial: Date.now(), replace: false })} onLinkRequest={onLinkRequest ? requestItemLink : undefined} pen={pen} changePen={changePen} />
       )}
+      {find && <NoteFind editor={editor} request={find} readOnly={readOnly} onClose={() => setFind(null)} />}
       {!readOnly && <>
         {pen.active && <div className="pen-mode-status" role="status">
           {pen.tool === 'draw' ? 'Drawing' : 'Highlighting'} · {pen.mode === 'guided' ? 'Guided' : 'Freehand'}
@@ -207,8 +264,9 @@ export function NoteEditor({
 
 // Selection transactions update only controls whose state actually changed.
 // ProseMirror still owns the live document and selection.
-const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImageRequest, onColorsRequest, pen, changePen }: {
-  editor: Editor; imageLoading: boolean; onImageRequest: () => void; onColorsRequest: () => void; pen: PenSettings; changePen: (next: Partial<PenSettings>) => void;
+const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImageRequest, onColorsRequest, onFindRequest, onLinkRequest, pen, changePen }: {
+  editor: Editor; imageLoading: boolean; onImageRequest: () => void; onColorsRequest: () => void; onFindRequest: () => void; pen: PenSettings; changePen: (next: Partial<PenSettings>) => void;
+  onLinkRequest?: () => void;
 }) {
   const state = useEditorState({ editor, selector: ({ editor }) => ({
     heading: editor.isActive("heading", { level: 1 }) ? "1"
@@ -284,8 +342,11 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
           <button className="checklist-button" aria-label="Add images" title="Add images" disabled={imageLoading}
             onClick={onImageRequest}><AnimatedIcon kind="image" size={23} /><span>Image</span></button>
           <HighlighterTools editor={editor} settings={pen} change={changePen} />
+          {onLinkRequest && <button aria-label="Link to item" title="Link to a note or board (Ctrl+L)" onClick={onLinkRequest}><LinkIcon size={20} /></button>}
           <button aria-label="Text and background color options" title="Text and background color options (select text, then Shift+F10)" disabled={!state.canColor}
             onClick={onColorsRequest}><AnimatedIcon kind="palette" size={23} /></button>
+          <div className="toolbar-spacer" />
+          <button aria-label="Find in note" title="Find in note (Ctrl+F)" onClick={onFindRequest}><AnimatedIcon kind="search" size={20} /></button>
         </div>
   );
 });

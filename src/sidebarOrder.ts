@@ -1,4 +1,4 @@
-import type { Workspace } from "./types";
+import { isTemplate, type Workspace } from "./types";
 
 export type SidebarItem = { kind: "folder" | "note"; id: string };
 export type SidebarDrop =
@@ -27,8 +27,8 @@ export function applySidebarDrop(
   const anchor = target.kind === "note-order"
     ? workspace.notes.find((n) => n.id === target.id)
     : undefined;
-  if (!note || note.archived ||
-      (target.kind === "note-order" && (!anchor || anchor.archived || anchor.id === note.id)))
+  if (!note || isTemplate(note) || note.archived || note.deletedAt ||
+      (target.kind === "note-order" && (!anchor || isTemplate(anchor) || anchor.archived || anchor.deletedAt || anchor.id === note.id)))
     return workspace;
   const folderId = target.kind === "folder" ? target.id : anchor!.folderId;
   if (folderId !== null && !workspace.folders.some((f) => f.id === folderId))
@@ -40,7 +40,7 @@ export function applySidebarDrop(
   else {
     // Append after this folder's last visible note, leaving other groups in order.
     for (let i = notes.length - 1; i >= 0; i--) {
-      if (notes[i].folderId === folderId && !notes[i].archived) { index = i + 1; break; }
+      if (notes[i].folderId === folderId && !isTemplate(notes[i]) && !notes[i].archived && !notes[i].deletedAt) { index = i + 1; break; }
     }
   }
   const moved = note.folderId === folderId

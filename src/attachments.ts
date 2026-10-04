@@ -1,6 +1,7 @@
 import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import type { Workspace } from "./types";
 import { safeInlineImageSource } from "./rasterImages";
+import { browserDatabase, requestValue } from "./browserData";
 
 export const ATTACHMENT_ID = /^[a-f0-9]{64}\.(png|jpeg|gif|webp)$/;
 const prefix = "notify-attachment:";
@@ -42,8 +43,8 @@ export function attachmentBytes(ids: Iterable<string>) {
   for (const id of ids) {
     const size = sizes.get(id);
     if (!size) throw Error("A notebook image is missing. Keep a backup and restore the image before saving.");
-    // Preserve the existing portable 20 MB budget, including every occurrence.
-    // Disk deduplication must not make our own exported backups unimportable.
+    // Diagnostic portable size only. Every image occurrence expands in JSON
+    // backups, even when disk storage deduplicates the original file.
     total += Math.ceil(size / 3) * 4 + `data:image/${id.split(".")[1]};base64,`.length + "src=".length - "data-notify-attachment=".length - id.length;
   }
   return total;
@@ -66,9 +67,12 @@ export async function compactImages<T extends { notes: Workspace["notes"] }>(doc
     changed ||= edited;
     notes.push(edited ? { ...note, content: dom.innerHTML } : note);
   }
-  return changed ? { ...document, notes, schemaVersion: 3 } : document;
+  return changed ? { ...document, notes, schemaVersion: (document as { schemaVersion?: number }).schemaVersion === 5 ? 5 : (document as { schemaVersion?: number }).schemaVersion === 4 ? 4 : 3 } : document;
 }
 export function attachmentSchema(document: Workspace): Workspace {
+  if (document.schemaVersion === 5 || document.notes.some(n => n.deletedAt)) return document.schemaVersion === 5 ? document : { ...document, schemaVersion: 5 };
+  if (document.notes.some(n => n.content.includes("data-notify-source"))) return document.schemaVersion === 4 ? document : { ...document, schemaVersion: 4 };
+  if (document.schemaVersion === 4) return document;
   return document.schemaVersion !== 3 && document.notes.some(n => attachmentIds(n.content).length > 0)
     ? { ...document, schemaVersion: 3 } : document;
 }
@@ -92,7 +96,8 @@ export async function portableBackup(document: Workspace): Promise<string> {
     }
     notes.push({ ...note, content: dom.innerHTML });
   }
-  return JSON.stringify({ ...document, ...(document.schemaVersion === 3 ? { schemaVersion: 2 } : {}), notes });
+  const originals = notes.some(note => note.content.includes("data-notify-source"));
+  return JSON.stringify({ ...document, ...(!originals && document.schemaVersion !== 5 && (document.schemaVersion === 3 || document.schemaVersion === 4) ? { schemaVersion: 2 } : {}), notes });
 }
 export async function pruneAttachments(document: Workspace) {
   if (!isTauri()) return;
@@ -102,6 +107,10 @@ export async function pruneAttachments(document: Workspace) {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)!;
       if (key.startsWith("still-notes-recovery")) for (const id of (localStorage.getItem(key) || "").match(/[a-f0-9]{64}\.(?:png|jpeg|gif|webp)/g) || []) keep.add(id);
+    }
+    const db = await browserDatabase();
+    for (const record of await requestValue<string[]>(db.transaction("recovery").objectStore("recovery").getAll())) {
+      for (const id of record.match(/[a-f0-9]{64}\.(?:png|jpeg|gif|webp)/g) || []) keep.add(id);
     }
     await invoke("prune_attachments", { keep: [...keep] });
   } catch { /* Saving and recovery take priority over optional disk reclamation. */ }

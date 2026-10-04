@@ -169,7 +169,7 @@ test("pointer resize commits on release and moving an image by its drag handle p
   await expect.poll(async () => (await saved(page)).notes[0].content.startsWith("<figure")).toBe(true);
 });
 
-test("image insertion rejects a full notebook before mutation", async ({ page }) => {
+test("image insertion succeeds when the notebook exceeds the former total quota", async ({ page }) => {
   test.skip(process.env.PLAYWRIGHT_PREVIEW === "1", "Requires interception of the Vite source storage module.");
   await page.addInitScript((document) => {
     document.notes.push({ ...document.notes[0], id: "large", folderId: "other", title: "Capacity", content: "" });
@@ -186,9 +186,8 @@ test("image insertion rejects a full notebook before mutation", async ({ page })
   ` }));
   await page.goto("/"); await expect(page.getByRole("textbox", { name: "Note title", exact: true })).toBeVisible({ timeout: 15000 });
   await page.getByLabel("Image files", { exact: true }).setInputFiles(await image(page));
-  await expect(page.getByRole("alert")).toContainText("notebook's 20 MB save limit");
-  await expect(page.locator(".document-editor .note-image")).toHaveCount(0);
-  expect(await page.evaluate(() => (window as any).imageCapacityDocument.notes[0].content)).toBe(fixture.notes[0].content);
+  await expect(page.locator(".document-editor .note-image")).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (window as any).imageCapacityDocument.notes[0].content.includes("data-notify-image"))).toBe(true);
 });
 
 test("mixed image and text drops retain both files as independent notes", async ({ page }) => {

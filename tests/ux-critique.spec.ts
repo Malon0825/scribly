@@ -37,7 +37,7 @@ test('ordering, filtering and snippets preserve the stored manual order', () => 
 test('Reference starts closed, opens directly without changing the editor and supports shortcuts', async ({ page }) => {
   await open(page);
   await expect(page.getByRole('button', { name: 'Reference', exact: true })).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByRole('button', { name: 'Unfiled notes', exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Notebook navigation", exact: true }).click(); await expect(page.getByRole('button', { name: 'Unfiled notes', exact: true })).toBeVisible(); await page.keyboard.press('Escape');
   const editor = page.getByRole('textbox', { name: 'Note content', exact: true });
   const original = await editor.elementHandle();
   await editor.evaluate(el => {

@@ -9,11 +9,17 @@ use std::{
 use tauri::Manager;
 mod app_icon;
 mod attachments;
+mod backups;
 mod commands;
 mod database;
 mod diagnostics;
 mod files;
+mod history;
 mod json_size;
+mod notepad;
+mod notepad_plus;
+mod quick_capture;
+mod sources;
 mod startup;
 mod workspace;
 mod workspace_delta;
@@ -60,11 +66,15 @@ fn report_ready(app: tauri::AppHandle, frontend_ms: f64) -> Result<(), String> {
             &serde_json::to_vec_pretty(&report).map_err(|e| e.to_string())?,
         )
         .map_err(|e| e.to_string())?;
-        let handle = app.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(20));
-            handle.exit(0);
-        });
+        // Interactive integration tests own shutdown; ordinary startup/RAM
+        // benchmarks keep their existing twenty-second measurement window.
+        if !std::env::args().any(|arg| arg == "--keep-diagnostic-open") {
+            let handle = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_secs(20));
+                handle.exit(0);
+            });
+        }
     }
     *reported = true;
     Ok(())
@@ -129,6 +139,16 @@ pub fn run() {
         .manage(app_icon::AppIcons::default())
         .manage(StartupRegistration::new(&startup_name))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, _, event| {
+            if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                let handle = app.clone();
+                        tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(error) = quick_capture::show_capture(&handle) {
+                        eprintln!("Could not open quick capture: {error}");
+                    }
+                });
+            }
+        }).build())
         .manage(DatabaseState(Mutex::new(None)))
         .manage(StartupTiming { started, benchmark_root, database_ready_ms: Mutex::new(None), reported: Mutex::new(false) })
         .setup(move |app| {
@@ -172,10 +192,32 @@ pub fn run() {
             // Begin opening the notebook while WebView2 loads the UI, instead of
             // waiting for JavaScript to request the first database connection.
             let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move { let _ = open_workspace(handle, false).await; });
+            quick_capture::initialize(&handle, diagnostic)?;
+            tauri::async_runtime::spawn(async move {
+                if open_workspace(handle.clone(), false).await.is_ok() {
+                    tauri::async_runtime::spawn_blocking(move || quick_capture::restore_registration(&handle));
+                }
+            });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(|invoke| {
+            // Application commands are otherwise globally callable. Keep the
+            // capture WebView out of notebook persistence and source access.
+            if invoke.message.webview().label() != "main" && !matches!(invoke.message.command(),
+                "quick_capture_status" | "write_capture_draft" | "submit_quick_capture" | "open_capture_note") {
+                invoke.resolver.reject("This command is only available in the notebook window");
+                return true;
+            }
+            let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
+            commands::open_external_link,
+            commands::list_history,
+            commands::read_history,
+            commands::checkpoint_history,
+            commands::backup_status,
+            commands::choose_backup_directory,
+            commands::set_backup_enabled,
+            commands::commit_backup,
+            commands::read_backup_chunk,
             load_workspace,
             save_workspace,
             save_workspace_delta,
@@ -186,14 +228,50 @@ pub fn run() {
             export_file,
             open_releases,
             export_binary_file,
+            begin_source,
+            append_source_chunk,
+            finish_source,
+            abort_source,
+            remove_source,
+            read_source_chunk,
+            export_source,
             startup_enabled,
             set_startup,
             app_icon::set_app_theme_icon,
-            frontend_ready
-        ])
+            frontend_ready,
+            notepad::scan_notepad_tabs,
+            notepad_plus::scan_notepad_plus_tabs,
+            quick_capture::quick_capture_status,
+            quick_capture::set_quick_capture_preferences,
+            quick_capture::open_quick_capture,
+            quick_capture::write_capture_draft,
+            quick_capture::submit_quick_capture,
+            quick_capture::finish_quick_capture,
+            quick_capture::report_quick_capture_error,
+            quick_capture::open_capture_note
+        ];
+            handler(invoke)
+        })
         .build(context)
         .expect("Could not start Scribly");
     app.run(|app, event| {
+        if let tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::CloseRequested { api, .. },
+            ..
+        } = &event
+        {
+            if label == "quick-capture" {
+                // The frontend drains its serialized draft writes before hiding.
+                // Keep the WebView alive so closing never discards unsent text.
+                api.prevent_close();
+            }
+        }
+        if matches!(&event, tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } if label == "main") {
+            // Main destroys itself only after its frontend persistence drain.
+            // Capture's retained window must not keep that session alive.
+            app.exit(0);
+        }
         if matches!(event, tauri::RunEvent::Exit) {
             let database = app
                 .state::<DatabaseState>()

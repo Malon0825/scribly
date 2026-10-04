@@ -1,0 +1,10 @@
+{
+  "identifier": "quick-capture",
+  "description": "Quick capture event listening and close-to-hide controls",
+  "windows": ["quick-capture"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-close"
+  ]
+}

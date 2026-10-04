@@ -137,7 +137,8 @@ pub fn references(document: &Value) -> Result<Vec<String>, String> {
         .ok_or("Invalid notebook notes")?
     {
         for capture in pattern.captures_iter(note["content"].as_str().unwrap_or("")) {
-            if document["schemaVersion"] != 3 || !valid_id(&capture[1]) {
+            if !matches!(document["schemaVersion"].as_u64(), Some(3..=5)) || !valid_id(&capture[1])
+            {
                 return Err("Invalid notebook image reference or format.".into());
             }
             ids.push(capture[1].to_string());
@@ -145,26 +146,12 @@ pub fn references(document: &Value) -> Result<Vec<String>, String> {
     }
     Ok(ids)
 }
-pub fn validate(root: &Path, document: &Value, serialized_bytes: usize) -> Result<(), String> {
-    let mut bytes = serialized_bytes as i64;
-    let mut lengths = HashMap::new();
+pub fn validate(root: &Path, document: &Value) -> Result<(), String> {
+    let mut checked = HashSet::new();
     for id in references(document)? {
-        let size = match lengths.entry(id.clone()) {
-            std::collections::hash_map::Entry::Occupied(entry) => *entry.get(),
-            std::collections::hash_map::Entry::Vacant(entry) => *entry.insert(
-                fs::metadata(file(root, &id)?)
-                    .map_err(|e| e.to_string())?
-                    .len(),
-            ),
-        };
-        let replacement = (size.div_ceil(3) * 4
-            + format!("data:image/{};base64,", id.split_once('.').unwrap().1).len() as u64
-            + 4) as i64
-            - (22 + id.len()) as i64;
-        bytes += replacement;
-    }
-    if bytes > 20 * 1024 * 1024 {
-        return Err("Notebook exceeds the 20 MB save limit, including its images.".into());
+        if checked.insert(id.clone()) {
+            file(root, &id)?;
+        }
     }
     Ok(())
 }
@@ -206,12 +193,7 @@ mod tests {
         assert_eq!(list(&root).unwrap().len(), 1);
         assert_eq!(read(&root, id).unwrap(), bytes);
         let doc = json!({"schemaVersion":3,"notes":[{"content":format!("<img data-notify-attachment=\"{id}\">")}]});
-        validate(
-            &root,
-            &doc,
-            crate::json_size::measure(&doc, usize::MAX).unwrap(),
-        )
-        .unwrap();
+        validate(&root, &doc).unwrap();
         assert_eq!(prune(&root, &HashSet::new()).unwrap(), 0);
         let old = SystemTime::now() - Duration::from_secs(31 * 86400);
         fs::OpenOptions::new()
@@ -224,23 +206,13 @@ mod tests {
         fs::write(root.join("attachments").join(id), b"\x89PNG tampered").unwrap();
         assert!(read(&root, id).is_err());
         fs::remove_file(root.join("attachments").join(id)).unwrap();
-        assert!(validate(
-            &root,
-            &doc,
-            crate::json_size::measure(&doc, usize::MAX).unwrap()
-        )
-        .is_err());
+        assert!(validate(&root, &doc).is_err());
         let mut large = vec![0; MAX_IMAGE];
         large[..4].copy_from_slice(b"\x89PNG");
         let big = store(&root, &large).unwrap();
         let big_id = big["id"].as_str().unwrap();
         let repeated = json!({"schemaVersion":3,"notes":[{"content":format!("<img data-notify-attachment=\"{big_id}\">").repeat(4)}]});
-        assert!(validate(
-            &root,
-            &repeated,
-            crate::json_size::measure(&repeated, usize::MAX).unwrap()
-        )
-        .is_err());
+        assert!(validate(&root, &repeated).is_ok());
         assert!(store(&root, &vec![0; MAX_IMAGE + 1]).is_err());
         fs::remove_file(root.join("attachments").join(big_id)).unwrap();
         store(&root, bytes).unwrap();

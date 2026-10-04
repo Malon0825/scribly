@@ -58,10 +58,10 @@ test("archiving another note preserves the open document and search", async ({ p
 
 test("archiving the last unfiled note keeps Unfiled open and clears the editor", async ({ page }) => {
   await open(page);
-  await page.getByRole("button", { name: /^Unfiled notes/ }).click();
+  await page.getByRole("button", { name: "Notebook navigation", exact: true }).click(); await page.getByRole("button", { name: /^Unfiled notes/ }).click();
   await page.getByRole("button", { name: "Note options", exact: true }).click();
   await page.getByRole("button", { name: "Archive note", exact: true }).click();
-  await expect(page.getByRole("button", { name: /^Unfiled notes/ })).toHaveClass(/nav-active/);
+  await page.getByRole("button", { name: "Notebook navigation", exact: true }).click(); await expect(page.getByRole("button", { name: /^Unfiled notes/ })).toHaveClass(/nav-active/); await page.keyboard.press("Escape");
   await expect(archiveNav(page)).not.toHaveClass(/nav-active/);
   await expect(page.getByRole("textbox", { name: "Note title", exact: true })).toHaveCount(0);
   await expect.poll(async () => (await saved(page)).activeId).toBe("");

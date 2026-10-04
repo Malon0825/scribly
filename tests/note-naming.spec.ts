@@ -112,7 +112,7 @@ test.describe("new-note UI", () => {
     await expect(page.getByRole("textbox", { name: "Note title" })).toHaveValue("Data integration · Oct 2, 2026");
     await page.getByRole("button", { name: "New note in Work logs", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Note title" })).toHaveValue("Work logs · Oct 2, 2026");
-    await page.locator(".sidebar-bottom").getByRole("button", { name: /Unfiled notes/ }).click();
+    await page.getByRole("button", { name: "Notebook navigation", exact: true }).click(); await page.getByRole("button", { name: /Unfiled notes/ }).click();
     await page.keyboard.press("Control+n");
     await expect(page.getByRole("textbox", { name: "Note title" })).toHaveValue("Unfiled notes · Oct 2, 2026");
   });
@@ -139,7 +139,7 @@ test.describe("new-note UI", () => {
     await page.getByRole("button", { name: "Options for Data integration", exact: true }).click();
     await page.getByRole("dialog", { name: "Folder options" }).getByRole("button", { name: "New board", exact: true }).click();
     await expect(boardTitle).toHaveValue("Data integration · Oct 2, 2026");
-    await page.locator(".sidebar-bottom").getByRole("button", { name: /Unfiled notes/ }).click();
+    await page.getByRole("button", { name: "Notebook navigation", exact: true }).click(); await page.getByRole("button", { name: /Unfiled notes/ }).click();
     await page.keyboard.press("Control+Shift+n");
     await expect(boardTitle).toHaveValue("Unfiled notes · Oct 2, 2026");
     await page.clock.setFixedTime(new Date("2026-10-02T16:05:00Z"));

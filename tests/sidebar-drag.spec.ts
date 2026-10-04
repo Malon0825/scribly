@@ -6,6 +6,7 @@ import type { Workspace } from "../src/types";
 const stamp = "2026-10-02T00:00:00.000Z";
 const fixture: Workspace = {
   theme: "light", activeId: "a1", referenceId: "b1",
+  recentIds: ["a1"],
   folders: [
     { id: "work", name: "Work logs" },
     { id: "data", name: "Data integration" },
@@ -30,22 +31,33 @@ async function saved(page: Page) {
 async function drag(page: Page, kind: "folder" | "note", id: string, target: string, after = true) {
   const source = control(page, kind, id);
   const destination = page.locator(target);
+  // Start the native drag from the visible source before scrolling its destination.
+  // Both may no longer fit together in the sidebar after navigation sections grow.
   await source.scrollIntoViewIfNeeded();
   const start = await source.boundingBox();
-  const x = start!.x + 30;
-  const y = start!.y + start!.height / 2;
-  await page.mouse.move(x, y);
+  const sourceX = start!.x + 30;
+  const sourceY = start!.y + start!.height / 2;
+  await page.mouse.move(sourceX, sourceY);
   await page.mouse.down();
-  // Start native dragging before scrolling a distant destination. dragTo can
-  // scroll after pointer-down and start the drag on a different row.
-  await page.mouse.move(x, y + 12, { steps: 3 });
+  await page.mouse.move(sourceX, sourceY + 12, { steps: 3 });
+  if (kind === "folder") {
+    // Leave the sidebar edge before revealing the destination. Otherwise its
+    // native drag autoscroll continues while Playwright measures the drop.
+    const sidebar = await page.locator(".sidebar-scroll").boundingBox();
+    await page.mouse.move(sidebar!.x + sidebar!.width + 16, start!.y + start!.height / 2);
+    await destination.locator(".folder-row").evaluate(element => element.scrollIntoView({ block: "start" }));
+  }
   await destination.scrollIntoViewIfNeeded();
   const rect = await destination.boundingBox();
-  const targetX = rect!.x + 30;
-  const targetY = rect!.y + (after ? rect!.height - 4 : 4);
-  await page.mouse.move(targetX, targetY, { steps: 5 });
+  // A folder group's outer 4px edge can be clipped by the scroll viewport.
+  // Land inside its header so native scrolling cannot move the hit target
+  // into the clipped gap between dragover and the browser's final drop.
+  const inset = kind === "folder" ? 20 : 4;
+  const x = rect!.x + 30, y = rect!.y + (after ? rect!.height - inset : inset);
+  await page.mouse.move(x, y, { steps: 8 });
   // Native dragenter precedes dragover; send both at the hit-tested position.
-  await page.mouse.move(targetX, targetY);
+  await page.mouse.move(x, y);
+  await page.mouse.move(x, y);
   await page.mouse.up();
 }
 
@@ -101,7 +113,7 @@ test("closed and empty folders accept notes and open after dropping", async ({ p
 });
 
 test("notes can move into Unfiled and back into a folder", async ({ page }) => {
-  await drag(page, "note", "a2", '.sidebar-bottom > button:first-child');
+  await drag(page, "note", "a2", '.sidebar-location [data-file-folder=""]');
   await expect(page.locator(".loose-notes .note-name")).toHaveText(["Loose note", "Second note"]);
   await drag(page, "note", "a2", '.folder-row:has([data-sidebar-item="folder:data"])');
   await expect(page.locator('.folder-group:has([data-sidebar-item="folder:data"]) .note-name')).toHaveText(["Other note", "Second note"]);

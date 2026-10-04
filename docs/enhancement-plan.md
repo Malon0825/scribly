@@ -4,7 +4,7 @@ Created: October 4, 2026. Baseline: repository version 1.3.11.
 
 Purpose: make writing safer, retrieval faster, and everyday note workflows easier while preserving the existing notebook, Reference panel, and Windows conventions.
 
-This is a proposed roadmap. Only the source inspection and planning work is complete; none of the enhancements below has been implemented by creating this document. Phases are delivery milestones, not release dates.
+This roadmap tracks implemented work and remaining proposals. The storage foundation and Phases 2–6 protection, retrieval, connected-note, formatted-export and quick-capture features are included in the locally built Windows 1.3.16 installer; capacity reporting and further profiling remain open. The public release remains 1.3.11; the new installer has not been published. Phases are delivery milestones, not release dates.
 
 ## Tracking rules
 
@@ -19,12 +19,12 @@ This is a proposed roadmap. Only the source inspection and planning work is comp
 | Phase | Outcome | Status | Depends on |
 | --- | --- | --- | --- |
 | 0 | Confirm baseline and document gaps | Done (source review only) | None |
-| 1 | Define capacity and prepare safe storage | Not started | Phase 0 |
-| 2 | Automatic backups, version history, and Trash | Not started | Phase 1 |
-| 3 | Find/replace, pins, and recent notes | Not started | Phase 2; can proceed independently once schema changes settle |
-| 4 | Note links, backlinks, and reusable templates | Not started | Phases 1–2 |
-| 5 | Formatted note export | Not started | Phase 1; can proceed independently of Phases 3–4 |
-| 6 | Windows quick capture | Not started | Phases 1–2 |
+| 1 | Remove the storage quota and prepare safe storage | In progress | Phase 0 |
+| 2 | Automatic backups, version history, and Trash | Done (local 1.3.12 installer; validation limitations below) | Phase 1 storage foundation |
+| 3 | Find/replace, pins, and recent notes | Done (local 1.3.13 installer; validation limitations below) | Phase 2; can proceed independently once schema changes settle |
+| 4 | Note links, backlinks, and reusable templates | Done (local 1.3.14 installer; validation limitations below) | Phases 1–2 |
+| 5 | Formatted note export | Done (local 1.3.15 installer; validation limitations below) | Phase 1; can proceed independently of Phases 3–4 |
+| 6 | Windows quick capture | Done (local 1.3.16 installer; validation limitations below) | Phases 1–2 |
 
 ## Phase 0 — Baseline and gap review
 
@@ -36,9 +36,11 @@ This is a proposed roadmap. Only the source inspection and planning work is comp
 
 Evidence: [App](../src/App.tsx), [editor](../src/NoteEditor.tsx), [types](../src/types.ts), [workspace persistence](../src/useWorkspace.ts), [recovery](../src/recovery.ts), and [database](../src-tauri/src/database.rs). This milestone does not claim a runtime or native UI audit.
 
-## What the 20 MB limit actually means
+## Previous 20 MB limit (baseline 1.3.11)
 
-The code enforces `20 * 1024 * 1024` bytes: **20 MiB (20,971,520 bytes)**, although the UI calls it “20 MB.” It is a limit on the complete current notebook's serialized content budget, checked during updates and saves.
+**Update:** the overall notebook limit has been removed in the 1.3.12 source implementation. The explanation below records the previous behavior; it does not describe the new storage policy. See [storage and large files](storage-and-large-files.md) for implemented behavior, operation budgets, compatibility, and verification limits.
+
+The baseline code enforced `20 * 1024 * 1024` bytes: **20 MiB (20,971,520 bytes)**, although the UI called it “20 MB.” It limited the complete current notebook's serialized content budget, checked during updates and saves.
 
 - It is **not a lifetime allowance**. Repeated saves replace the current notebook state; they do not consume a cumulative quota.
 - It is **not 20 MiB per note or per folder**. All notes, boards, folder metadata, and archived items share the current notebook budget.
@@ -55,22 +57,23 @@ Evidence: [limit constant](../src/boardData.ts), [whole-workspace calculation](.
 
 Goal: make capacity understandable and establish storage that can safely support retained versions and deleted items.
 
-- [ ] **CAP-01:** Add a Settings capacity summary that distinguishes the current notebook budget, attachment disk usage, and later history/backup usage. Explain whether archived and deleted items count.
-- [ ] **CAP-02:** Show a useful near-limit warning and actionable limit errors without interrupting typing or falsely reporting a successful save.
+- [ ] **CAP-01:** Add a Settings storage summary that distinguishes current notes/originals, attachment disk usage, and later history/backup usage. Explain whether archived and deleted items count; do not present a total application quota.
+- [x] **CAP-02:** Remove total-quota checks and expensive whole-notebook capacity validation from typing/import paths. Retain truthful save/disk/quota errors and specific per-operation budgets; no total-quota warning is needed.
 - [ ] **CAP-03:** Measure load, typing, save, recovery, export, and restore behavior with larger text/image/board notebooks in browser preview and Windows WebView2.
-- [ ] **CAP-04:** Decide whether to raise the cap, move to separate item records, or use staged changes. Document measured limits; do not just increase one constant.
-- [ ] **CAP-05:** Separate notebook, per-file, backup, and history limits. Keep TypeScript/Rust validation, import/export, and error messages consistent; ensure newly exported backups can be restored.
-- [ ] **CAP-06:** Define schema migration and attachment retention for current items, archived items, Trash, historical versions, and recovery conflicts. Never prune files needed by a retained version.
-- [ ] **CAP-07:** Define safe browser behavior for larger notebooks and history: evaluate durable browser storage if localStorage is insufficient, or explicitly document a smaller supported preview capacity.
+- [x] **CAP-04:** Remove the overall quota; use per-item PostgreSQL storage and file-backed large text originals. Document what is measured and what remains eager at startup.
+- [x] **CAP-05:** Separate current operation budgets from notebook capacity; support portable JSON and original-inclusive file backups. History budgets remain part of Phase 2.
+- [x] **CAP-06:** Define schema migration and attachment retention for current items, archived items, Trash, historical versions, and recovery conflicts. Format 5 and history-aware image retention are implemented; original cleanup remains conservative. See [protection and recovery](protection-and-recovery.md).
+- [x] **CAP-07:** Add IndexedDB for larger browser notebooks, original-file Blobs, and recovery-journal promotion. Browser/OS quota failures stay visible; future history must use the same durable storage principles.
+- [x] **CAP-08:** Accept large text/code imports as immutable originals with bounded section viewing, Unicode-safe boundaries, complete original download, and ordinary editable annotations. Full-file editing/search remains a follow-up.
 
 Acceptance checks:
 
-- [ ] Repeated saves do not increase the reported current notebook usage simply because another save occurred.
-- [ ] Boundary checks agree across frontend/backend, including Unicode, shared images, and archived items.
-- [ ] Migration and interrupted-save tests preserve the old notebook and attachments; conflict detection remains effective.
-- [ ] Capacity documentation states tested limits and browser/native differences.
+- [x] Verify notebooks/originals over 20 MiB save and reload without a total-quota error; unchanged desktop note rows are not rewritten by a small edit.
+- [x] Verify Unicode section boundaries, intact original download, retained per-operation checks, and original-inclusive backup restoration.
+- [x] Migration, failed-update/revision-conflict, and recovery tests preserve notebook data. Record final native UI verification separately below.
+- [x] Capacity documentation states tested limits and browser/native differences.
 
-Decision pending: [NEEDS INPUT] the supported larger capacity and default retention budgets. Choose these after measurements; this plan does not promise unlimited storage.
+Storage decision: no application quota on overall notebook storage. Operating-system/browser limits still apply, and individual conversion/rendering budgets remain. Phase 2 defines separate retention budgets below. CAP-01 usage reporting and further profiling in CAP-03 remain open; Phase 1 is not marked Done. Those reporting/profiling tasks do not block the implemented protection features.
 
 ## Phase 2 — Recovery, backups, and reversible deletion
 
@@ -78,102 +81,102 @@ Goal: protect users from accidental edits, deletion, and loss of the primary not
 
 ### 2A. Automatic backups
 
-- [ ] **BACKUP-01:** Add an opt-in backup destination and schedule. Proposed starting point: one daily backup when the app is running and the notebook has changed; catch up on next launch rather than adding an always-running service.
-- [ ] **BACKUP-02:** Write a consistent, portable notebook snapshot with all required attachments using atomic file replacement. Keep previous successful backups when a new write fails.
-- [ ] **BACKUP-03:** Show last successful backup, Backup now, destination, and actionable errors. Distinguish database save status from backup status.
-- [ ] **BACKUP-04:** Add bounded retention and a restore preview. Support both importing as new items and explicitly replacing the notebook; protect the current notebook before replacement.
-- [ ] **BACKUP-05:** Define whether backups include Trash, templates, and version history, and make that scope visible. Restore must not silently discard supported data.
+- [x] **BACKUP-01:** Opt-in Windows destination and daily schedule while open; catch up on launch when the saved revision changed. Browser copies use IndexedDB and disclose their device-local scope.
+- [x] **BACKUP-02:** Portable consistent snapshots include attachments and originals; synced atomic native writes and browser transactions preserve previous successful copies on failure.
+- [x] **BACKUP-03:** Settings shows destination, last successful backup, Backup now, and errors separately from notebook save status.
+- [x] **BACKUP-04:** Retain seven ordinary copies and three copies made before replacement. Restore preview offers import-as-new or acknowledged replacement; a failed protective copy stops replacement.
+- [x] **BACKUP-05:** Include notes, boards, images, ink, originals, folders, Archive, and Trash. Local version history is excluded and explicitly disclosed. Reusable note templates and their assets are included as of Phase 4.
 
-Acceptance: [ ] Restore notes, boards, images, ink, and metadata on a fresh installation; test unavailable destinations, disk-full failures, cancellation, corrupt files, and old backup compatibility.
+Acceptance: [x] Fresh browser restore preserves rich text/images/ink; existing board and original-inclusive round trips pass. Native isolated-profile replacement preserves originals and Trash. Unavailable destinations and simulated full-disk atomic-writer failures retain prior copies; cancellation, same-size corruption, and legacy backups are covered. Interactive native folder/save pickers and a physically full drive remain untested release checks.
 
 ### 2B. Note and board version history
 
-- [ ] **HISTORY-01:** Store retained versions outside the live workspace payload with stable item IDs and attachment references. Capture meaningful changes with bounded retention, not a full version for every keystroke.
-- [ ] **HISTORY-02:** Add a dated read-only history viewer with note/board previews and Restore this version.
-- [ ] **HISTORY-03:** Preserve the current content as a version before restoring older content. Restoration creates a new current state rather than erasing later history.
-- [ ] **HISTORY-04:** Define checkpoint frequency, age/count/byte budgets, and behavior when history cannot be written. Keep editing/save/history status truthful.
-- [ ] **HISTORY-05:** Provide browser persistence or clearly identified preview limitations; history must survive restart where supported.
+- [x] **HISTORY-01:** Outgoing title/content/board checkpoints live separately in PostgreSQL or IndexedDB, with stable item IDs and protected image references.
+- [x] **HISTORY-02:** Dated read-only viewer lazily loads one note/board preview and offers Restore this version.
+- [x] **HISTORY-03:** Checkpoint the current saved body before restoring; preserve today's organization and all later retained versions.
+- [x] **HISTORY-04:** Automatic checkpoints at least five minutes apart; up to 20 versions/item, 30 days, shared 64 MiB payload budget. Failed mandatory checkpoints stop restore. Oversized history bodies never limit live notebook capacity.
+- [x] **HISTORY-05:** Both desktop and browser history survive restart. Browser metadata is indexed by item; bodies load separately.
 
-Acceptance: [ ] Restore earlier rich text, images, ink, and board states after restart; verify retention cleanup never removes referenced files and a failed restore leaves current content intact.
+Acceptance: [x] Earlier rich text/images/ink restore through reload; changed board content restores through persistence. Retention/purge and historical image references pass browser/PostgreSQL checks. Failed checkpoints and stale revisions preserve current content; native history survives webview reload.
 
 ### 2C. Trash
 
-- [ ] **TRASH-01:** Make ordinary Delete move notes/boards into Trash with a deletion timestamp. Keep Archive as a separate workflow.
-- [ ] **TRASH-02:** Add Trash list, Restore, and immediate Undo. Restore the original folder when available; otherwise use Unfiled notes.
-- [ ] **TRASH-03:** Exclude deleted items from ordinary navigation, search, templates, and Reference selection. Safely choose a new active/reference item when needed.
-- [ ] **TRASH-04:** Retain confirmation for Delete permanently and Empty Trash. Proposed initial policy: no automatic permanent deletion; show Trash usage so retention is explicit.
-- [ ] **TRASH-05:** Define folder deletion and historical-version behavior for trashed/permanently deleted items. Count retained content honestly rather than presenting Trash as freed disk space.
+- [x] **TRASH-01:** Move to Trash retains complete notes/boards with deletion timestamps; Archive remains distinct.
+- [x] **TRASH-02:** Trash list, read-only viewing, Restore, and immediate Undo; original-folder restore or Unfiled fallback.
+- [x] **TRASH-03:** Exclude Trash from ordinary navigation/search, Copy last note, weekly aggregation, dragging, and Reference; safely reselect the active item.
+- [x] **TRASH-04:** Confirm permanent deletion and Empty Trash; no automatic expiry. Show serialized Trash body usage and disclose additional original/attachment files.
+- [x] **TRASH-05:** Folder removal returns affected items to Unfiled; Trash retains local history, permanent purge removes it. Image retention protects recoverable drafts/history; originals remain conservatively retained.
 
-Acceptance: [ ] Test deleting active/reference items, restoring after folder removal and restart, cancelling permanent deletion, and attachment/history cleanup after a confirmed purge.
+Acceptance: [x] Active/reference and inactive deletion, Undo, folder removal/restart, editable restoration, Archive separation, Cancel/Escape, and confirmed history purge pass. Conservative file retention is documented rather than promising immediate disk reclamation.
 
-Phase exit: [ ] Backup restore, historical restore, and Trash restore all pass; retention policies and native/browser limits are documented.
+Phase exit: [x] Backup, historical, and Trash restoration pass in browser and isolated Windows WebView2. Retention, migration, backup scope, native/browser differences, and untested release checks are documented in [protection and recovery](protection-and-recovery.md).
 
 ## Phase 3 — Faster retrieval and editing
 
 ### 3A. Find and replace
 
-- [ ] **SEARCH-01:** Add in-note Find with Ctrl+F, match count, highlighting, next/previous, and Escape to dismiss without losing the editing position.
-- [ ] **SEARCH-02:** Add Replace with Ctrl+H, single/all replacement, case-sensitive and whole-word options, and meaningful Undo. Keep Reference and archived content read-only.
-- [ ] **SEARCH-03:** Improve existing notebook search with matching excerpts and navigation to the match. Preserve searches across ordinary navigation where useful.
-- [ ] **SEARCH-04:** Define searchable board content separately; start with text/labels. Do not imply rich-text replacement applies to every canvas element.
+- [x] **SEARCH-01:** Add in-note Find with Ctrl+F, match count, highlighting, next/previous, and Escape to dismiss without losing the editing position.
+- [x] **SEARCH-02:** Add Replace with Ctrl+H, single/all replacement, case-sensitive and whole-word options, and meaningful Undo. Keep Reference and archived content read-only.
+- [x] **SEARCH-03:** Improve existing notebook search with matching excerpts and navigation to the match. Preserve searches across ordinary navigation where useful.
+- [x] **SEARCH-04:** Define searchable board content separately; start with text/labels. Do not imply rich-text replacement applies to every canvas element.
 
-Acceptance: [ ] Verify Unicode, text across formatting marks, code blocks, empty queries, image/ink preservation, keyboard navigation, and responsive typing in larger notes.
+Acceptance: [x] Verify Unicode, text across formatting marks, code blocks, empty queries, image/ink preservation, keyboard navigation, and responsive typing in larger notes. Counting/navigation covers every match; painted highlights are bounded to 1,000 nearby matches. Original-file contents remain immutable and excluded, with an explicit hint.
 
 ### 3B. Pinned and recent notes
 
-- [ ] **NAV-01:** Add persisted pin/unpin for notes and boards, with a compact sidebar section and keyboard-accessible actions.
-- [ ] **NAV-02:** Add a bounded Recently opened list independent of modification timestamps and existing folder order.
-- [ ] **NAV-03:** Specify how archive, Trash, permanent deletion, and restoration affect these lists. Preserve editor selection and Reference behavior when navigating.
+- [x] **NAV-01:** Add persisted pin/unpin for notes and boards, with a compact sidebar section and keyboard-accessible actions.
+- [x] **NAV-02:** Add a bounded Recently opened list independent of modification timestamps and existing folder order.
+- [x] **NAV-03:** Specify how archive, Trash, permanent deletion, and restoration affect these lists. Preserve editor selection and Reference behavior when navigating.
 
-Acceptance: [ ] Pins survive restart; recent order reflects opening, not autosave; unavailable items do not leave broken navigation entries.
+Acceptance: [x] Pins survive browser reload and native database restart; recent order reflects opening, not autosave; unavailable items do not leave broken navigation entries. [Behavior and compatibility](retrieval-and-editing.md).
 
-Phase exit: [ ] Find/replace and pin/recent navigation pass interaction checks without remounting or modifying the note unnecessarily.
+Phase exit: [x] Find/replace and pin/recent navigation pass interaction checks without remounting or modifying the note unnecessarily. Browser and optimized Windows WebView2 checks pass, including replacement Undo/Redo, persisted navigation and immutable original bytes. [Usage and limits](retrieval-and-editing.md), [release evidence](../tests/verification.md).
 
 ## Phase 4 — Connected notes and reusable workflows
 
 ### 4A. Note links and backlinks
 
-- [ ] **LINK-01:** Add an internal item-link picker using stable IDs, for both notes and boards. Offer Open and Open in Reference.
-- [ ] **LINK-02:** Show backlinks from other items. Derive or index them from actual links so renames and moves do not break connections.
-- [ ] **LINK-03:** Define missing/archived/deleted target behavior and safe external link handling. Keep link interaction from interfering with text selection.
-- [ ] **LINK-04:** Remap internal IDs during backup import/duplication where required; define how links behave in exported Markdown/PDF.
+- [x] **LINK-01:** Add an internal item-link picker using stable IDs, for both notes and boards. Offer Open and Open in Reference.
+- [x] **LINK-02:** Show backlinks from other items. Derive or index them from actual links so renames and moves do not break connections.
+- [x] **LINK-03:** Define missing/archived/deleted target behavior and safe external link handling. Keep link interaction from interfering with text selection.
+- [x] **LINK-04:** Remap internal IDs during backup import/duplication where required; define how links behave in exported Markdown/PDF. Phase 5 implements links within exported batches and retains IDs for targets outside the batch.
 
-Acceptance: [ ] Verify rename/move, Trash/restore, missing targets, imported links, keyboard activation, and Reference opening without stealing editor focus.
+Acceptance: [x] Verify rename/move, Trash/restore, missing targets, imported links, keyboard activation, and Reference opening without stealing editor focus.
 
 ### 4B. Reusable note templates
 
-- [ ] **TPL-01:** Save a note as a named template; create independent notes from a template with formatting, images, and checklists preserved.
-- [ ] **TPL-02:** Manage templates and folder defaults while preserving the existing Copy last note workflow. Explicitly define precedence when both are configured.
-- [ ] **TPL-03:** Offer optional checklist reset and simple title/date fields for meeting notes, daily logs, and project notes. Keep board templates distinct.
-- [ ] **TPL-04:** Include templates in backup/import and attachment retention, with capacity accounting consistent with Phase 1.
+- [x] **TPL-01:** Save a note as a named template; create independent notes from a template with formatting, images, and checklists preserved.
+- [x] **TPL-02:** Manage templates and folder defaults while preserving the existing Copy last note workflow. A configured template takes priority; None falls back to Copy last note.
+- [x] **TPL-03:** Offer optional checklist reset and simple title/date fields for meeting notes, daily logs, and project notes. Keep board templates distinct.
+- [x] **TPL-04:** Include templates in backup/import and attachment retention, with capacity accounting consistent with Phase 1.
 
-Acceptance: [ ] New notes never share mutable content with templates; checklist reset is optional; template images survive source-note deletion and backup restore.
+Acceptance: [x] New notes never share mutable content with templates; checklist reset is optional; template images survive source-note deletion and backup restore.
 
-Phase exit: [ ] Links remain stable across normal organization changes and templates generate independently editable notes.
+Phase exit: [x] Links remain stable across normal organization changes and templates generate independently editable notes. Browser checks and the optimized Windows WebView2 template/link/backup workflow pass. Template-containing notebooks require 1.3.14 or newer. Native pickers and external system-browser launch remain unexercised. [Usage and compatibility](connected-notes-and-templates.md), [verification](../tests/verification.md).
 
 ## Phase 5 — Formatted note export
 
-- [ ] **EXPORT-01:** Add print/PDF output for notes with headings, lists, checklists, code, images, captions, and sensible page breaks.
-- [ ] **EXPORT-02:** Add Markdown export with image sidecars or a portable archive; preserve code fences and task states.
-- [ ] **EXPORT-03:** Define supported representation for ink strokes, semantic colors, and internal links. Preview or disclose formatting loss before export where relevant.
-- [ ] **EXPORT-04:** Support selected-note and folder/batch export with safe names and cancellation. Preserve existing plain-text, board, and JSON backup exports.
-- [ ] **EXPORT-05:** Use a consistent current draft snapshot; verify native save dialogs and browser downloads separately. Format limits must not invalidate Phase 1's capacity decisions.
+- [x] **EXPORT-01:** Add print/PDF output for notes with headings, lists, checklists, code, images, captions, and sensible page breaks. Standalone HTML and native print handoff are available; saving a PDF remains controlled by the system dialog.
+- [x] **EXPORT-02:** Add Markdown export with image sidecars or a portable archive; preserve code fences and task states. ZIP archives deduplicate raster assets.
+- [x] **EXPORT-03:** Define supported representation for ink strokes, semantic colors, and internal links. The preview discloses omitted ink, Markdown color/underline loss and metadata-only originals; exported batch links resolve within the output.
+- [x] **EXPORT-04:** Support selected-note and folder/batch export with safe names and cancellation. Existing plain-text, board, and JSON backup exports remain available.
+- [x] **EXPORT-05:** Use a consistent current draft snapshot; verify native save dialogs and browser downloads separately. Native HTML Save produced matching bytes; browser ZIP/HTML downloads passed. Per-operation export limits do not cap notebook storage.
 
-Acceptance: [ ] Inspect exported files in another reader; verify Unicode, long code lines, images, page breaks, light/dark readability, current unsaved edits, cancellation, and export failures.
+Acceptance: [x] Inspect actual Markdown/HTML and a multi-page Chromium PDF; verify Unicode fixtures, long code lines, images, page breaks, light/dark dialogs, current unsaved edits, cancellation and failure recovery. Optimized Windows WebView2 verified native assets, HTML Save, print preview/cancellation and unchanged notebook state. Native ZIP picker writes and actual native PDF saving remain unexercised; comprehensive glyph/image pagination and memory profiling remain open.
 
-Phase exit: [ ] Notes can be shared in readable formatted output, with unsupported fidelity clearly documented.
+Phase exit: [x] Notes can be shared in readable formatted output, with unsupported fidelity clearly documented. [Usage and limits](formatted-note-export.md), [verification](../tests/verification.md), [release audit](../release/build-1.3.15-20261004-190839/verification.json).
 
 ## Phase 6 — Windows quick capture
 
-- [ ] **CAPTURE-01:** Add an opt-in configurable global shortcut that opens a small quick-capture window while the app is running.
-- [ ] **CAPTURE-02:** Save captures into an Inbox folder through the same persistence/recovery pipeline; serialize writes and retain revision conflict protection across windows.
-- [ ] **CAPTURE-03:** Add Save, Open in notebook, and Escape behavior that preserves unsaved drafts. Show a saved result only after persistence succeeds.
-- [ ] **CAPTURE-04:** Handle shortcut conflicts, restart registration, window cleanup, keyboard focus, and accessible controls. Define how it cooperates with existing Windows startup settings.
-- [ ] **CAPTURE-05:** Provide an in-app capture action in browser preview and clearly label the desktop-only global shortcut.
+- [x] **CAPTURE-01:** Add an opt-in configurable global shortcut that opens a small quick-capture window while the app is running.
+- [x] **CAPTURE-02:** Save captures into an Inbox folder through the same persistence/recovery pipeline; serialize writes and retain revision conflict protection across windows.
+- [x] **CAPTURE-03:** Add Save, Open in notebook, and Escape behavior that preserves unsaved drafts. Show a saved result only after persistence succeeds.
+- [x] **CAPTURE-04:** Handle shortcut conflicts, restart registration, window cleanup, keyboard focus, and accessible controls. Define how it cooperates with existing Windows startup settings.
+- [x] **CAPTURE-05:** Provide an in-app capture action in browser preview and clearly label the desktop-only global shortcut.
 
-Acceptance: [ ] Test capturing from another Windows application, repeated shortcut presses, main-window/capture edits together, save failure, cancellation, and restart recovery without overwriting newer data.
+Acceptance: [x] Test capturing from another Windows application, repeated shortcut presses, main-window/capture edits together, save failure, cancellation, and restart recovery without overwriting newer data.
 
-Phase exit: [ ] Desktop quick capture is reliable and interruptible; browser limitations are explicit.
+Phase exit: [x] Desktop quick capture is reliable and interruptible; browser limitations are explicit. [Usage and limits](quick-capture.md), [native workflow](../release/capture-webview-test-1ad99aab2f3c4b26b5102a37f9fa17fe/capture.json), [shortcut conflict](../release/capture-conflict-test-2dd24b23d20f40fc8aefc431c91553df/capture-conflict.json), [release audit](../release/build-1.3.16-20261004-213510/verification.json).
 
 ## Definition of Done for each delivered change
 
@@ -181,7 +184,7 @@ Phase exit: [ ] Desktop quick capture is reliable and interruptible; browser lim
 - [ ] Preserve editor focus/selection, scrolling, Reference read-only behavior, autosave, recovery, and truthful error feedback.
 - [ ] Follow [AGENTS.md](../AGENTS.md): current theme tokens, Windows controls, restrained materials, keyboard access, and reduced-motion/transparency support. Use its A–F review format only for substantial UI/motion changes.
 - [ ] Validate light/dark/System appearance, narrow/wide windows, Focus, and maximized geometry for affected UI.
-- [ ] Run `npm run build` for frontend changes. Inspect available tests and run relevant behavioral tests; add tests for persistence/migration and other meaningful new risks. Run Rust checks for backend changes.
+- [ ] Run `npm run build` for frontend changes. Use targeted behavioral checks only when needed for a changed persistence/migration boundary, uncertain behavior, or a known failure. Avoid broad reruns once relevant evidence is sufficient; record any untested behavior. Run appropriate Rust checks for backend changes.
 - [ ] Test the browser and native WebView2 where available; explicitly record untested native behavior.
 - [ ] Update user-facing documentation, migration notes, backup compatibility, and this checklist. Documentation-only updates require content review, not an app build.
 
@@ -189,14 +192,31 @@ Phase exit: [ ] Desktop quick capture is reliable and interruptible; browser lim
 
 | Date | Item | Status / decision | Impact |
 | --- | --- | --- | --- |
-| 2026-10-04 | Larger capacity | Pending measurement; no new cap selected | Phase 1 must determine supported limits before expanding storage |
-| 2026-10-04 | History and backup retention | Proposed bounded retention; exact budgets pending | Phase 2 must define cleanup and disk use |
-| 2026-10-04 | Trash expiry | Proposed manual emptying initially | Automatic permanent deletion is outside the initial proposal |
+| 2026-10-04 | Larger capacity | Overall quota removed; per-item saves and bounded original-file viewing implemented | Further lazy body loading/profiling remains; no unlimited-performance claim |
+| 2026-10-04 | History and backup retention | History: 20/item, 30 days, shared 64 MiB; five-minute automatic checkpoints. Backups: seven ordinary plus three safety copies | Separate from live storage; backup history exclusion is visible |
+| 2026-10-04 | Trash expiry | Manual permanent deletion only, with confirmation | Trash uses storage; original cleanup stays conservative |
+| 2026-10-04 | Template compatibility | Separate template item records require Scribly 1.3.14 or newer; folder defaults prefer templates over Copy last note | Backups retain template assets and remap imported links; do not downgrade template-containing notebooks |
 
 ## Delivery log
 
 | Date | Phase / task IDs | Result | Release / commit | Validation evidence |
 | --- | --- | --- | --- | --- |
 | 2026-10-04 | Phase 0 | Source review and roadmap complete; enhancements remain unimplemented | Baseline 1.3.11 | Source links above; no runtime verification |
+| 2026-10-04 | CAP-02, CAP-04, CAP-05, CAP-07, CAP-08 | Overall quota removed; per-item saves, Unicode-safe original-file sections, original-inclusive backups, and durable browser recovery implemented. CAP-01/03/06 remain open. | Source 1.3.12; no installer published | Frontend build passed; 69 relevant browser tests passed; Rust format/lint, 20 unit tests and 2 isolated PostgreSQL tests passed. Native 24 MiB XML original hash, annotation save/reload, and section navigation passed; details below. |
+| 2026-10-04 | Phase 2: BACKUP-01–05, HISTORY-01–05, TRASH-01–05; CAP-06 | Opt-in daily backups, safe merge/replace preview, bounded durable history, reversible Trash, and history/recovery-aware image retention implemented. CAP-01/03 and original cleanup remain follow-ups. | Source 1.3.12; no installer published | Frontend build passed; 24 menu/drag/deletion checks and 54 protection/storage/image/recovery regressions passed. Updated history, board, and fresh-browser fidelity checks passed; final production protection/deletion UI: 12 passed, 4 source-harness/fault-injection checks intentionally skipped. Rust format/lint, 32 unit checks and 3 isolated PostgreSQL integrations passed. Windows webview backup/history/Trash workflow passed. [Evidence and limitations](protection-and-recovery.md). |
+| 2026-10-04 | Phase 3: SEARCH-01–04, NAV-01–03 | Find/replace with Unicode options and Undo, notebook excerpts/match navigation, board text/frame reveal, pins and ten recent items implemented. Original contents remain immutable and excluded from Find/Replace. | [Local 1.3.13 Windows installer](../release/Scribly_1.3.13_x64-setup.exe); not published | Final production: 20 passed, four development-only checks skipped after passing in development. Development retrieval/drag/recovery and Archive/menu/Focus regressions passed. Rust format/lint, 33 units and three isolated PostgreSQL integrations passed. Optimized WebView2 retrieval and protection workflows passed after correcting recent-ID delta validation. [Verification](../tests/verification.md), [release audit](../release/build-1.3.13-20261004-165806/verification.json). |
+| 2026-10-04 | Phase 4: LINK-01–04, TPL-01–04 | Stable note/board links, derived backlinks, independent templates, checklist/title/date options, folder defaults and backup ID remapping implemented without an overall storage quota. | [Local 1.3.14 Windows installer](../release/Scribly_1.3.14_x64-setup.exe); not installed or published | Frontend/optimized native build and NSIS passed. Browser broad run: 69 passed, four failures resolved in targeted follow-ups; no broad rerun. Rust format/lint, 34 units and four isolated PostgreSQL integrations passed. Optimized WebView2 verified Reference/backlinks, template reload, original/image retention after source purge, and backup/import remapping. [Verification and limits](../tests/verification.md), [release audit](../release/build-1.3.14-20261004-182752/verification.json). |
+| 2026-10-04 | Phase 5: EXPORT-01–05 | Frozen-draft note/folder Markdown ZIP, standalone HTML and print/PDF handoff; safe filenames, image deduplication, batch links and explicit fidelity losses. Per-export limits preserve uncapped notebook storage. | [Local 1.3.15 Windows installer](../release/Scribly_1.3.15_x64-setup.exe); not installed or published | Frontend/optimized native build and NSIS passed. Five focused browser checks passed; only two affected checks repeated after material fixes. Optimized WebView2 verified native images, output formatting, actual HTML Save with matching hash, print preview/cancellation and unchanged notebook state. No unnecessary Rust/broad regression reruns. ZIP Save dialog and native PDF saving remain unexercised. [Verification](../tests/verification.md), [release audit](../release/build-1.3.15-20261004-190839/verification.json). |
+| 2026-10-04 | Phase 6: CAPTURE-01–05 | Opt-in Windows shortcut, one reusable capture window, retained draft and single pending capture, acknowledged Inbox save, Open after save, and browser fallback implemented. CAP-01/03 remain open. | [Local 1.3.16 Windows installer](../release/Scribly_1.3.16_x64-setup.exe); not installed or published | Four focused browser checks passed together (32.1s). Optimized WebView2 passed Explorer Ctrl+Alt+N focus, repeated opening, capability isolation, main/Reference preservation, Unicode escaping, three close paths, Open after acknowledgment, real workspace-IPC save failure/retry, restart idempotence/recovery, shutdown draft drain and preference registration. Two isolated apps verified genuine shortcut conflict and release/reregistration. Two scoped Rust tests, format and Clippy passed; no full-suite rerun. Frontend/native/NSIS generated successfully; outer wrapper exit 1 misclassified informational stderr after artifact completion. [Verification and limits](quick-capture.md), [release audit](../release/build-1.3.16-20261004-213510/verification.json). |
+
+Native sample: `scripts/test-native-large-files.ps1` uses an isolated profile and the development executable, preserving the installed notebook. A 25,160,014-byte XML import took 17,670 ms; next-section viewing took 133 ms. The view contained 53,971 characters and saved HTML only 187 characters before annotations. Exact source SHA-256 matched and annotation changes survived reload. Evidence: [native report](../release/large-files-webview-test-4b9fc34e97864c848dafb03e55b7fc5a/large-files.json) and [WebView2 screenshot](../release/large-files-webview-test-4b9fc34e97864c848dafb03e55b7fc5a/large-source-webview.png). This is one development sample, not a sustained frame-rate, RAM, full-file editing, or native save-dialog benchmark.
+
+Native export copying is covered by Rust integrity/atomic-replacement tests. Phase 5 later verified the interactive HTML Save dialog and matching filesystem output; other interactive backup/save dialogs remain untested. Additional large image/board libraries, startup/body hydration, and sustained typing/RAM profiling remain CAP-03 work. Original cleanup remains conservative; Phase 2 has now defined history/Trash retention, and a future original-cleanup pass must honor it.
+
+Final follow-up: the production preview passed the 24 MiB XML workflow and Settings `.scribly` export/import/download round trip (2 UI tests; 4 source-module harness tests intentionally skipped there). After recovery promotion, localStorage copies are reclaimed only after the IndexedDB commit; the final large-file/recovery suite passed 21 tests, including this cleanup check. `npm run build` passed again. Existing bundle-size warnings remain. Missing local dependency packages/shims were restored from the declared dependencies; no package versions were changed for this feature.
+
+Local release packaging (2026-10-04): [Scribly 1.3.12 Windows x64 installer](../release/Scribly_1.3.12_x64-setup.exe) built successfully (60,912,728 bytes). Optimized release WebView2 checks passed history/reload/restore, Trash, original-inclusive backup and safety-copy replacement, plus a 25,160,014-byte XML import with exact source integrity, bounded viewing, 78 ms section navigation and annotation reload. Source/config/script and generated frontend hashes remained unchanged during packaging. [Release verification](../release/build-1.3.12-20261004-160539/verification.json) records checksums, reports and limitations. The installer was not installed or published; CAP-01/03 remain open.
 
 Future entries should state what shipped, remaining limitations, and the checks performed. Cloud sync, collaboration, tags, and AI features are outside this roadmap; revisit them after the core notebook workflows are dependable.
+
+Phase 6 local package: 61,072,480 bytes; SHA-256 `772617A939F206E5E3C3D76D28B0E2ECE854F48E0421882D477ACD33993222E9`. Final 158 input hashes and 12,504 generated asset hashes stayed unchanged, apart from two documented diagnostic shutdown-script amendments. Packaging produced the complete installer despite the outer PowerShell wrapper reporting exit 1; the audit preserves that discrepancy, and no rebuild was performed. Native RAM/frame performance, full-drive behavior and power-loss resilience were not measured.

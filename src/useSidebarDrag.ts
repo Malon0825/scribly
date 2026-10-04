@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 import { applySidebarDrop, type SidebarDrop, type SidebarItem } from "./sidebarOrder";
-import type { Workspace } from "./types";
+import { isLiveItem, type Workspace } from "./types";
 
 const MIME = "application/x-still-notes-sidebar";
 const sameDrop = (a: SidebarDrop | null, b: SidebarDrop | null) =>
@@ -69,7 +69,7 @@ export function useSidebarDrag({ workspace, update, reveal, announce, begin }: {
     event.preventDefault();
     event.stopPropagation();
     const note = workspace.notes.find((n) => n.id === item.id);
-    if (item.kind === "note" && (!note || note.archived)) return;
+    if (item.kind === "note" && (!note || note.archived || note.deletedAt)) return;
     if (event.shiftKey && item.kind === "note") {
       const folders = [...workspace.folders.map((f) => f.id), null];
       const index = folders.indexOf(note!.folderId) + direction;
@@ -77,7 +77,7 @@ export function useSidebarDrag({ workspace, update, reveal, announce, begin }: {
         commit(item, { kind: "folder", id: folders[index] }, true);
     } else {
       const siblings = item.kind === "folder" ? workspace.folders
-        : workspace.notes.filter((n) => !n.archived && n.folderId === note!.folderId);
+        : workspace.notes.filter((n) => isLiveItem(n) && n.folderId === note!.folderId);
       const neighbor = siblings[siblings.findIndex((s) => s.id === item.id) + direction];
       if (neighbor) commit(item, {
         kind: item.kind === "folder" ? "folder-order" : "note-order",

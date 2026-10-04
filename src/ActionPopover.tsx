@@ -33,8 +33,18 @@ export function ActionPopover({ anchor, children, label, className, onClose, poi
       const target = event.target as HTMLElement;
       if (!popup.contains(target) && (point || !anchor.contains(target)) && !target.closest('[data-notify-select-content]')) close.current();
     };
+    // A trigger may have just scrolled into view. Its queued scroll event can
+    // arrive after this listener mounts; only dismiss for a new displacement.
+    const scrollPositions = new Map<EventTarget, { top: number; left: number }>();
+    for (let element: HTMLElement | null = anchor; element; element = element.parentElement)
+      scrollPositions.set(element, { top: element.scrollTop, left: element.scrollLeft });
+    scrollPositions.set(document, { top: window.scrollY, left: window.scrollX });
     const scroll = (event: Event) => {
       const target = event.target as HTMLElement;
+      const position = event.target === document
+        ? { top: window.scrollY, left: window.scrollX } : { top: target.scrollTop, left: target.scrollLeft };
+      const previous = scrollPositions.get(target);
+      if (previous && previous.top === position.top && previous.left === position.left) return;
       if (!popup.contains(target) && !target.closest?.('[data-notify-select-content]')) close.current();
     };
     document.addEventListener("pointerdown", outside);

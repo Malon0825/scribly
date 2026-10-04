@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { QuickCaptureWindow } from "./QuickCaptureWindow";
 import "@fontsource/roboto/latin-300.css";
 import "@fontsource/roboto/latin-300-italic.css";
 import "@fontsource/roboto/latin-400.css";
@@ -22,6 +23,6 @@ import "./styles.css";
 Object.assign(window, { EXCALIDRAW_ASSET_PATH: "/excalidraw/" });
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    {new URLSearchParams(window.location.search).get("capture") === "1" ? <QuickCaptureWindow /> : <App />}
   </React.StrictMode>,
 );

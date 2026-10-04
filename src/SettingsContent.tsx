@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Check } from '@phosphor-icons/react';
 import { AnimatedIcon } from './AnimatedIcon';
 import { AppearanceSettings } from './AppearanceSettings';
@@ -15,7 +15,8 @@ const sections: { id: SettingsSection; label: string }[] = [
   { id: 'backup', label: 'Backup & restore' }, { id: 'about', label: 'About' },
 ];
 export function SettingsContent({ theme, appearance, backup, backupBusy, importing, dataPath,
-  initialSection = 'appearance', onTheme, onAppearance, onExport, onImport, onUpdates, onShortcuts, onDone }: {
+  initialSection = 'appearance', startupExtras, appearanceExtras, backupExtras, onTheme, onAppearance, onExport, onImport, onUpdates, onShortcuts, onDone }: {
+  startupExtras?: ReactNode; appearanceExtras?: ReactNode; backupExtras?: ReactNode;
   theme: Workspace['theme']; appearance: Appearance; backup: BackupRecord | null;
   backupBusy: boolean; importing: boolean; dataPath: string; initialSection?: SettingsSection;
   onTheme: (value: Workspace['theme']) => void; onAppearance: (value: Appearance) => void;
@@ -48,9 +49,11 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
           </button>)}
         </div>
         <AppearanceSettings value={appearance} onChange={onAppearance} />
+        {appearanceExtras}
       </section>
       <section className="settings-page" role="tabpanel" id="settings-page-startup" aria-labelledby="settings-tab-startup" hidden={section !== 'startup'}>
         <StartupSettings />
+        {startupExtras}
       </section>
       <section className="settings-page" role="tabpanel" id="settings-page-backup" aria-labelledby="settings-tab-backup" hidden={section !== 'backup'}>
         <h3>Keep a separate copy</h3>
@@ -63,6 +66,7 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
           <button className="primary" disabled={backupBusy} onClick={onExport}><AnimatedIcon kind="download" size={20} />{backupBusy ? 'Exporting backup…' : 'Export notebook backup'}</button>
           <button disabled={importing} onClick={onImport}><AnimatedIcon kind="upload" size={20} />Import notes & backup</button>
         </div>
+        {backupExtras}
       </section>
       <section className="settings-page" role="tabpanel" id="settings-page-about" aria-labelledby="settings-tab-about" hidden={section !== 'about'}>
         <h3>Scribly <span className="about-version">{version}</span></h3>

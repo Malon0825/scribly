@@ -82,7 +82,7 @@ test("dropping files into the document uses its folder; Unfiled uses its own exp
   await fileDrop(page, ".document-panel", [{ name: "helper.py", mimeType: "text/plain", buffer: Buffer.from("def hello():\n    return '<hello>'\n") }]);
   await expect(page.getByRole("textbox", { name: "Note title", exact: true })).toHaveValue("helper");
   await expect.poll(async () => (await saved(page)).notes.find((n) => n.title === "helper")?.folderId).toBe("work");
-  await fileDrop(page, '[data-file-folder=""]', [{ name: "loose.txt", mimeType: "text/plain", buffer: Buffer.from("Loose content") }]);
+  await page.getByRole("button", { name: "Notebook navigation", exact: true }).click(); await fileDrop(page, '.notebook-menu [data-file-folder=""]', [{ name: "loose.txt", mimeType: "text/plain", buffer: Buffer.from("Loose content") }]);
   await expect(page.getByRole("textbox", { name: "Note title", exact: true })).toHaveValue("loose");
   await expect.poll(async () => (await saved(page)).notes.find((n) => n.title === "loose")?.folderId).toBeNull();
 });
@@ -160,11 +160,11 @@ test("a file drop outside the app prevents navigation and leaves the notebook un
   expect((await saved(page)).notes).toEqual(fixture.notes);
 });
 
-test("size and batch limits are reported; UTF-16 text imports correctly", async ({ page }) => {
+test("binary large files and batch limits are reported; UTF-16 text imports correctly", async ({ page }) => {
   await open(page);
   await input(page).setInputFiles({ name: "huge.txt", mimeType: "text/plain", buffer: Buffer.alloc(20 * 1024 * 1024 + 1) });
   const results = page.getByRole("dialog", { name: "Import results" });
-  await expect(results).toContainText("huge.txt: File exceeds 20 MB");
+  await expect(results).toContainText("huge.txt: This file is not readable UTF-8 or UTF-16 text");
   expect((await saved(page)).notes).toEqual(fixture.notes);
   await results.getByRole("button", { name: "Close dialog", exact: true }).click();
   await input(page).setInputFiles({ name: "windows.txt", mimeType: "text/plain", buffer: Buffer.concat([Buffer.from([255, 254]), Buffer.from("Windows 日本語", "utf16le")]) });
@@ -175,10 +175,9 @@ test("size and batch limits are reported; UTF-16 text imports correctly", async 
   await expect.poll(async () => (await saved(page)).notes.length).toBe(28);
 });
 
-test("a nearly full native-size notebook rejects an import before changing any notes", async ({ page }) => {
+test("a notebook near the former total limit accepts another import", async ({ page }) => {
   test.skip(process.env.PLAYWRIGHT_PREVIEW === "1", "Requires interception of the Vite source storage module.");
-  // Browser storage quotas are lower than native PostgreSQL's limit. Model the
-  // native storage boundary while exercising the real UI and import pipeline.
+  // Model a large desktop notebook without putting its fixture in localStorage.
   await page.addInitScript((fixture) => {
     const document = { ...fixture, referenceId: null, notes: [...fixture.notes,
       { ...fixture.notes[0], id: "big", title: "Large inactive note", content: "" }] };
@@ -196,7 +195,7 @@ test("a nearly full native-size notebook rejects an import before changing any n
   await page.goto("/");
   await expect(page.getByRole("textbox", { name: "Note title", exact: true })).toHaveValue("Little ideas");
   await input(page).setInputFiles({ name: "over-limit.txt", mimeType: "text/plain", buffer: Buffer.from("This note exceeds capacity. ".repeat(100)) });
-  await expect(page.getByRole("dialog", { name: "Import results" })).toContainText("notebook's 20 MB save limit");
-  expect(await page.evaluate(() => (window as any).nativeTestDocument.notes.length)).toBe(3);
-  await expect(page.getByRole("textbox", { name: "Note title", exact: true })).toHaveValue("Little ideas");
+  await expect(page.getByRole("textbox", { name: "Note title", exact: true })).toHaveValue("over-limit");
+  await expect.poll(() => page.evaluate(() => (window as any).nativeTestDocument.notes.length)).toBe(4);
+  await expect(page.getByRole("dialog", { name: "Import results" })).toHaveCount(0);
 });

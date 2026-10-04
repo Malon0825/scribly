@@ -10,15 +10,16 @@ import { AppSelect } from "./AppSelect";
 import { ActionPopover } from "./ActionPopover";
 import { Dialog } from "./Dialog";
 import { BoardBoundary } from "./BoardBoundary";
-import { architectureTag, activeBoardFiles, portableBoard, validateBoard, MAX_BOARD_ELEMENTS, MAX_WORKSPACE_BYTES, type BoardData, type ArchitectureRole } from "./boardData";
+import { architectureTag, activeBoardFiles, portableBoard, validateBoard, MAX_BOARD_ELEMENTS, type BoardData, type ArchitectureRole } from "./boardData";
 import { BrandLogoPicker } from "./BrandLogoPicker";
 import { renderBrandLogo, type BrandLogo } from "./brandLogos";
-import { workspaceBytes } from "./workspaceSize";
-import { isBoard, type Workspace } from "./types";
+import type { Workspace } from "./types";
 import { boardToMermaid, elementLabel, isNodeShape, canAssignBoundary, type MermaidConversion } from "./boardMermaid";
 import { renderMermaid } from "./boardMermaidRuntime";
 import { exportArtifact } from "./storage";
 import { readImage } from "./imageFiles";
+import { itemHref, itemIdFromHref } from "./itemLinks";
+import type { Note } from "./types";
 import "@excalidraw/excalidraw/index.css";
 import "./board.css";
 
@@ -26,11 +27,16 @@ export type BoardEditorProps = {
   id: string; title: string; board: BoardData; dark: boolean; readOnly: boolean;
   focusMode?: boolean;
   controlsHost?: HTMLElement | null;
+  searchTarget?: { elementId: string; serial: number };
   checkpoint: () => Workspace | null;
   registerDraft: (id: string, reader: (force?: boolean) => BoardData | null) => () => void;
   onDirty: () => void;
   onCreateBoard: (mode: "import" | "template") => void;
   onShowTools: () => void;
+  onLinkRequest?: (insert: (note: Note) => void, cancel: () => void) => void;
+  onLinkReady?: (request: () => void) => void;
+  onItemLink?: (id: string, reference: boolean) => void;
+  onExternalLink?: (href: string) => void;
 };
 const filename = (title: string) => title.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 100) || "Board";
 const fileSignatures = new WeakMap<object, { dataURL: string; hash: number }>();
@@ -44,9 +50,46 @@ const fileSignature = (file: BinaryFiles[string]) => {
 const fingerprint = (elements: readonly ExcalidrawElement[], state: BoardData["appState"], files: BinaryFiles) =>
   `${elements.map((e) => `${e.id}:${e.version}:${e.versionNonce}:${e.isDeleted}:${e.index}`).join("|")}/${state.viewBackgroundColor}/${state.gridSize}/${Object.keys(files).sort().map((id) => `${id}:${fileSignature(files[id])}`).join("|")}`;
 
-export default function BoardEditor({ id, title, board, dark, readOnly, focusMode = false, controlsHost, checkpoint, registerDraft, onDirty, onCreateBoard, onShowTools }: BoardEditorProps) {
+export default function BoardEditor({ id, title, board, dark, readOnly, focusMode = false, controlsHost, searchTarget, checkpoint, registerDraft, onDirty, onCreateBoard, onShowTools, onLinkRequest, onLinkReady, onItemLink, onExternalLink }: BoardEditorProps) {
   const initial = useRef(board), live = useRef(board);
   const api = useRef<ExcalidrawImperativeAPI | null>(null);
+  const [engine, setEngine] = useState<ExcalidrawImperativeAPI | null>(null);
+  const linkHandlers = useRef({ onLinkRequest,onLinkReady,readOnly }); linkHandlers.current = { onLinkRequest,onLinkReady,readOnly };
+  function requestItemLink() {
+    const instance = api.current; if (!instance || linkHandlers.current.readOnly) return;
+    const selected = new Set(Object.keys(instance.getAppState().selectedElementIds));
+    linkHandlers.current.onLinkRequest?.(note => {
+      if (api.current !== instance || linkHandlers.current.readOnly) return;
+      let elements = instance.getSceneElements();
+      const matches = elements.filter(element => selected.has(element.id) && !element.isDeleted);
+      if (matches.length) elements = elements.map(element => selected.has(element.id) && !element.isDeleted ? newElementWith(element,{ link:itemHref(note.id) }) : element);
+      else {
+        const state = instance.getAppState();
+        const point = viewportCoordsToSceneCoords({ clientX:state.offsetLeft + state.width/2,clientY:state.offsetTop + state.height/2 },state);
+        const added = convertToExcalidrawElements([{ type:"text",x:point.x,y:point.y,text:note.title || "Untitled",fontSize:20 }]).map(element => newElementWith(element,{ link:itemHref(note.id) }));
+        elements = [...elements,...added];
+      }
+      instance.updateScene({ elements,captureUpdate:CaptureUpdateAction.IMMEDIATELY });
+      setMessage("Item link added. Use its canvas link control to open the target.");
+    },() => {});
+  }
+  useEffect(() => { linkHandlers.current.onLinkReady?.(requestItemLink); return () => linkHandlers.current.onLinkReady?.(() => {}); }, [engine]);
+  const revealedSearch = useRef<number | null>(null), searchFrame = useRef<number | undefined>(undefined);
+  function revealSearch(engine: ExcalidrawImperativeAPI, elements: readonly ExcalidrawElement[] = engine.getSceneElements()) {
+    if (!searchTarget || revealedSearch.current === searchTarget.serial) return;
+    const target = elements.find(element => element.id === searchTarget.elementId && !element.isDeleted);
+    if (!target) return;
+    revealedSearch.current = searchTarget.serial;
+    const id = target.type === "text" && target.containerId ? target.containerId : target.id;
+    const element = engine.getSceneElements().find(entry => entry.id === id) || target;
+    engine.updateScene({ appState: { selectedElementIds: { [element.id]: true } }, captureUpdate: CaptureUpdateAction.NEVER });
+    engine.scrollToContent([element], { animate: false });
+    setMessage(`Matched ${target.type === "frame" ? "frame" : "text"}: ${(target.type === "text" ? target.text : target.type === "frame" ? target.name || "" : "").slice(0, 100)}`);
+  }
+  useEffect(() => {
+    if (engine) revealSearch(engine);
+  }, [engine, searchTarget?.serial]);
+  useEffect(() => () => { if (searchFrame.current !== undefined) cancelAnimationFrame(searchFrame.current); }, []);
   const canvasOwner = useRef<HTMLElement | null>(null);
   const insertTrigger = useRef<HTMLButtonElement | null>(null);
   const exportTrigger = useRef<HTMLButtonElement | null>(null), codeField = useRef<HTMLTextAreaElement | null>(null), copyButton = useRef<HTMLButtonElement | null>(null);
@@ -143,6 +186,11 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
   };
   const capture = (elements: readonly ExcalidrawElement[], state: AppState, files: BinaryFiles) => {
     setSnap(state.objectsSnapModeEnabled);
+    if (api.current && searchTarget && revealedSearch.current !== searchTarget.serial) {
+      if (searchFrame.current !== undefined) cancelAnimationFrame(searchFrame.current);
+      const currentEngine = api.current;
+      searchFrame.current = requestAnimationFrame(() => { if (api.current === currentEngine) revealSearch(currentEngine, elements); });
+    }
     const selected = Object.keys(state.selectedElementIds).filter((key) => state.selectedElementIds[key]);
     const key = selected.join("|");
     if (key !== selectionKey.current) { selectionKey.current = key; setSelection(selected); }
@@ -238,7 +286,7 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
     const candidate = { ...live.current, elements: [...current, ...elements], files: { ...activeBoardFiles(current, engine.getFiles()), [fileId]: file } };
     validateBoard(candidate);
     const workspace = checkpoint();
-    if (!workspace || workspaceBytes({ ...workspace, notes: workspace.notes.map(note => note.id === id && isBoard(note) ? { ...note, board: candidate } : note) }) > MAX_WORKSPACE_BYTES) throw Error("The notebook has reached its 20 MB limit. Remove a large image before inserting this logo.");
+    if (!workspace) throw Error("Open the notebook before inserting a logo.");
     signal.throwIfAborted();
     // Preflight first, then one immediate scene transaction for Undo/autosave.
     engine.addFiles([file]);
@@ -293,7 +341,8 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
       pointers.current.add(e.pointerId); clearTimeout(timer.current);
     }} onKeyDown={(e) => { if (e.key === "Escape") e.stopPropagation(); }}>
       <BoardBoundary board={board} recovery={() => live.current}>
-      <Excalidraw name={title} theme={dark ? "dark" : "light"} initialData={initialData} excalidrawAPI={(value) => { api.current = value; }} handleKeyboardGlobally={false} viewModeEnabled={readOnly} aiEnabled={false} validateEmbeddable={false}
+      <Excalidraw name={title} theme={dark ? "dark" : "light"} initialData={initialData} excalidrawAPI={(value) => { api.current = value; setEngine(value); }} handleKeyboardGlobally={false} viewModeEnabled={readOnly} aiEnabled={false} validateEmbeddable={false}
+        onLinkOpen={(element,event) => { event.preventDefault(); const target = itemIdFromHref(element.link); if (target) onItemLink?.(target,event.detail.nativeEvent.altKey); else if (element.link) onExternalLink?.(element.link); }}
         onChange={capture} onDuplicate={duplicate}
         generateIdForFile={async (file) => { await readImage(file); return crypto.randomUUID(); }}
         onPaste={async (_data, event) => { for (const file of Array.from(event?.clipboardData?.files || [])) { try { await readImage(file); } catch (e) { setError(String(e)); return false; } } return true; }}
@@ -303,6 +352,7 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
     {commandMenu && <ActionPopover anchor={commandMenu === "insert" ? insertTrigger.current : exportTrigger.current} label={commandMenu === "insert" ? "Insert into board" : "Export this board"} className="board-command-menu" onClose={() => setCommandMenu(null)}>
       {commandMenu === "insert" ? <>
         <button onClick={() => { setCommandMenu(null); setBrandPicker(true); }}><AnimatedIcon kind="search" size={18} />Brand logos</button>
+        {onLinkRequest && <button onClick={() => { setCommandMenu(null); requestItemLink(); }} title="Link selected shapes, or add a linked label (Ctrl+L)">Link to item</button>}
         <button onClick={() => { setCommandMenu(null); onCreateBoard("template"); }}><AnimatedIcon kind="board" size={18} />Templates…</button>
         <button onClick={() => { setCommandMenu(null); onCreateBoard("import"); }}><AnimatedIcon kind="code" size={18} />Import Mermaid…</button>
         <button onClick={() => { setCommandMenu(null); onShowTools(); api.current?.toggleSidebar({ name: "library", force: true }); }}><AnimatedIcon kind="reference" size={18} />Shape library</button>

@@ -285,13 +285,78 @@ impl Database {
             server,
         };
         db.client.batch_execute("CREATE TABLE IF NOT EXISTS still_workspace (id SMALLINT PRIMARY KEY CHECK(id=1), revision BIGINT NOT NULL DEFAULT 0, document JSONB, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()); INSERT INTO still_workspace(id) VALUES(1) ON CONFLICT(id) DO NOTHING;").map_err(database_error)?;
+        db.client.batch_execute("ALTER TABLE still_workspace ADD COLUMN IF NOT EXISTS item_order TEXT[]; CREATE TABLE IF NOT EXISTS still_notes (id TEXT PRIMARY KEY, document JSONB NOT NULL);").map_err(database_error)?;
+        db.migrate_items()?;
+        db.client.batch_execute("CREATE TABLE IF NOT EXISTS still_history (id TEXT PRIMARY KEY,item_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),document JSONB NOT NULL,bytes BIGINT NOT NULL); CREATE INDEX IF NOT EXISTS still_history_item_time ON still_history(item_id,created_at DESC);").map_err(database_error)?;
         Ok(db)
     }
-    pub(crate) fn load(&mut self) -> Result<Value, String> {
-        let row = self
-            .client
+    fn migrate_items(&mut self) -> Result<(), String> {
+        let mut transaction = self.client.transaction().map_err(database_error)?;
+        let row = transaction
             .query_one(
-                "SELECT revision,document FROM still_workspace WHERE id=1",
+                "SELECT document,item_order FROM still_workspace WHERE id=1 FOR UPDATE",
+                &[],
+            )
+            .map_err(database_error)?;
+        let order: Option<Vec<String>> = row.try_get(1).map_err(|e| e.to_string())?;
+        if order.is_some() {
+            return Ok(());
+        }
+        let document: Option<Value> = row.try_get(0).map_err(|e| e.to_string())?;
+        if let Some(mut document) = document {
+            validate_workspace(&document)?;
+            attachments::validate(&self.root, &document)?;
+            crate::sources::validate(&self.root, &document)?;
+            let notes = document["notes"].take();
+            let mut order = Vec::new();
+            for note in notes.as_array().ok_or("Invalid legacy notebook")? {
+                let id = note["id"].as_str().ok_or("Invalid legacy item ID")?;
+                transaction.execute("INSERT INTO still_notes(id,document) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET document=EXCLUDED.document", &[&id, &note]).map_err(database_error)?;
+                order.push(id.to_owned());
+            }
+            document["notes"] = json!([]);
+            // Older binaries must reject this format instead of interpreting
+            // the metadata-only row as an empty notebook and overwriting it.
+            document["schemaVersion"] = json!(5);
+            transaction
+                .execute(
+                    "UPDATE still_workspace SET document=$1,item_order=$2 WHERE id=1",
+                    &[&document, &order],
+                )
+                .map_err(database_error)?;
+        } else {
+            transaction
+                .execute(
+                    "UPDATE still_workspace SET item_order=ARRAY[]::TEXT[] WHERE id=1",
+                    &[],
+                )
+                .map_err(database_error)?;
+        }
+        transaction.commit().map_err(database_error)
+    }
+    /// Confirm a capture against its indexed durable row without loading the notebook.
+    pub(crate) fn capture_matches(
+        &mut self,
+        id: &str,
+        title: &str,
+        body: &str,
+    ) -> Result<bool, String> {
+        self.client.query_one(
+            "SELECT EXISTS (SELECT 1 FROM still_notes WHERE id=$1 AND document->>'title'=$2 AND document->>'content'=$3 AND coalesce(document->>'kind','note')='note')",
+            &[&id, &title, &body],
+        ).map_err(database_error)?.try_get(0).map_err(|e| e.to_string())
+    }
+    pub(crate) fn load(&mut self) -> Result<Value, String> {
+        let mut transaction = self
+            .client
+            .build_transaction()
+            .isolation_level(postgres::IsolationLevel::RepeatableRead)
+            .read_only(true)
+            .start()
+            .map_err(database_error)?;
+        let row = transaction
+            .query_one(
+                "SELECT revision,document,item_order FROM still_workspace WHERE id=1",
                 &[],
             )
             .map_err(database_error)?;
@@ -299,38 +364,215 @@ impl Database {
         if !(0..=MAX_REVISION).contains(&revision) {
             return Err("Invalid saved notebook revision. Preserve the data folder.".into());
         }
-        let document: Option<Value> = row.try_get(1).map_err(|e| e.to_string())?;
+        let mut document: Option<Value> = row.try_get(1).map_err(|e| e.to_string())?;
+        if let Some(document) = &mut document {
+            let order: Vec<String> = row.try_get(2).map_err(|e| e.to_string())?;
+            let rows = transaction.query("SELECT n.document FROM unnest($1::TEXT[]) WITH ORDINALITY AS o(id,position) LEFT JOIN still_notes n ON n.id=o.id ORDER BY o.position", &[&order]).map_err(database_error)?;
+            let notes: Result<Vec<Value>, String> = rows
+                .into_iter()
+                .map(|row| {
+                    row.try_get::<_, Option<Value>>(0)
+                        .map_err(|e| e.to_string())?
+                        .ok_or("A saved notebook item is missing. Preserve the data folder.".into())
+                })
+                .collect();
+            document["notes"] = Value::Array(notes?);
+        }
+        transaction.commit().map_err(database_error)?;
         Ok(
             json!({"revision":revision,"document":document,"dataPath":self.root.to_string_lossy(),"attachments":attachments::list(&self.root)?}),
         )
     }
-    pub(crate) fn save(&mut self, document: Value, revision: i64) -> Result<i64, String> {
+    pub(crate) fn save(&mut self, mut document: Value, revision: i64) -> Result<i64, String> {
         validate_revision(revision)?;
-        let bytes = validate_workspace(&document)?;
-        attachments::validate(&self.root, &document, bytes)?;
-        let row=self.client.query_opt("UPDATE still_workspace SET document=$1,revision=revision+1,updated_at=now() WHERE id=1 AND revision=$2 RETURNING revision",&[&document,&revision]).map_err(database_error)?;
-        row.ok_or(CONFLICT)?.try_get(0).map_err(|e| e.to_string())
+        validate_workspace(&document)?;
+        attachments::validate(&self.root, &document)?;
+        crate::sources::validate(&self.root, &document)?;
+        let Value::Array(notes) = document["notes"].take() else {
+            return Err("Invalid notebook items".into());
+        };
+        document["notes"] = json!([]);
+        document["schemaVersion"] = json!(5);
+        let order: Vec<String> = notes
+            .iter()
+            .map(|note| note["id"].as_str().unwrap().to_owned())
+            .collect();
+        let mut transaction = self.client.transaction().map_err(database_error)?;
+        let row = transaction.query_opt("UPDATE still_workspace SET document=$1,item_order=$2,revision=revision+1,updated_at=now() WHERE id=1 AND revision=$3 RETURNING revision", &[&document, &order, &revision]).map_err(database_error)?.ok_or(CONFLICT)?;
+        let next = row.try_get(0).map_err(|e| e.to_string())?;
+        for row in transaction
+            .query("SELECT id,document FROM still_notes", &[])
+            .map_err(database_error)?
+        {
+            let id: String = row.get(0);
+            let previous: Value = row.get(1);
+            if let Some(after) = notes.iter().find(|note| note["id"] == id) {
+                if crate::history::body_changed(&previous, after) {
+                    crate::history::capture(&mut transaction, &previous, false)?;
+                }
+            } else {
+                transaction
+                    .execute("DELETE FROM still_history WHERE item_id=$1", &[&id])
+                    .map_err(database_error)?;
+            }
+        }
+        crate::history::retain(&mut transaction)?;
+        transaction
+            .execute("DELETE FROM still_notes WHERE NOT(id=ANY($1))", &[&order])
+            .map_err(database_error)?;
+        for note in notes {
+            let id = note["id"].as_str().unwrap();
+            transaction.execute("INSERT INTO still_notes(id,document) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET document=EXCLUDED.document", &[&id, &note]).map_err(database_error)?;
+        }
+        transaction.commit().map_err(database_error)?;
+        Ok(next)
     }
     pub(crate) fn save_delta(&mut self, delta: Value, revision: i64) -> Result<i64, String> {
         validate_revision(revision)?;
-        crate::json_size::measure(&delta, 20 * 1024 * 1024)
-            .map_err(|e| format!("Notebook update exceeds the 20 MB limit: {e}"))?;
-        let row = self
-            .client
+        let changed: std::collections::HashSet<String> = delta["changed"]
+            .as_array()
+            .ok_or("Invalid notebook update")?
+            .iter()
+            .map(|note| note["id"].as_str().unwrap_or("").to_owned())
+            .collect();
+        let mut transaction = self.client.transaction().map_err(database_error)?;
+        let row = transaction.query_opt("SELECT document,item_order FROM still_workspace WHERE id=1 AND revision=$1 FOR UPDATE", &[&revision]).map_err(database_error)?.ok_or(CONFLICT)?;
+        let mut before: Value = row
+            .try_get::<_, Option<Value>>(0)
+            .map_err(|e| e.to_string())?
+            .ok_or("Missing saved notebook")?;
+        // Read only IDs/folder references. Unchanged rich text and board data
+        // never cross the save path or get rewritten in PostgreSQL.
+        let rows = transaction
+            .query(
+                "SELECT id,document->>'folderId',document->>'kind' FROM still_notes",
+                &[],
+            )
+            .map_err(database_error)?;
+        let stubs: Result<Vec<Value>, String> = rows.iter().map(|row| Ok(json!({"id": row.try_get::<_, String>(0).map_err(|e| e.to_string())?, "folderId": row.try_get::<_, Option<String>>(1).map_err(|e| e.to_string())?, "kind":row.try_get::<_, Option<String>>(2).map_err(|e| e.to_string())?}))).collect();
+        before["notes"] = Value::Array(stubs?);
+        let mut after = workspace_delta::apply(before, delta)?;
+        let Value::Array(notes) = after["notes"].take() else {
+            return Err("Invalid notebook update".into());
+        };
+        let folder_ids: std::collections::HashSet<&str> = after["folders"]
+            .as_array()
+            .ok_or("Invalid notebook folders")?
+            .iter()
+            .filter_map(|folder| folder["id"].as_str())
+            .collect();
+        if notes.iter().any(|note| {
+            !note["folderId"].is_null()
+                && note["folderId"]
+                    .as_str()
+                    .is_none_or(|id| !folder_ids.contains(id))
+        }) {
+            return Err("A note refers to an invalid or missing folder".into());
+        }
+        let order: Vec<String> = notes
+            .iter()
+            .map(|note| note["id"].as_str().unwrap().to_owned())
+            .collect();
+        let template_ids: std::collections::HashSet<String> = notes
+            .iter()
+            .filter(|note| note["kind"] == "template")
+            .map(|note| note["id"].as_str().unwrap().to_owned())
+            .collect();
+        after["notes"] = Value::Array(
+            notes
+                .into_iter()
+                .filter(|note| changed.contains(note["id"].as_str().unwrap()))
+                .collect(),
+        );
+        crate::workspace::validate_workspace_delta(
+            &after,
+            &order.iter().map(String::as_str).collect(),
+            &template_ids.iter().map(String::as_str).collect(),
+        )?;
+        attachments::validate(&self.root, &after)?;
+        crate::sources::validate(&self.root, &after)?;
+        let Value::Array(notes) = after["notes"].take() else {
+            unreachable!();
+        };
+        after["notes"] = json!([]);
+        after["schemaVersion"] = json!(5);
+        transaction.execute("UPDATE still_workspace SET document=$1,item_order=$2,revision=revision+1,updated_at=now() WHERE id=1", &[&after, &order]).map_err(database_error)?;
+        for note in &notes {
+            let id = note["id"].as_str().unwrap();
+            if let Some(row) = transaction
+                .query_opt("SELECT document FROM still_notes WHERE id=$1", &[&id])
+                .map_err(database_error)?
+            {
+                let previous: Value = row.get(0);
+                if crate::history::body_changed(&previous, note) {
+                    crate::history::capture(&mut transaction, &previous, false)?;
+                }
+            }
+        }
+        transaction.execute("DELETE FROM still_history WHERE item_id IN (SELECT id FROM still_notes WHERE NOT(id=ANY($1)))", &[&order]).map_err(database_error)?;
+        crate::history::retain(&mut transaction)?;
+        transaction
+            .execute("DELETE FROM still_notes WHERE NOT(id=ANY($1))", &[&order])
+            .map_err(database_error)?;
+        for note in notes {
+            let id = note["id"].as_str().unwrap();
+            transaction.execute("INSERT INTO still_notes(id,document) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET document=EXCLUDED.document", &[&id, &note]).map_err(database_error)?;
+        }
+        transaction.commit().map_err(database_error)?;
+        Ok(revision + 1)
+    }
+    pub(crate) fn close(mut self) -> Result<(), String> {
+        self.server.close()
+    }
+    pub(crate) fn list_history(&mut self, item_id: &str) -> Result<Value, String> {
+        let rows = self.client.query("SELECT id,item_id,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'),document->>'title',coalesce(document->>'kind','note'),bytes FROM still_history WHERE item_id=$1 ORDER BY created_at DESC,id DESC", &[&item_id]).map_err(database_error)?;
+        Ok(Value::Array(
+            rows.iter().map(crate::history::entry).collect(),
+        ))
+    }
+    pub(crate) fn read_history(&mut self, id: &str) -> Result<Value, String> {
+        self.client
+            .query_opt("SELECT document FROM still_history WHERE id=$1", &[&id])
+            .map_err(database_error)?
+            .map(|row| row.get(0))
+            .ok_or("This version is no longer retained.".into())
+    }
+    pub(crate) fn checkpoint_history(
+        &mut self,
+        item_id: &str,
+        revision: i64,
+    ) -> Result<(), String> {
+        let mut transaction = self.client.transaction().map_err(database_error)?;
+        transaction
             .query_opt(
-                "SELECT document FROM still_workspace WHERE id=1 AND revision=$1",
+                "SELECT id FROM still_workspace WHERE id=1 AND revision=$1 FOR UPDATE",
                 &[&revision],
             )
             .map_err(database_error)?
             .ok_or(CONFLICT)?;
-        let before: Option<Value> = row.try_get(0).map_err(|e| e.to_string())?;
-        self.save(
-            workspace_delta::apply(before.ok_or("Missing saved notebook")?, delta)?,
-            revision,
-        )
+        let row = transaction
+            .query_opt("SELECT document FROM still_notes WHERE id=$1", &[&item_id])
+            .map_err(database_error)?
+            .ok_or("The item is no longer available")?;
+        crate::history::capture(&mut transaction, &row.get::<_, Value>(0), true)?;
+        crate::history::retain(&mut transaction)?;
+        transaction.commit().map_err(database_error)
     }
-    pub(crate) fn close(mut self) -> Result<(), String> {
-        self.server.close()
+    pub(crate) fn history_attachments(
+        &mut self,
+    ) -> Result<std::collections::HashSet<String>, String> {
+        let notes: Vec<Value> = self
+            .client
+            .query("SELECT document FROM still_history", &[])
+            .map_err(database_error)?
+            .iter()
+            .map(|row| row.get(0))
+            .collect();
+        Ok(
+            attachments::references(&json!({"schemaVersion":5,"notes":notes}))?
+                .into_iter()
+                .collect(),
+        )
     }
 }
 
@@ -346,14 +588,221 @@ mod tests {
         assert!(validate_revision(MAX_REVISION - 1).is_ok());
     }
     #[test]
+    #[ignore = "Starts bundled PostgreSQL in an isolated temporary profile"]
+    fn migrates_large_legacy_notebooks_and_delta_saves_do_not_rewrite_unchanged_items() {
+        let root = std::env::temp_dir().join(format!(
+            "scribly-large-notebook-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/postgres");
+        let mut db = Database::open(root.clone(), runtime.clone()).unwrap();
+        let template = json!({"id":"active","title":"Draft","content":"<p>Draft</p>","folderId":"work","createdAt":"now","updatedAt":"now","archived":false});
+        let mut notes = vec![template.clone()];
+        for index in 0..24 {
+            let mut note = template.clone();
+            note["id"] = json!(format!("large-{index}"));
+            note["content"] = json!("x".repeat(1024 * 1024));
+            notes.push(note);
+        }
+        let legacy = json!({"schemaVersion":3,"theme":"light","activeId":"active","referenceId":null,"folders":[{"id":"work","name":"Work"}],"notes":notes});
+        db.client
+            .execute(
+                "UPDATE still_workspace SET document=$1,item_order=NULL,revision=7 WHERE id=1",
+                &[&legacy],
+            )
+            .unwrap();
+        db.close().unwrap();
+        let mut db = Database::open(root.clone(), runtime).unwrap();
+        let mut migrated = legacy.clone();
+        migrated["schemaVersion"] = json!(5);
+        assert_eq!(db.load().unwrap()["document"], migrated);
+        let version: String = db
+            .client
+            .query_one("SELECT xmin::text FROM still_notes WHERE id='large-0'", &[])
+            .unwrap()
+            .get(0);
+        let mut changed = template;
+        changed["content"] = json!("<p>Small edit</p>");
+        let mut metadata = legacy.clone();
+        metadata.as_object_mut().unwrap().remove("notes");
+        let order: Vec<String> = legacy["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|note| note["id"].as_str().unwrap().to_owned())
+            .collect();
+        let delta = json!({"metadata":metadata,"order":order,"changed":[changed]});
+        assert_eq!(db.save_delta(delta.clone(), 7).unwrap(), 8);
+        assert!(db
+            .save_delta(delta.clone(), 7)
+            .unwrap_err()
+            .contains("changed elsewhere"));
+        let retained: String = db
+            .client
+            .query_one("SELECT xmin::text FROM still_notes WHERE id='large-0'", &[])
+            .unwrap()
+            .get(0);
+        assert_eq!(version, retained);
+        let loaded = db.load().unwrap();
+        assert_eq!(loaded["document"]["notes"].as_array().unwrap().len(), 25);
+        assert_eq!(
+            loaded["document"]["notes"][0]["content"],
+            "<p>Small edit</p>"
+        );
+        let mut invalid = delta;
+        invalid["metadata"]["folders"] = json!([]);
+        assert!(db.save_delta(invalid, 8).is_err());
+        assert_eq!(db.load().unwrap()["revision"], 8);
+        db.close().unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    #[ignore = "Starts bundled PostgreSQL in an isolated temporary profile"]
+    fn connected_template_deltas_preserve_bodies_images_and_references_after_restart() {
+        let root =
+            std::env::temp_dir().join(format!("scribly-connected-test-{}", uuid::Uuid::new_v4()));
+        let runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/postgres");
+        let mut db = Database::open(root.clone(), runtime.clone()).unwrap();
+        let image = attachments::store(&root, b"\x89PNG template image").unwrap();
+        let note = json!({"id":"n","title":"Source","content":format!("<p><a data-item-id=\"n\" href=\"#scribly-item/n\">Self</a></p><img data-notify-attachment=\"{}\">", image["id"].as_str().unwrap()),"folderId":"f","createdAt":"now","updatedAt":"now","archived":false});
+        let document = json!({"schemaVersion":5,"theme":"light","activeId":"n","referenceId":null,"folders":[{"id":"f","name":"Work","copyLastNote":true}],"notes":[note.clone()],"recentIds":["n"]});
+        assert_eq!(db.save(document.clone(), 0).unwrap(), 1);
+        let version: String = db
+            .client
+            .query_one("SELECT xmin::text FROM still_notes WHERE id='n'", &[])
+            .unwrap()
+            .get(0);
+        let mut template = note.clone();
+        template["id"] = json!("t");
+        template["kind"] = json!("template");
+        template["folderId"] = Value::Null;
+        template["template"] = json!({"titlePattern":"{{title}} {{date}}","resetChecklist":true});
+        let mut metadata = document.clone();
+        metadata.as_object_mut().unwrap().remove("notes");
+        metadata["folders"][0]["templateId"] = json!("t");
+        let delta = json!({"metadata":metadata,"order":["n","t"],"changed":[template.clone()]});
+        assert_eq!(db.save_delta(delta.clone(), 1).unwrap(), 2);
+        let retained: String = db
+            .client
+            .query_one("SELECT xmin::text FROM still_notes WHERE id='n'", &[])
+            .unwrap()
+            .get(0);
+        assert_eq!(version, retained);
+        let mut metadata_only = delta;
+        metadata_only["changed"] = json!([]);
+        metadata_only["metadata"]["theme"] = json!("dark");
+        assert_eq!(db.save_delta(metadata_only.clone(), 2).unwrap(), 3);
+        let mut invalid = metadata_only.clone();
+        invalid["order"] = json!(["n"]);
+        assert!(db.save_delta(invalid, 3).is_err());
+        assert_eq!(db.load().unwrap()["revision"], 3);
+        // Purging the source must retain the independently stored template image.
+        metadata_only["order"] = json!(["t"]);
+        metadata_only["metadata"]["activeId"] = json!("");
+        metadata_only["metadata"]["recentIds"] = json!([]);
+        assert_eq!(db.save_delta(metadata_only, 3).unwrap(), 4);
+        db.close().unwrap();
+        let mut db = Database::open(root.clone(), runtime).unwrap();
+        let loaded = db.load().unwrap();
+        assert_eq!(loaded["document"]["notes"], json!([template]));
+        assert_eq!(loaded["document"]["folders"][0]["templateId"], "t");
+        attachments::validate(&root, &loaded["document"]).unwrap();
+        let mut metadata = loaded["document"].clone();
+        metadata.as_object_mut().unwrap().remove("notes");
+        metadata["folders"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("templateId");
+        assert_eq!(
+            db.save_delta(json!({"metadata":metadata,"order":[],"changed":[]}), 4)
+                .unwrap(),
+            5
+        );
+        db.close().unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    #[ignore = "Starts bundled PostgreSQL in an isolated temporary profile"]
+    fn history_and_trash_survive_restart_and_failed_revisions_without_losing_images() {
+        let root =
+            std::env::temp_dir().join(format!("scribly-history-test-{}", uuid::Uuid::new_v4()));
+        let runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/postgres");
+        let mut db = Database::open(root.clone(), runtime.clone()).unwrap();
+        let image = attachments::store(&root, b"\x89PNG history image").unwrap();
+        let original = json!({"id":"a","title":"Original","content":format!("<p>Original</p><img data-notify-attachment=\"{}\">",image["id"].as_str().unwrap()),"folderId":null,"createdAt":"now","updatedAt":"now","archived":false});
+        let mut document = json!({"schemaVersion":4,"theme":"light","activeId":"a","referenceId":null,"folders":[],"notes":[original.clone()]});
+        assert_eq!(db.save(document.clone(), 0).unwrap(), 1);
+        document["notes"][0]["content"] = json!("<p>New content</p>");
+        assert_eq!(db.save(document.clone(), 1).unwrap(), 2);
+        let entries = db.list_history("a").unwrap();
+        assert_eq!(entries.as_array().unwrap().len(), 1);
+        assert_eq!(
+            db.read_history(entries[0]["id"].as_str().unwrap()).unwrap(),
+            original
+        );
+        assert!(db
+            .history_attachments()
+            .unwrap()
+            .contains(image["id"].as_str().unwrap()));
+        assert!(db.checkpoint_history("a", 1).is_err());
+        assert_eq!(db.list_history("a").unwrap().as_array().unwrap().len(), 1);
+        db.checkpoint_history("a", 2).unwrap();
+        document["schemaVersion"] = json!(5);
+        document["notes"][0]["deletedAt"] = json!("2026-10-04T00:00:00.000Z");
+        document["activeId"] = json!("");
+        assert_eq!(db.save(document.clone(), 2).unwrap(), 3);
+        db.close().unwrap();
+        let mut db = Database::open(root.clone(), runtime).unwrap();
+        assert_eq!(db.load().unwrap()["document"], document);
+        assert_eq!(db.list_history("a").unwrap().as_array().unwrap().len(), 2);
+        document["notes"] = json!([]);
+        assert_eq!(db.save(document, 3).unwrap(), 4);
+        assert!(db.list_history("a").unwrap().as_array().unwrap().is_empty());
+        db.close().unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     #[ignore = "Starts the bundled PostgreSQL runtime in an isolated temporary profile"]
     fn native_conflicts_validation_timeouts_and_restart_preserve_the_saved_notebook() {
         let root =
             std::env::temp_dir().join(format!("scribly-postgres-test-{}", uuid::Uuid::new_v4()));
         let runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/postgres");
-        let doc = json!({"schemaVersion":2,"theme":"dark","folders":[],"notes":[{"id":"n","title":"日本語 ✓","content":"<p>Safe</p>","folderId":null,"createdAt":"x","updatedAt":"x","archived":false}],"activeId":"n","referenceId":null});
+        let doc = json!({"schemaVersion":5,"theme":"dark","folders":[],"notes":[{"id":"n","title":"日本語 ✓","content":"<p>Safe</p>","folderId":null,"createdAt":"x","updatedAt":"x","archived":false,"pinned":true}],"activeId":"n","referenceId":null,"recentIds":["n"]});
         let mut db = Database::open(root.clone(), runtime.clone()).unwrap();
-        let revision = db.save(doc.clone(), 0).unwrap();
+        let mut revision = db.save(doc.clone(), 0).unwrap();
+        let mut added = doc.clone();
+        let mut second = added["notes"][0].clone();
+        second["id"] = json!("m");
+        added["notes"].as_array_mut().unwrap().push(second.clone());
+        added["recentIds"] = json!(["m", "n"]);
+        added["activeId"] = json!("m");
+        let mut metadata = added.clone();
+        metadata.as_object_mut().unwrap().remove("notes");
+        revision = db
+            .save_delta(
+                json!({"metadata":metadata,"order":["n","m"],"changed":[second]}),
+                revision,
+            )
+            .unwrap();
+        assert_eq!(db.load().unwrap()["document"], added);
+        added["recentIds"] = json!(["n", "m"]);
+        metadata["recentIds"] = added["recentIds"].clone();
+        revision = db
+            .save_delta(
+                json!({"metadata":metadata,"order":["n","m"],"changed":[]}),
+                revision,
+            )
+            .unwrap();
+        assert_eq!(db.load().unwrap()["document"], added);
+        metadata["recentIds"] = json!(["m"]);
+        assert!(db
+            .save_delta(
+                json!({"metadata":metadata,"order":["n"],"changed":[]}),
+                revision
+            )
+            .is_err());
+        assert_eq!(db.load().unwrap()["document"], added);
+        revision = db.save(doc.clone(), revision).unwrap();
         assert_eq!(db.save(doc.clone(), 0).unwrap_err(), CONFLICT);
         let mut malformed = doc.clone();
         malformed["notes"][0]["folderId"] = json!("missing");
