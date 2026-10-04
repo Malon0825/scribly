@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppSelect } from "./AppSelect";
-import { defaultAppearance, elementSizes, noteFonts, textSizes, type Appearance } from "./appearance";
+import { defaultAppearance, elementSizes, noteFonts, type Appearance } from "./appearance";
 
 export function AppearanceSettings({ value, onChange }: {
   value: Appearance;
@@ -22,7 +22,7 @@ export function AppearanceSettings({ value, onChange }: {
   return (
     <div className="appearance-settings">
       <div className="preference-heading">
-        <span className="settings-label">SIZE & TYPE</span>
+        <span className="settings-label">Size & type</span>
         <button className="reset-appearance" onClick={() => onChange({ ...defaultAppearance })}>Reset defaults</button>
       </div>
       <div className="size-setting">
@@ -35,12 +35,8 @@ export function AppearanceSettings({ value, onChange }: {
       </div>
       <div className="size-setting">
         <span id="text-size-label" className="field-label">Text size</span>
-        <div className="size-options" role="group" aria-labelledby="text-size-label">
-          {textSizes.map((size) => <button key={size.value} aria-pressed={value.textScale === size.value}
-            onClick={() => onChange({ ...value, textScale: size.value })}>{size.label}</button>)}
-        </div>
         <div className="text-size-slider">
-          <input type="range" min="80" max="150" step="5" aria-label="Custom text size"
+          <input type="range" min="80" max="150" step="5" aria-label="Text size" aria-labelledby="text-size-label"
             aria-valuetext={`${value.textScale} percent`} value={value.textScale}
             onChange={(e) => onChange({ ...value, textScale: Number(e.target.value) })} />
           <output>{value.textScale}%</output>

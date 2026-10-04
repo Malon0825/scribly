@@ -1,3 +1,4 @@
+import { boardCommand } from './boardCommandHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { emptyBoard, portableBoard, validateBoard, boardFromScene, type BoardData } from "../src/boardData";
 import { boardToMermaid } from "../src/boardMermaid";
@@ -25,7 +26,7 @@ const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getIte
 async function open(page: Page, doc = fixture) {
   await page.addInitScript((document) => { if (!sessionStorage.getItem("board-fixture")) { localStorage.clear(); localStorage.setItem("still-notes-browser-v1", JSON.stringify({ revision: 1, document, dataPath: "Board test" })); sessionStorage.setItem("board-fixture", "1"); } }, doc);
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Mermaid", exact: true })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole("button", { name: "Export", exact: true })).toBeVisible({ timeout: 30000 });
   await expect(page.locator(".board-canvas canvas").first()).toBeVisible();
 }
 
@@ -67,7 +68,7 @@ test("board opens offline with its tools; Mermaid renders and copies without Mar
   const external: string[] = []; page.on("request", (r) => { if (/^https?:/.test(r.url()) && !r.url().includes("127.0.0.1")) external.push(r.url()); });
   await context.grantPermissions(["clipboard-read", "clipboard-write"]); await open(page);
   await page.evaluate(() => { const write = navigator.clipboard.writeText.bind(navigator.clipboard); navigator.clipboard.writeText = (text) => { (window as unknown as { copied: string }).copied = text; return write(text); }; });
-  await page.getByRole("button", { name: "Mermaid", exact: true }).click();
+  await boardCommand(page, 'Mermaid\u2026');
   await expect(page.getByLabel("Mermaid preview").locator("svg")).toBeVisible({ timeout: 30000 });
   await page.getByRole("button", { name: "Copy code" }).click();
   await expect(page.getByRole("dialog").getByText("Copied Mermaid. Paste onto your Miro board. Miro arranges the shapes; logos stay in this drawing.", { exact: true })).toBeVisible();
@@ -90,9 +91,9 @@ test("dark minimum-size board retains canvas across panel changes, exposes styli
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.getByText("Stroke width", { exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/boards-editor-dark-minimum.png" });
-  const download = page.waitForEvent("download"); await page.getByRole("button", { name: "PNG", exact: true }).click();
+  const download = page.waitForEvent("download"); await boardCommand(page, 'PNG image');
   expect((await readFile((await (await download).path())!)).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
-  await page.getByRole("button", { name: "Mermaid", exact: true }).click();
+  await boardCommand(page, 'Mermaid\u2026');
   await expect(page.getByLabel("Mermaid preview").locator("svg")).toBeVisible({ timeout: 30000 });
   const modal = await page.getByRole("dialog", { name: "Export flowchart" }).boundingBox(); expect(modal!.x).toBeGreaterThanOrEqual(0); expect(modal!.x + modal!.width).toBeLessThanOrEqual(850);
   await page.screenshot({ path: "test-results/boards-mermaid-dark-minimum.png" });
@@ -108,11 +109,11 @@ test("scene import preserves images and explicit boundaries through drawing expo
     shape("image", "image", { fileId: "pixel", status: "saved", scale: [1, 1], crop: null, x: 50, y: 350, width: 20, height: 20 })];
   await page.getByLabel("Import files", { exact: true }).setInputFiles({ name: "Imported.excalidraw", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(portableBoard(board))) });
   await expect(page.getByLabel("Board title")).toHaveValue("Imported");
-  await page.getByRole("button", { name: "Mermaid", exact: true }).click();
+  await boardCommand(page, 'Mermaid\u2026');
   await expect(page.getByLabel("Mermaid preview").locator("svg")).toBeVisible({ timeout: 30000 });
   await expect(page.getByLabel("Mermaid code")).toContainText('subgraph n_73_65_72_76_65_72["Server A"]');
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  const download = page.waitForEvent("download"); await page.getByRole("button", { name: "Drawing", exact: true }).first().click();
+  const download = page.waitForEvent("download"); await boardCommand(page, 'Drawing (.excalidraw)');
   const exported = JSON.parse(await readFile((await (await download).path())!, "utf8"));
   expect(exported.elements.find((e: ExcalidrawElement) => e.id === "source").customData.notifyArchitecture.parentId).toBe("server");
   expect(exported.files.pixel.dataURL).toBe(board.files.pixel.dataURL);
@@ -127,8 +128,8 @@ test("drawing edits survive immediate note switch, reload and backup", async ({ 
   await expect(page.getByRole("textbox", { name: "Note content" })).toContainText("Existing writing remains here.");
   await expect.poll(async () => (await saved(page)).notes.find((n) => n.id === "board")?.board?.elements.length).toBeGreaterThan(5);
   await page.reload(); await expect(page.getByRole("textbox", { name: "Note content" })).toBeVisible();
-  await page.locator(".note-select").filter({ hasText: "Replication architecture" }).click(); await expect(page.getByRole("button", { name: "Mermaid", exact: true })).toBeVisible();
-  const download = page.waitForEvent("download"); await page.getByRole("button", { name: "Drawing", exact: true }).first().click();
+  await page.locator(".note-select").filter({ hasText: "Replication architecture" }).click(); await expect(page.getByRole("button", { name: "Export", exact: true })).toBeVisible();
+  const download = page.waitForEvent("download"); await boardCommand(page, 'Drawing (.excalidraw)');
   expect((await download).suggestedFilename()).toBe("Replication architecture.excalidraw");
 });
 
@@ -149,7 +150,7 @@ test("new board, folder creation, duplicate, archive/restore and reference isola
 
 test("conversion warns instead of inventing relationships; reviewed partial export is explicit", async ({ page }) => {
   const doc = structuredClone(fixture); doc.notes[1].board!.elements = [...architectureFixture.elements, connection("unbound", "source", null)];
-  await open(page, doc); await page.getByRole("button", { name: "Mermaid", exact: true }).click();
+  await open(page, doc); await boardCommand(page, 'Mermaid\u2026');
   await expect(page.getByRole("button", { name: "Copy code" })).toBeDisabled();
   await expect(page.getByText(/1 omitted connections/)).toBeVisible();
   await page.getByRole("checkbox", { name: /Export this reviewed draft/ }).check(); await expect(page.getByRole("button", { name: "Copy code" })).toBeEnabled();
@@ -187,7 +188,7 @@ test("failed board persistence retains the draft and retry saves the drawing", a
       return set.call(this, key, value);
     };
   });
-  await page.getByRole("button", { name: "Mermaid", exact: true }).click();
+  await boardCommand(page, 'Mermaid\u2026');
   await page.getByRole("combobox", { name: "Diagram direction" }).click(); await page.getByRole("option", { name: "Top to bottom", exact: true }).click();
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator(".save-state")).toContainText("Save failed", { timeout: 10000 });
@@ -208,7 +209,7 @@ test("production security policy permits local sketch-font SVG export without re
   page.on("request", (request) => { if (/^https?:/.test(request.url()) && !request.url().includes("127.0.0.1")) remote.push(request.url()); });
   const doc = structuredClone(fixture); doc.notes[1].board!.elements = doc.notes[1].board!.elements.map((e) => e.type === "text" ? { ...e, fontFamily: 5 } : e);
   await open(page, doc);
-  const download = page.waitForEvent("download"); await page.getByRole("button", { name: "SVG", exact: true }).click();
+  const download = page.waitForEvent("download"); await boardCommand(page, 'SVG image');
   const svg = await readFile((await (await download).path())!, "utf8");
   expect(svg).toContain("@font-face"); expect(svg).toContain("data:font/woff2;base64,");
   expect(remote).toEqual([]); expect(errors).toEqual([]);

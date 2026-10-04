@@ -8,6 +8,23 @@ use serde_json::Value;
 use std::{fs, path::PathBuf};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
+
+// A fixed destination avoids exposing a general URL or shell launcher over IPC.
+#[tauri::command]
+pub(crate) async fn open_releases() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer.exe")
+            .arg("https://github.com/Malon0825/scribly/releases/latest")
+            .creation_flags(0x08000000)
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    Err("Open https://github.com/Malon0825/scribly/releases/latest in your browser.".into())
+}
 fn runtime_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let bundled = app
         .path()

@@ -1,6 +1,6 @@
 # Boards in Notify 1.1.1
 
-For the subsequent 1.1.3 theme, sizing, keyboard-focus and reduced-motion corrections, see the [AGENTS.md design review](boards-design-review.md). The export workflow below reflects 1.3.8; see the [current flowchart export review](board-export-review.md). Other release-specific observations describe the original implementation.
+For the subsequent 1.1.3 theme, sizing, keyboard-focus and reduced-motion corrections, see the [AGENTS.md design review](boards-design-review.md). The workflow below reflects the current topbar command grouping; see the [flowchart export review](board-export-review.md) for conversion details and the [usability follow-up](ux-critique-implementation.md) for current limited validation. Release-specific observations and the A–F scores below describe the original implementation.
 
 Implemented 3 October 2026. Boards live in folders alongside notes and open an embedded Excalidraw editor in the central panel. Use **New board**, **Ctrl+Shift+N**, or a folder's options menu. The folder plus button retains its existing New note behavior.
 
@@ -10,16 +10,20 @@ The pinned MIT Excalidraw 0.18.1 engine supplies selection, pan/zoom, rectangles
 
 For architecture export:
 
+Board commands share the app topbar: Insert groups Brand logos, Templates, Import Mermaid and Shape library; Architecture opens roles, boundaries and snapping; Export groups all formats and Copy for Miro. The document footer is absent in board mode, with compact save status/retry retained in the topbar. Focus remains available. New tools default to clean strokes, elbow arrows and object snapping; saved shapes keep their original styles. Multi-selection uses the engine's alignment controls.
+
 1. Label component shapes by double-clicking them. Bind connector ends to their intended shapes.
 2. Select a server outline or frame, open **Architecture**, and assign **Boundary**. Give an outline a bound label or a frame a name.
 3. Select each component and choose its **Architecture boundary** explicitly. Moving it visually does not silently change membership.
 4. Mark decorative boxes or connections **Annotation**. Ordinary free text, freehand marks and images remain drawing content.
-5. Click **Copy for Miro** to copy the entire board with its saved direction (left-to-right by default). Paste directly onto a Miro board, or use Creation bar → Diagram → Build with code. The receiving Miro account has not been tested. [Official Miro instructions](https://miro.com/mermaid-diagram/)
-6. Choose **Mermaid** when you want a preview, optional direction change, **Copy code**, or **Download Mermaid**. **Show shape** selects a problem and reveals its repair tools. Only structural omissions or lost grouping require acknowledgement; missing labels and simplified arrowheads use defaults. Export actions remain visible in Focus.
+5. Choose **Export → Copy for Miro** to copy the entire board with its saved direction (left-to-right by default). Paste directly onto a Miro board, or use Creation bar → Diagram → Build with code. The receiving Miro account has not been tested. [Official Miro instructions](https://miro.com/mermaid-diagram/)
+6. Choose **Export → Mermaid** when you want a preview, optional direction change, **Copy code**, or **Download Mermaid**. **Show shape** selects a problem and reveals its repair tools. Only structural omissions or lost grouping require acknowledgement; missing labels and simplified arrowheads use defaults. Export remains available in Focus.
 
 Mermaid transfers supported topology and labels with automatic layout. It does not preserve exact positions, sketch styling, fonts or layer order. Rectangle/diamond/ellipse components, explicit nested subgraphs, directed/reversed/bidirectional/unheaded edges, labels and stable identifiers are supported. Detached connections and deleted endpoints are omitted with diagnostics. Boundary cycles, missing parents and unsupported semantics are diagnosed rather than silently inferred. Duplicating tagged groups remaps boundary membership; undo restores the previous scene.
 
-**Drawing** exports a portable `.excalidraw` scene including image files and custom metadata. Folder **Import files** accepts that format. SVG/PNG export supplies a visual reference; `.mmd` download supplies plain Mermaid. JSON backups in Settings contain both notes and boards. The Reference panel supports read-only drawing previews as well as notes; Copy to current note stays note-only. Copy last note and Weekly update skip boards.
+**Export → Drawing** exports a portable `.excalidraw` scene including image files and custom metadata. Folder **Import files** accepts that format. Export's SVG/PNG items supply a visual reference; `.mmd` download supplies plain Mermaid. JSON backups in Settings → Backup & restore contain both notes and boards. The Reference panel supports read-only drawing previews as well as notes; Copy to current note stays note-only. Copy last note and Weekly update skip boards.
+
+Current follow-up validation: TypeScript/Vite build passed. Focused browser review at 850×700 confirmed no board footer and a 557×548.5 canvas; the logo picker previewed AWS with 25 tiles mounted and inserted two queued components. No page errors were observed and no new regression suite ran. Native gestures/clipboard/save dialogs, IME, Miro paste and large-board WebView2 performance remain unverified.
 
 ## Data and saving
 
@@ -48,7 +52,7 @@ The desktop CSP permits same-origin font-byte fetching. SVG uses complete bundle
 
 Native drawing gestures, clipboard and Windows save-dialog interaction remain unverified: automatic approval review rejected the isolated WebView2 UI diagnostic with “blocked by policy.” The database diagnostic runs without UI. The installed app and personal notebook were not upgraded or edited by these checks. Miro account interoperability, IME behavior and large-board WebView2 performance remain manual checks.
 
-## A–F interaction review
+## A–F interaction review of the original implementation
 
 **A. Feel audit.** Browser evidence only: response 4/5 (tool controls and inspector respond on click, existing immediate press treatment); directness 4/5 (engine drawing and native sidebar ownership retained); interruptibility 4/5 (panel changes retain the canvas and menus/dialogs dismiss immediately); spring behavior N/A (no new spring or custom gesture); spatial consistency 4/5 (canvas resizes within central panel, anchored app controls retained); materials 4/5 (solid themed shell and editor, existing modal scrim); reduced motion 4/5 (850×600 check, instant Mermaid dialog, engine CSS transitions disabled). Native feel and measured latency: [NEEDS INPUT]. Scores do not imply target-display frame measurements.
 
@@ -68,6 +72,6 @@ The stable release does not supply screenshot parity for draw-to-shape, bucket f
 
 ## Added in 1.1.1
 
-Use **Import Mermaid** to paste a flowchart or choose a .mmd/.mermaid file, preview the editable drawing, then create a separate board in the current folder. **Templates** supplies four architecture starting points with editable source and titles. Folder Import files also accepts Mermaid files. Explicit parent boundary selection supports nesting and filters cyclic assignments. In Reference, select a board or choose Show as reference from its sidebar actions; Fit/zoom and keyboard scrolling affect the static preview only. Detailed conversion limits and evidence: [feature audit](boards-feature-audit.md).
+Use **Insert → Import Mermaid** to paste a flowchart or choose a .mmd/.mermaid file, preview the editable drawing, then create a separate board in the current folder. **Insert → Templates** supplies four architecture starting points with editable source and titles. Folder Import files also accepts Mermaid files. Explicit parent boundary selection supports nesting and filters cyclic assignments. In Reference, select a board or choose Show as reference from its sidebar actions; Fit/zoom and keyboard scrolling affect the static preview only. Detailed conversion limits and historical evidence: [feature audit](boards-feature-audit.md).
 
 Validation of 1.1.1: 123 regression checks, two final hierarchy checks, a focused compact-window check, 16 production checks and four Rust checks passed. Desktop nested metadata and board Reference restart diagnostics are recorded with the installer in [tests/verification.md](../tests/verification.md) and release/boards-verification-1.1.1.json. Native UI/clipboard, IME, large-board performance and actual Miro paste remain unverified.

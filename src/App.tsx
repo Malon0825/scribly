@@ -1,12 +1,10 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { Dialog } from "./Dialog";
-import { version as appVersion } from "../package.json";
 import { IconContext, SidebarSimple, FileText, BookOpen, X, Check, UploadSimple, Trash, Minus, Square, SpinnerGap, WarningCircle } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { NoteEditor } from "./NoteEditor";
-import { AppearanceSettings } from "./AppearanceSettings";
-import { StartupSettings } from "./StartupSettings";
+import { SettingsContent, type SettingsSection } from "./SettingsContent";
 import { AppSelect } from "./AppSelect";
 import { ActionPopover } from "./ActionPopover";
 import { AnimatedIcon } from "./AnimatedIcon";
@@ -18,6 +16,8 @@ import { PanelResize } from "./PanelResize";
 import { defaultNoteTitle, noteTitleFact } from "./noteNaming";
 import { newNoteContent } from "./newNoteContent";
 import { noteSummary } from "./noteSummary";
+import { readNotebookView, orderNotes, matchesNote, searchSnippet, notePreview, type NotebookView } from './notebookNavigation';
+import { readBackup, recordBackup, backupStatus, type BackupRecord } from './backupHistory';
 import { mergeBackup } from "./importBackup";
 import { parseImportFile, importAccept, MAX_IMPORT_FILES, MAX_IMPORT_FILE_SIZE } from "./importFiles";
 import { portableBackup } from "./attachments";
@@ -32,12 +32,25 @@ const CreateBoardDialog = lazy(() => import("./CreateBoardDialog"));
 const BoardPreview = lazy(() => import("./BoardPreview"));
 
 type Modal =
-  | { kind: "settings" }
+  | { kind: "settings"; section?: SettingsSection }
+  | { kind: "shortcuts" }
   | { kind: "folder"; id?: string }
   | { kind: "delete"; id: string }
   | { kind: "removeFolder"; id: string }
   | { kind: "importResults"; imported: number; failures: string[] }
   | null;
+function ShortcutList() {
+  return <div className="shortcut-list">
+    {[
+      ['New note', 'Ctrl N'], ['New board', 'Ctrl Shift N'], ['Search notes & boards', 'Ctrl K'],
+      ['Toggle Reference', 'Ctrl Shift R'], ['Show item as reference', 'Alt click'],
+      ['Focus mode', 'Ctrl Shift F'], ['Save now', 'Ctrl S'], ['Keyboard shortcuts', 'Ctrl /'],
+      ['Bold / Italic', 'Ctrl B / I'], ['Undo / Redo', 'Ctrl Z / Ctrl Shift Z'],
+      ['Reorder folders or notes', 'Alt ↑ / ↓'], ['Move note to folder', 'Alt Shift ↑ / ↓'],
+      ['Exit drawing / dismiss menu', 'Esc'],
+    ].map(([label, keys]) => <span key={label}>{label}<kbd>{keys}</kbd></span>)}
+  </div>;
+}
 const escapeHtml = (s: string) =>
   s
     .replace(/&/g, "&amp;")
@@ -51,9 +64,22 @@ export default function App() {
   const { workspace, update: mutate, status, error, dataPath, flush, reload, checkpoint, registerBoardDraft, boardChanged } =
     useWorkspace();
   const [sidebar, setSidebar] = useState(true),
-    [reference, setReference] = useState(true),
+    [reference, setReference] = useState(false),
     [focus, setFocus] = useState(false);
   const [focusTools, setFocusTools] = useState(false);
+  const [boardControlsHost, setBoardControlsHost] = useState<HTMLDivElement | null>(null);
+  const [notebookView, setNotebookView] = useState(readNotebookView);
+  const [backup, setBackup] = useState<BackupRecord | null>(null);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const backupInFlight = useRef(false);
+  const [chromeMenu, setChromeMenu] = useState<'theme' | 'export' | null>(null);
+  const themeAnchor = useRef<HTMLButtonElement>(null), exportAnchor = useRef<HTMLButtonElement>(null);
+  useEffect(() => { setBackup(readBackup(dataPath)); }, [dataPath]);
+  function changeNotebookView(next: Partial<NotebookView>) {
+    const value = { ...notebookView, ...next };
+    setNotebookView(value);
+    try { localStorage.setItem('scribly-notebook-view', JSON.stringify(value)); } catch { /* Session preferences remain usable. */ }
+  }
   const [expanded, setExpanded] = useState<Set<string>>(
     new Set(["work", "data"]),
   );
@@ -128,6 +154,7 @@ export default function App() {
     if (workspace && !initialViewSet.current) {
       initialViewSet.current = true;
       if (active?.archived) setView("archive");
+      if (active?.folderId) setExpanded(s => new Set([...s, active.folderId!]));
     }
   }, [workspace, active?.archived]);
   useEffect(() => {
@@ -343,6 +370,12 @@ export default function App() {
         e.preventDefault();
         void flush().catch(() => {});
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault(); toggleReference();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault(); setModal({ kind: 'shortcuts' });
+      }
       if (
         (e.ctrlKey || e.metaKey) &&
         e.shiftKey &&
@@ -382,6 +415,7 @@ export default function App() {
     })) return;
     setView("notes");
     setQuery("");
+    if (notebookView.filter === 'boards') changeNotebookView({ filter: 'all' });
     if (folderId) setExpanded((s) => new Set([...s, folderId]));
   }
   function patchNote(id: string, patch: Partial<Note>) {
@@ -402,6 +436,7 @@ export default function App() {
       return;
     }
     setView("notes"); setQuery(""); setFolderMenu(null); setMenu(false); setNoteMenuId(null);
+    if (notebookView.filter === 'notes') changeNotebookView({ filter: 'all' });
     if (folderId) setExpanded((s) => new Set([...s, folderId]));
   }
   function duplicateItem(item: Note) {
@@ -417,10 +452,19 @@ export default function App() {
     if (!update((w) => ({ ...w, activeId: n.id }))) return;
     if (n.folderId) setExpanded((s) => new Set([...s, n.folderId!]));
     setView(n.archived ? "archive" : "notes");
+    if (!matchesNote(n, '', notebookView.filter)) changeNotebookView({ filter: 'all' });
     setMenu(false);
     setNoteMenuId(null);
   }
-  async function exportData(name: string, content: string | (() => string | Promise<string>), type: string) {
+  function toggleReference() {
+    moveFocusFromPanels('.reference-panel', 'button[aria-label="Reference"]');
+    setReference(value => !value); setFocus(false);
+  }
+  function showReference(note: Note) {
+    if (!update(w => ({ ...w, referenceId: note.id }))) return;
+    setReference(true); setFocus(false); setNoteMenuId(null);
+  }
+  async function exportData(name: string, content: string | (() => string | Promise<string>), type: string): Promise<boolean> {
     try {
       const data = typeof content === "function" ? await content() : content;
       if (desktop) {
@@ -428,14 +472,31 @@ export default function App() {
           fileName: name,
           data,
         });
-        if (path) notify("Export saved.");
+        if (!path) return false;
+        notify("Export saved.");
       } else {
         downloadFile(name, data, type);
         notify("Export downloaded.");
       }
+      return true;
     } catch (e) {
       notify(`Export failed: ${String(e)}`);
+      return false;
     }
+  }
+  async function exportBackup() {
+    if (backupInFlight.current) return;
+    backupInFlight.current = true; setBackupBusy(true);
+    try {
+      const exported = await exportData(`Scribly-backup-${new Date().toISOString().slice(0, 10)}.json`,
+        () => portableBackup(checkpoint() || workspace!), 'application/json');
+      if (exported) {
+        const record = { at: Date.now(), downloaded: !desktop };
+        setBackup(record);
+        try { recordBackup(dataPath, record); }
+        catch { notify('Backup exported, but its date could not be recorded.'); }
+      }
+    } finally { backupInFlight.current = false; setBackupBusy(false); }
   }
   function archiveNote(note: Note) {
     if (!update((w) => {
@@ -545,8 +606,7 @@ export default function App() {
   const checkedCount = active
     ? (active.content.match(/data-checked="true"/g) || []).length
     : 0;
-  const matches = (n: Note) =>
-    !query || noteSummary(n).search.includes(query.toLowerCase());
+  const matches = (n: Note) => matchesNote(n, query, notebookView.filter);
   const visible = (n: Note) => !n.archived && matches(n);
   const renderNote = (n: Note) => (
     <div
@@ -563,21 +623,27 @@ export default function App() {
     >
       <button
         className="note-select"
-        {...sidebarDrag.dragProps({ kind: "note", id: n.id }, !n.archived)}
-        title={n.archived ? undefined : "Drag to reorder or move to a folder. Alt+↑/↓ to reorder; Alt+Shift+↑/↓ to change folder."}
+        {...sidebarDrag.dragProps({ kind: "note", id: n.id }, !n.archived && notebookView.sort === 'manual' && notebookView.filter === 'all')}
+        title={`${n.title || 'Untitled'}${!n.archived ? ' · Alt+click to show as reference. Use manual order with All items to drag or reorder.' : ''}`}
         aria-current={active?.id === n.id ? "page" : undefined}
-        onClick={() => selectNote(n)}
+        aria-label={n.title || 'Untitled'}
+        onMouseDown={event => { if (event.altKey) preserveDocumentFocus(event); }}
+        onClick={(event) => event.altKey && !n.archived ? showReference(n) : selectNote(n)}
       >
         {isBoard(n) ? <AnimatedIcon kind="board" size={26} /> : <AnimatedIcon kind="note" size={26} />}
         <span>
           <span className="note-name">{n.title || "Untitled"}</span>
-          {active?.id === n.id && (
+          {(query.trim() || notebookView.density === 'comfortable') && (
             <span className="note-preview">
-              {noteSummary(n).text.slice(0, 60) || (isBoard(n) ? "Architecture board" : "Start writing…")}
+              {(query.trim() ? searchSnippet(n, query) : notePreview(n)) || (isBoard(n) ? 'Board' : 'Start writing…')}
             </span>
           )}
         </span>
       </button>
+      {!n.archived && <button className="reference-note" aria-label={`Show ${n.title || 'Untitled'} as reference`}
+        title="Show as reference (Alt+click the item)" onMouseDown={preserveDocumentFocus} onClick={() => showReference(n)}>
+        <AnimatedIcon kind="reference" size={18} />
+      </button>}
       <button
         className="pin-note"
         aria-label={`Actions for ${n.title || "Untitled"}`}
@@ -606,12 +672,7 @@ export default function App() {
           </button>
           {!n.archived && (
             <button
-              onClick={() => {
-                update((w) => ({ ...w, referenceId: n.id }));
-                setReference(true);
-                setFocus(false);
-                setNoteMenuId(null);
-              }}
+              onClick={() => showReference(n)}
             >
               <AnimatedIcon kind="reference" size={18} />
               Show as reference
@@ -652,9 +713,40 @@ export default function App() {
       </div>
     );
 
+  const saveControl = (<button
+                    className={`save-state ${status === "error" ? "error" : status === "saving" ? "saving" : ""}`}
+                    aria-label={status === "error" ? "Save failed. Retry saving" : status === "saving" ? "Saving…" : desktop ? "Saved locally. Save now" : "Saved in browser. Save now"}
+                    onClick={() => void flush().catch(() => {})}
+                    title={
+                      status === "error"
+                        ? "Click to retry saving"
+                        : desktop
+                          ? "Saved in the local PostgreSQL database"
+                          : "Browser preview uses local storage"
+                    }
+                  >
+                    {status === "saving" ? (
+                      <SpinnerGap className="spin" size={15} />
+                    ) : status === "error" ? (
+                      <WarningCircle size={17} />
+                    ) : (
+                      <span className="status-dot" />
+                    )}
+                    <span>
+                      {status === "saving"
+                        ? "Saving…"
+                        : status === "error"
+                          ? "Save failed · Retry"
+                          : desktop
+                            ? "Saved locally"
+                            : "Saved in browser"}
+                    </span>
+                  </button>);
+  const backupDue = !backup || Date.now() - backup.at >= 7 * 86400000;
+
   return (
     <IconContext.Provider value={{ weight: "regular" }}>
-      <div className={`app ${focus ? "focus-mode" : ""} ${focus && focusTools ? "focus-tools-visible" : ""}`} {...fileDrop.props}>
+      <div className={`app ${isBoard(active) ? 'board-mode' : ''} ${focus ? "focus-mode" : ""} ${focus && focusTools ? "focus-tools-visible" : ""}`} {...fileDrop.props}>
         <header className="topbar">
           <div className="brand">
             <button
@@ -691,8 +783,10 @@ export default function App() {
             <span className="slash">/</span>
             <span>{active?.title || "Your notebook"}</span>
           </div>
+          <div className="board-command-host" ref={setBoardControlsHost} />
+          {isBoard(active) && saveControl}
           <div className="top-actions">
-            {focus && <button className={`pill focus-tools-toggle ${focusTools ? 'selected' : ''}`} aria-pressed={focusTools} aria-expanded={focusTools} aria-controls={isBoard(active) ? 'board-secondary-controls' : 'note-formatting-controls'} onMouseDown={preserveDocumentFocus}
+            {focus && !isBoard(active) && <button className={`pill focus-tools-toggle ${focusTools ? 'selected' : ''}`} aria-pressed={focusTools} aria-expanded={focusTools} aria-controls={isBoard(active) ? 'board-secondary-controls' : 'note-formatting-controls'} onMouseDown={preserveDocumentFocus}
               onClick={() => {
                 if (focusTools) moveFocusFromPanels('.board-top-controls, .editor-toolbar, .excalidraw .layer-ui__wrapper__top-right, .excalidraw .sidebar', '.focus-tools-toggle');
                 setFocusTools(value => !value);
@@ -700,13 +794,10 @@ export default function App() {
             <button
               className={`pill ${reference && !focus ? "selected" : ""}`}
               aria-label="Reference"
+              title="Reference (Ctrl+Shift+R)"
               aria-pressed={reference && !focus}
               onMouseDown={preserveDocumentFocus}
-              onClick={() => {
-                moveFocusFromPanels(".reference-panel", 'button[aria-label="Reference"]');
-                setReference((r) => !r);
-                setFocus(false);
-              }}
+              onClick={toggleReference}
             >
               <AnimatedIcon kind="reference" size={21} />
               <span>Reference</span>
@@ -723,14 +814,20 @@ export default function App() {
               <span>{focus ? "Exit focus" : "Focus"}</span>
             </button>
             <button
-              className="icon-button theme-toggle"
-              aria-label={dark ? "Use light mode" : "Use dark mode"}
-              onClick={() =>
-                update((w) => ({ ...w, theme: dark ? "light" : "dark" }))
-              }
+              ref={themeAnchor} className="icon-button theme-toggle"
+              aria-label="Appearance" aria-haspopup="dialog" aria-expanded={chromeMenu === 'theme'}
+              title={`Appearance: ${workspace.theme}`}
+              onClick={() => setChromeMenu(value => value === 'theme' ? null : 'theme')}
             >
-              <AnimatedIcon kind={dark ? 'sun' : 'moon'} size={21} />
+              <AnimatedIcon kind={workspace.theme === 'system' ? 'system' : dark ? 'moon' : 'sun'} size={21} />
             </button>
+            {chromeMenu === 'theme' && <ActionPopover anchor={themeAnchor.current} label="Appearance" className="theme-dropdown" onClose={() => setChromeMenu(null)}>
+              {(['light', 'dark', 'system'] as const).map(theme => <button key={theme} aria-pressed={workspace.theme === theme}
+                onClick={() => { update(w => ({ ...w, theme })); setChromeMenu(null); }}>
+                <AnimatedIcon kind={theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'system'} size={18} />
+                {theme[0].toUpperCase() + theme.slice(1)}{workspace.theme === theme && <Check size={16} />}
+              </button>)}
+            </ActionPopover>}
             {desktop && (
               <div className="window-controls">
                 <button
@@ -780,13 +877,14 @@ export default function App() {
           )}
           <aside
             id="notes-sidebar"
-            className="sidebar panel"
+            className={`sidebar panel density-${notebookView.density}`}
             aria-label="Notes navigation"
             inert={!sidebar || focus}
           >
             <div className="sidebar-create" role="group" aria-label="Create in current folder">
               <button
                 className="primary new-note"
+                title="New note (Ctrl+N)"
                 onClick={() => createNote(active?.folderId ?? null)}
               >
                 <AnimatedIcon kind="add" size={24} />
@@ -799,7 +897,7 @@ export default function App() {
               <input
                 ref={searchRef}
                 aria-label="Search notes"
-                placeholder="Search"
+                placeholder="Search notes & boards"
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
@@ -813,6 +911,17 @@ export default function App() {
                 <kbd>Ctrl K</kbd>
               )}
             </div>
+            <div className="notebook-controls">
+              <AppSelect label="Filter items" value={notebookView.filter} onChange={filter => changeNotebookView({ filter: filter as NotebookView['filter'] })}
+                options={[{ value: 'all', label: 'All items' }, { value: 'notes', label: 'Notes' }, { value: 'boards', label: 'Boards' }]} />
+              <div className="sort-control"><span>Sort:</span><AppSelect label="Sort items" value={notebookView.sort} onChange={sort => changeNotebookView({ sort: sort as NotebookView['sort'] })}
+                options={[{ value: 'manual', label: 'Manual' }, { value: 'updated', label: 'Modified' }, { value: 'title', label: 'A–Z' }]} /></div>
+              <button aria-label="Compact note rows" aria-pressed={notebookView.density === 'compact'} title={notebookView.density === 'compact' ? 'Compact rows · switch to comfortable rows' : 'Comfortable rows · switch to compact rows'}
+                onClick={() => changeNotebookView({ density: notebookView.density === 'compact' ? 'comfortable' : 'compact' })}>
+                <AnimatedIcon kind="list" size={18} /><span>{notebookView.density === 'compact' ? 'Compact' : 'Roomy'}</span>
+              </button>
+            </div>
+            {(notebookView.sort !== 'manual' || notebookView.filter !== 'all') && <p className="navigation-hint">Use All items and Manual order to reorder notes.</p>}
             <p id="sidebar-drag-help" className="sr-only">
               Drag folders to reorder. Drag notes between notes or onto a folder to move them.
               Use Alt plus Up or Down to reorder; on notes, Alt plus Shift plus Up or Down changes folder.
@@ -825,10 +934,10 @@ export default function App() {
               <div className="section-label">
                 <span>
                   {view === "archive"
-                    ? "ARCHIVED NOTES"
+                    ? "Archived items"
                     : query
-                      ? "SEARCH RESULTS"
-                      : "FOLDERS"}
+                      ? "Search results"
+                      : "Folders"}
                 </span>
                 {view !== "archive" && (
                   <button
@@ -842,8 +951,9 @@ export default function App() {
               </div>
               {view === "archive" ? (
                 <div className="loose-notes">
-                  {workspace.notes
+                  {orderNotes(workspace.notes
                     .filter((n) => n.archived && matches(n))
+                    , notebookView.sort)
                     .map(renderNote)}
                   {!workspace.notes.some((n) => n.archived && matches(n)) && (
                     <p className="empty-search">
@@ -855,7 +965,7 @@ export default function App() {
                 </div>
               ) : query ? (
                 <div className="search-results">
-                  {workspace.notes.filter(visible).map(renderNote)}
+                  {orderNotes(workspace.notes.filter(visible), notebookView.sort).map(renderNote)}
                   {!workspace.notes.some(visible) && (
                     <p className="empty-search">No notes match “{query}”.</p>
                   )}
@@ -891,7 +1001,7 @@ export default function App() {
                         <AnimatedIcon kind="folder" size={27} />
                         <span>{folder.name}</span>
                       </button>
-                      <span className="folder-count">{count(folder.id)}</span>
+                      {count(folder.id) > 0 && <span className="folder-count">{count(folder.id)}</span>}
                       <button
                         className="icon-button small"
                         aria-label={`New note in ${folder.name}`}
@@ -967,8 +1077,9 @@ export default function App() {
                     </div>
                     {expanded.has(folder.id) && (
                       <div className="folder-notes">
-                        {workspace.notes
+                        {orderNotes(workspace.notes
                           .filter((n) => n.folderId === folder.id && visible(n))
+                          , notebookView.sort)
                           .map(renderNote)}
                         {count(folder.id) === 0 && (
                           <button
@@ -983,10 +1094,13 @@ export default function App() {
                   </div>
                 ))
               )}
+              {view !== 'archive' && !query.trim() && notebookView.filter !== 'all' && !workspace.notes.some(visible) &&
+                <p className="empty-search">No {notebookView.filter} yet. Choose All items to see your notebook.</p>}
               {view === "unfiled" && !query && (
                 <div className="loose-notes">
-                  {workspace.notes
+                  {orderNotes(workspace.notes
                     .filter((n) => !n.folderId && visible(n))
+                    , notebookView.sort)
                     .map(renderNote)}
                   {!count(null) && (
                     <p className="empty-search">All your notes have a home.</p>
@@ -1010,7 +1124,7 @@ export default function App() {
               >
                 <AnimatedIcon kind="note" size={26} />
                 <span>Unfiled notes</span>
-                <span className="nav-count">{count(null)}</span>
+                {count(null) > 0 && <span className="nav-count">{count(null)}</span>}
               </button>
               <button
                 className={view === "archive" ? "nav-active" : ""}
@@ -1061,7 +1175,8 @@ export default function App() {
                           <span aria-hidden="true">– </span>{titleFact}
                         </p>
                       )}
-                      <p className="note-date">
+                      <p className="note-date" title={`Created: ${new Date(active.createdAt).toLocaleString()} · Modified: ${new Date(active.updatedAt).toLocaleString()}`}>
+                        Created{' '}
                         {new Date(active.createdAt).toLocaleDateString(
                           "en-US",
                           {
@@ -1166,7 +1281,7 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  {isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} readOnly={active.archived} focusMode={focus && !focusTools} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} /></Suspense></BoardBoundary> : <NoteEditor
+                  {isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} readOnly={active.archived} focusMode={focus} controlsHost={boardControlsHost} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} /></Suspense></BoardBoundary> : <NoteEditor
                     key={active.id}
                     content={active.content}
                     onChange={(html) => patchNote(active.id, { content: html })}
@@ -1196,56 +1311,32 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <footer className="document-footer">
-                  <button
-                    className={`save-state ${status === "error" ? "error" : ""}`}
-                    onClick={() => void flush().catch(() => {})}
-                    title={
-                      status === "error"
-                        ? "Click to retry saving"
-                        : desktop
-                          ? "Saved in the local PostgreSQL database"
-                          : "Browser preview uses local storage"
-                    }
-                  >
-                    {status === "saving" ? (
-                      <SpinnerGap className="spin" size={15} />
-                    ) : status === "error" ? (
-                      <WarningCircle size={17} />
-                    ) : (
-                      <span className="status-dot" />
-                    )}
-                    <span>
-                      {status === "saving"
-                        ? "Saving…"
-                        : status === "error"
-                          ? "Save failed · Retry"
-                          : desktop
-                            ? "Saved locally"
-                            : "Saved in browser"}
-                    </span>
-                  </button>
+                {!isBoard(active) && <footer className="document-footer">
+                  {saveControl}
                   <span className="word-count">
-                    {
-                      isBoard(active) ? active.board.elements.filter((e) => !e.isDeleted).length : noteSummary(active).words
-                    }{" "}
-                    {isBoard(active) ? "elements" : "words"}
+                    {noteSummary(active).words} words
                   </span>
+                  <button className={`backup-shortcut ${backupDue ? 'backup-due' : ''}`} disabled={backupBusy} title={`${backupStatus(backup)}. Export a full notebook backup`} onClick={() => void exportBackup()}>
+                    {backupBusy ? 'Exporting…' : 'Back up notebook'}
+                  </button>
                   <button
+                    ref={exportAnchor}
                     className="export-shortcut"
-                    title={isBoard(active) ? "Export an editable drawing" : "Export a plain text copy"}
-                    onClick={() =>
-                      void exportData(
-                        `${safeFilename(active.title)}.${isBoard(active) ? "excalidraw" : "txt"}`,
-                        () => isBoard(active) ? JSON.stringify(portableBoard((checkpoint()?.notes.find((n) => n.id === active.id) as typeof active).board), null, 2) : `${active.title}\n\n${textExport(active.content)}`,
-                        isBoard(active) ? "application/json" : "text/plain",
-                      )
-                    }
+                    title="Export a copy" aria-haspopup="dialog" aria-expanded={chromeMenu === 'export'}
+                    onClick={() => setChromeMenu(value => value === 'export' ? null : 'export')}
                   >
-                    {isBoard(active) ? "Drawing" : "Plain text"}
+                    Export note
                     <AnimatedIcon kind="download" size={16} />
                   </button>
-                </footer>
+                  {chromeMenu === 'export' && <ActionPopover anchor={exportAnchor.current} label="Export formats" className="export-dropdown" onClose={() => setChromeMenu(null)}>
+                    <button onClick={() => {
+                      void exportData(`${safeFilename(active.title)}.txt`,
+                        () => `${active.title}\n\n${textExport(active.content)}`, 'text/plain');
+                      setChromeMenu(null);
+                    }}>This note · Plain text (.txt)</button>
+                    <button disabled={backupBusy} onClick={() => { void exportBackup(); setChromeMenu(null); }}>Notebook backup (.json)</button>
+                  </ActionPopover>}
+                </footer>}
               </>
             ) : (
               <div className="empty-document">
@@ -1284,7 +1375,7 @@ export default function App() {
             inert={!reference || focus}
           >
             <div className="reference-label">
-              <span>REFERENCE</span>
+              <span>Reference</span>
               <button
                 className="icon-button"
                 aria-label="Close reference"
@@ -1300,7 +1391,7 @@ export default function App() {
               onChange={(value) =>
                 update((w) => ({ ...w, referenceId: value || null }))
               }
-              options={[{ value: "", label: "Choose a note or board…" }, ...workspace.notes.filter((note) => !note.archived).map((note) => ({ value: note.id, label: `${isBoard(note) ? "Board · " : ""}${note.title || "Untitled"}` }))]} />
+              options={[{ value: "", label: "Choose a reference…" }, ...workspace.notes.filter((note) => !note.archived).map((note) => ({ value: note.id, label: `${isBoard(note) ? "Board · " : ""}${note.title || "Untitled"}` }))]} />
             {referenceNote ? (
               <>
                 <div className="reference-meta">
@@ -1338,11 +1429,15 @@ export default function App() {
             ) : (
               <div className="reference-empty">
                 <BookOpen size={37} />
-                <h3>A reference beside your work.</h3>
-                <p>
-                  Choose a reference above, or use the book icon beside any
-                  note or board.
-                </p>
+                <h3>Choose a reference</h3>
+                <p>Recent notes & boards</p>
+                <div className="reference-recents">
+                  {workspace.notes.filter(note => !note.archived).slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 6).map(note =>
+                    <button key={note.id} onMouseDown={preserveDocumentFocus} onClick={() => showReference(note)}>
+                      <AnimatedIcon kind={isBoard(note) ? 'board' : 'note'} size={20} /><span>{note.title || 'Untitled'}</span>
+                    </button>)}
+                  {!workspace.notes.some(note => !note.archived) && <p>Create a note or board to keep it here.</p>}
+                </div>
               </div>
             )}
           </aside>
@@ -1353,12 +1448,13 @@ export default function App() {
             {toast}
           </div>
         )}
-        {boardCreation && <BoardBoundary onClose={() => setBoardCreation(null)}><Suspense fallback={<div role="status" className="toast">Opening board import…</div>}><CreateBoardDialog mode={boardCreation} dark={dark} onClose={() => setBoardCreation(null)} onCreate={(title: string, board: BoardData) => createBoard(active?.folderId ?? null, title, board, true)} /></Suspense></BoardBoundary>}
+        {boardCreation && <BoardBoundary onClose={() => setBoardCreation(null)}><Suspense fallback={<div role="status" className="toast">Opening board import…</div>}><CreateBoardDialog mode={boardCreation} dark={dark} returnFocus={() => document.getElementById('board-insert-trigger')} onClose={() => setBoardCreation(null)} onCreate={(title: string, board: BoardData) => createBoard(active?.folderId ?? null, title, board, true)} /></Suspense></BoardBoundary>}
         {modal && (
           <Dialog
             title={
               modal.kind === "settings"
-                ? "Make yourself at home"
+                ? "Settings"
+                : modal.kind === 'shortcuts' ? 'Keyboard shortcuts'
                 : modal.kind === "folder"
                   ? modal.id
                     ? "Rename folder"
@@ -1369,89 +1465,22 @@ export default function App() {
                     ? "Remove folder?"
                     : "Delete this note permanently?"
             }
+            className={modal.kind === 'settings' ? 'settings-dialog' : undefined}
             onClose={() => setModal(null)}
           >
-            {modal.kind === "settings" ? (
-              <>
-                <p className="modal-subtitle">
-                  A few things to make your notebook feel like yours.
-                </p>
-                <label className="settings-label">APPEARANCE</label>
-                <div className="theme-options">
-                  {(
-                    [
-                      { value: "light", label: "Light", kind: "sun" },
-                      { value: "dark", label: "Dark", kind: "moon" },
-                      { value: "system", label: "System", kind: "system" },
-                    ] as const
-                  ).map(({ value, label, kind }) => (
-                    <button
-                      key={value}
-                      aria-pressed={workspace.theme === value}
-                      onClick={() => update((w) => ({ ...w, theme: value }))}
-                    >
-                      <AnimatedIcon kind={kind} size={25} />
-                      <span>{label}</span>
-                      {workspace.theme === value && <Check size={16} />}
-                    </button>
-                  ))}
-                </div>
-                <AppearanceSettings value={appearance} onChange={(value) => update((w) => ({ ...w, appearance: value }))} />
-                <StartupSettings />
-                <label className="settings-label">YOUR NOTES</label>
-                <div className="settings-actions">
-                  <button
-                    onClick={() =>
-                      void exportData(
-                        `Scribly-backup-${new Date().toISOString().slice(0, 10)}.json`,
-                        () => portableBackup(checkpoint() || workspace),
-                        "application/json",
-                      )
-                    }
-                  >
-                    <AnimatedIcon kind="download" size={21} />
-                    Export notes & boards
-                  </button>
-                  <button disabled={importing} onClick={() => chooseImport(null)}>
-                    <AnimatedIcon kind="upload" size={21} />
-                    Import notes
-                  </button>
-                </div>
-                <div className="storage-details">
-                  <span className="status-dot" />
-                  <div>
-                    <strong>
-                      {desktop ? "Local PostgreSQL storage" : "Browser preview"}
-                    </strong>
-                    <p>
-                      {desktop
-                        ? "Your notes stay on this laptop. No account needed."
-                        : "The installed app stores notes in PostgreSQL."}
-                    </p>
-                    <code>{dataPath}</code>
-                  </div>
-                </div>
-                <div className="shortcut-list">
-                  <span>
-                    New note<kbd>Ctrl N</kbd>
-                  </span>
-                  <span>
-                    Search<kbd>Ctrl K</kbd>
-                  </span>
-                  <span>
-                    Focus mode<kbd>Ctrl Shift F</kbd>
-                  </span>
-                  <span>
-                    Save now<kbd>Ctrl S</kbd>
-                  </span>
-                </div>
-                <div className="settings-footer">
-                  <span>Scribly · {appVersion}</span>
-                  <button className="primary" onClick={() => setModal(null)}>
-                    Done
-                  </button>
-                </div>
-              </>
+            {modal.kind === 'shortcuts' ? <>
+              <ShortcutList />
+              <div className="dialog-actions"><button className="primary" onClick={() => setModal(null)}>Done</button></div>
+            </> : modal.kind === "settings" ? (
+              <SettingsContent theme={workspace.theme} appearance={appearance} backup={backup} backupBusy={backupBusy}
+                importing={importing} dataPath={dataPath} initialSection={modal.section}
+                onTheme={theme => update(w => ({ ...w, theme }))}
+                onAppearance={appearance => update(w => ({ ...w, appearance }))}
+                onExport={() => void exportBackup()} onImport={() => chooseImport(null)}
+                onUpdates={() => {
+                  if (desktop) void invoke('open_releases').catch(e => notify(`Release page could not open: ${String(e)}`));
+                  else window.open('https://github.com/Malon0825/scribly/releases/latest', '_blank', 'noopener,noreferrer');
+                }} onShortcuts={() => setModal({ kind: 'shortcuts' })} onDone={() => setModal(null)} />
             ) : modal.kind === "importResults" ? (
               <>
                 <p className="modal-subtitle">{modal.imported} {modal.imported === 1 ? "note imported" : "notes imported"}. These files could not be imported:</p>

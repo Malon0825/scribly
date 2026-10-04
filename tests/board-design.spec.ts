@@ -1,3 +1,5 @@
+import { boardCommand } from './boardCommandHelper';
+import { chooseTheme } from './themeHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { emptyBoard } from "../src/boardData";
 import type { Workspace } from "../src/types";
@@ -37,7 +39,7 @@ for (const theme of ["light", "dark", "system"] as const) test(`board chrome use
   await page.getByRole("button", { name: "Reference", exact: true }).click();
   await page.screenshot({ path: `release/board-design-${theme}.png` });
   // A UI theme switch must never recolor the authoritative scene.
-  await page.getByRole("button", { name: theme === "light" ? "Use dark mode" : "Use light mode" }).click();
+  await chooseTheme(page, theme === "light" ? "dark" : "light");
   await expect.poll(async () => await page.evaluate(() => JSON.parse(localStorage.getItem("still-notes-browser-v1")!).document.notes[1].board.elements[0].backgroundColor)).toBe("#a5d8ff");
 });
 
@@ -65,16 +67,16 @@ test("board press responds before activation; rapid layout changes retain the ca
 test("large text and controls keep the canvas, save state and board dialogs reachable at 850x600", async ({ page }) => {
   await page.setViewportSize({ width: 850, height: 600 }); await page.emulateMedia({ reducedMotion: "reduce" });
   await open(page, { ...fixture, theme: "dark", appearance: { elementSize: "large", textScale: 150, font: "system" } });
-  await page.getByRole("button", { name: "Reference", exact: true }).click();
   await page.getByRole("button", { name: "Architecture", exact: true }).click();
   await page.getByRole("button", { name: "Architecture", exact: true }).hover(); await page.mouse.down();
   await expect(page.getByRole("button", { name: "Architecture", exact: true })).toHaveCSS("transform", "none"); await page.mouse.up();
   await page.getByRole("button", { name: "Architecture", exact: true }).click();
-  const canvas = await page.locator(".board-canvas").boundingBox(), footer = await page.locator(".document-footer").boundingBox();
-  expect(canvas!.height).toBeGreaterThan(100); expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(footer!.y + 1);
-  expect(footer!.y + footer!.height).toBeLessThanOrEqual(600);
+  const canvas = await page.locator(".board-canvas").boundingBox();
+  expect(canvas!.height).toBeGreaterThan(100); expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(600);
+  await expect(page.locator(".document-footer")).toHaveCount(0);
+  await expect(page.locator(".save-state")).toBeVisible();
   await page.getByRole("combobox", { name: "Architecture boundary" }).evaluate((e) => e.scrollIntoView({ block: "nearest" }));
-  await page.getByRole("button", { name: "Import Mermaid", exact: true }).click();
+  await boardCommand(page, 'Import Mermaid\u2026');
   const dialog = page.getByRole("dialog", { name: "Import Mermaid", exact: true });
   const hint = await dialog.locator(".mermaid-hint").evaluate((e) => parseFloat(getComputedStyle(e).fontSize)); expect(hint).toBe(18);
   const code = dialog.getByRole("textbox", { name: "Mermaid flowchart" }); expect(await code.evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBe(18);
@@ -82,7 +84,7 @@ test("large text and controls keep the canvas, save state and board dialogs reac
   await dialog.getByRole("button", { name: "Create board", exact: true }).focus(); await page.keyboard.press("Tab");
   await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeFocused();
   await page.screenshot({ path: "release/board-design-large-dialog.png" });
-  await page.keyboard.press("Escape"); await expect(page.getByRole("button", { name: "Import Mermaid", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape"); await expect(page.getByRole("button", { name: "Insert", exact: true })).toBeFocused();
 });
 
 for (const reducedMotion of ["no-preference", "reduce"] as const) test(`engine Help dialog stays visible and dismissible with ${reducedMotion} motion`, async ({ page }) => {
@@ -103,8 +105,9 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) test(`engine H
 
 test("Reference close and keyboard Focus move focus before making preview controls inert", async ({ page }) => {
   await open(page); const reference = page.getByLabel("Reference panel");
+  await page.getByRole('button', { name: 'Reference', exact: true }).click();
   await expect(reference.locator(".board-preview-image svg")).toBeVisible({ timeout: 30000 });
-  const scroll = reference.locator(".board-preview-scroll"); await scroll.focus(); await expect(scroll).toHaveCSS("outline-style", "solid");
+  const scroll = reference.locator(".board-preview-scroll"); await page.keyboard.press('Tab'); await scroll.focus(); await expect(scroll).toHaveCSS("outline-style", "solid");
   await reference.getByRole("button", { name: "Close reference" }).click();
   await expect(page.getByRole("button", { name: "Reference", exact: true })).toBeFocused(); await expect(reference).toHaveAttribute("inert", "");
   await page.keyboard.press("Enter"); await scroll.focus(); await page.keyboard.press("Control+Shift+f");
@@ -113,7 +116,7 @@ test("Reference close and keyboard Focus move focus before making preview contro
 });
 
 test("opening Reference preserves writing focus, text selection and editor instance", async ({ page }) => {
-  await open(page); await page.getByRole("button", { name: "Reference", exact: true }).click();
+  await open(page);
   await page.getByRole("button", { name: "Writing", exact: true }).click();
   const editor = page.getByRole("textbox", { name: "Note content", exact: true }); const element = await editor.elementHandle();
   await editor.evaluate((e) => { e.focus(); const range = document.createRange(); range.setStart(e.firstChild!.firstChild!, 9); range.setEnd(e.firstChild!.firstChild!, 13); const s = window.getSelection()!; s.removeAllRanges(); s.addRange(range); });

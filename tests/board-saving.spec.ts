@@ -1,3 +1,4 @@
+import { boardCommand } from './boardCommandHelper';
 import { test, expect, type Page } from "@playwright/test";
 import type { Workspace } from "../src/types";
 import { emptyBoard } from "../src/boardData";
@@ -103,7 +104,7 @@ test('explicit save during a held resize captures an immutable snapshot and late
 test('retry refreshes failed recovery after the board is acknowledged without another database save', async ({ page }) => {
   await open(page, false);
   await page.evaluate(() => { (window as any).failResizeRecovery = true; });
-  await page.getByRole('button', { name: 'Mermaid', exact: true }).click();
+  await boardCommand(page, 'Mermaid\u2026');
   await page.getByRole('combobox', { name: 'Diagram direction' }).click();
   await page.getByRole('option', { name: 'Top to bottom', exact: true }).click();
   await page.getByRole('button', { name: 'Close', exact: true }).click();

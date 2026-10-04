@@ -184,6 +184,7 @@ pub fn run() {
             export_attachment,
             prune_attachments,
             export_file,
+            open_releases,
             export_binary_file,
             startup_enabled,
             set_startup,

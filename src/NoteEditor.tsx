@@ -183,6 +183,10 @@ export function NoteEditor({
         <EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} pen={pen} changePen={changePen} />
       )}
       {!readOnly && <>
+        {pen.active && <div className="pen-mode-status" role="status">
+          {pen.tool === 'draw' ? 'Drawing' : 'Highlighting'} · {pen.mode === 'guided' ? 'Guided' : 'Freehand'}
+          <button onClick={() => { exitPen(); editor.commands.focus(); }}>Return to writing <kbd>Esc</kbd></button>
+        </div>}
         <input ref={imageInput} type="file" accept={IMAGE_ACCEPT} multiple hidden aria-label="Image files" onChange={(event) => {
           const files = Array.from(event.currentTarget.files || []); event.currentTarget.value = ""; insertImagesRef.current(files);
         }} />
@@ -217,6 +221,11 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
   }) });
   return (
         <div className="editor-toolbar" id="note-formatting-controls" aria-label="Text formatting">
+          <button title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!state.undo}
+            onClick={() => editor.chain().focus().undo().run()}><AnimatedIcon kind="undo" size={20} /></button>
+          <button title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled={!state.redo}
+            onClick={() => editor.chain().focus().redo().run()}><AnimatedIcon kind="redo" size={20} /></button>
+          <span className="toolbar-divider" />
           <AppSelect
             label="Text style" className="text-style-picker"
             value={state.heading}
@@ -231,7 +240,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
                   .run();
             }}
             onCloseFocus={() => editor.commands.focus()}
-            options={[{ value: "0", label: "Text" }, { value: "1", label: "Title" }, { value: "2", label: "Heading" }, { value: "3", label: "Subheading" }]} />
+            options={[{ value: "0", label: "Text" }, { value: "1", label: "Heading 1" }, { value: "2", label: "Heading 2" }, { value: "3", label: "Heading 3" }]} />
           <span className="toolbar-divider" />
           <button
             title="Bold (Ctrl+B)"
@@ -255,7 +264,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
             <AnimatedIcon kind="code" size={23} /><span>Code</span>
           </button>
           <button
-            title="Bullet list"
+            title="Bullet list (Ctrl+Shift+8)"
             aria-label="Bullet list"
             aria-pressed={state.bulletList}
             onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -265,6 +274,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
           <button
             className="checklist-button"
             aria-label="Checklist"
+            title="Checklist (Ctrl+Shift+9)"
             aria-pressed={state.taskList}
             onClick={() => editor.chain().focus().toggleTaskList().run()}
           >
@@ -274,25 +284,8 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
           <button className="checklist-button" aria-label="Add images" title="Add images" disabled={imageLoading}
             onClick={onImageRequest}><AnimatedIcon kind="image" size={23} /><span>Image</span></button>
           <HighlighterTools editor={editor} settings={pen} change={changePen} />
-          <button aria-label="Selection colors" title="Text and background colors (select text first)" disabled={!state.canColor}
+          <button aria-label="Text and background color options" title="Text and background color options (select text, then Shift+F10)" disabled={!state.canColor}
             onClick={onColorsRequest}><AnimatedIcon kind="palette" size={23} /></button>
-          <div className="toolbar-spacer" />
-          <button
-            title="Undo (Ctrl+Z)"
-            aria-label="Undo"
-            disabled={!state.undo}
-            onClick={() => editor.chain().focus().undo().run()}
-          >
-            <AnimatedIcon kind="undo" size={20} />
-          </button>
-          <button
-            title="Redo (Ctrl+Shift+Z)"
-            aria-label="Redo"
-            disabled={!state.redo}
-            onClick={() => editor.chain().focus().redo().run()}
-          >
-            <AnimatedIcon kind="redo" size={20} />
-          </button>
         </div>
   );
 });

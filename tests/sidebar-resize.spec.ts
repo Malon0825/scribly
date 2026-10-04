@@ -10,6 +10,8 @@ async function start(page: Page) {
 }
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByRole('button', { name: 'Reference', exact: true }).click();
+  await page.locator('.workspace').evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished.catch(() => {}))));
   await expect(page.getByRole("separator", { name: "Resize sidebar" })).toBeVisible();
 });
 

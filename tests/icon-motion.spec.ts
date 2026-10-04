@@ -135,14 +135,14 @@ test('menu, Reference, Settings and board command icons animate without running 
   await hoverAnimation(page, actions.getByRole('button', { name: 'Duplicate note', exact: true }));
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  const settings = page.getByRole('dialog', { name: 'Make yourself at home', exact: true });
+  const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
   await expect(settings).toBeVisible();
   for (const name of ['Light', 'Dark', 'System']) await hoverAnimation(page, settings.getByRole('button', { name, exact: true }));
   await hoverAnimation(page, settings.getByRole('button', { name: 'Close dialog', exact: true }));
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'New board', exact: true }).click();
   await expect(page.locator('.board-canvas .excalidraw')).toBeVisible();
-  for (const name of ['Architecture', 'Drawing', 'Mermaid']) await hoverAnimation(page, page.locator('.board-top-controls').getByRole('button', { name, exact: true }));
+  for (const name of ['Insert', 'Architecture', 'Export']) await hoverAnimation(page, page.locator('.board-commands').getByRole('button', { name, exact: true }));
   // Excalidraw's independent frames are outside the icon idle assertion.
 });
 

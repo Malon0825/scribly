@@ -1,3 +1,4 @@
+import { chooseTheme } from './themeHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { defaultNoteTitle, noteTitleFact, mythologyNames } from "../src/noteNaming";
 import { mergeBackup } from "../src/importBackup";
@@ -153,7 +154,7 @@ test.describe("new-note UI", () => {
     expect(await title.evaluate((el) => el.clientHeight)).toBeGreaterThan(50);
     // Return to the assigned name to inspect its fact in the dark theme.
     await title.fill("Work logs · Oct 2, 2026 · Anubis");
-    await page.getByRole("button", { name: "Use dark mode" }).click();
+    await chooseTheme(page, "dark");
     await expect(page.locator(".note-title-fact")).toBeVisible();
     await page.screenshot({ path: test.info().outputPath("default-titles-dark-narrow.png") });
     await page.setViewportSize({ width: 1440, height: 920 });

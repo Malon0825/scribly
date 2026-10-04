@@ -1,3 +1,4 @@
+import { boardCommand } from './boardCommandHelper';
 import { test, expect, type Page } from "@playwright/test";
 import { emptyBoard, boardFromScene, type BoardData } from "../src/boardData";
 import { boardToMermaid } from "../src/boardMermaid";
@@ -13,10 +14,10 @@ async function open(page: Page, theme: "light" | "dark" = "light", archived = fa
 }
 const board = (page: Page) => page.evaluate(() => (JSON.parse(localStorage.getItem("still-notes-browser-v1")!).document as Workspace).notes[0].board!);
 async function pick(page: Page, query = "oracle") {
-  await page.getByRole("button", { name: "Brand logos", exact: true }).click();
+  if (!await page.getByRole("dialog", { name: "Brand logos", exact: true }).isVisible()) await boardCommand(page, 'Brand logos');
   const dialog = page.getByRole("dialog", { name: "Brand logos", exact: true });
   await dialog.getByRole("textbox", { name: "Search brand logos" }).fill(query);
-  await dialog.locator(`.brand-logo-choice[data-brand-slug="${query}"]`).click();
+  await dialog.locator(`.brand-logo-choice[id="brand-${query}"]`).click();
   return dialog;
 }
 for (const theme of ["light", "dark"] as const) test(`${theme}: local catalog searches, stays bounded and fits Focus/narrow/reduced motion`, async ({page}) => {
@@ -25,31 +26,36 @@ for (const theme of ["light", "dark"] as const) test(`${theme}: local catalog se
   await open(page, theme); expect(catalog).toHaveLength(0);
   await page.getByRole("button", {name:"Focus",exact:true}).click();
   const canvas = await page.locator(".board-canvas canvas").first().elementHandle();
-  await page.getByRole("button", {name:"Brand logos",exact:true}).click();
+  await boardCommand(page, 'Brand logos');
   const dialog = page.getByRole("dialog", {name:"Brand logos",exact:true});
-  await expect(dialog.getByRole("button",{name:/^Choose /}).first()).toBeVisible();
-  expect(await dialog.getByRole("button",{name:/^Choose /}).count()).toBeLessThanOrEqual(48);
-  await dialog.getByRole("button",{name:"Next logo page"}).click();
-  await expect(dialog.getByRole("status")).toContainText("Page 2");
+  await expect(dialog.getByRole("option").first()).toBeVisible();
+  expect(await dialog.getByRole("option").count()).toBeLessThanOrEqual(48);
+  await expect(dialog.getByRole("button", { name: "Popular", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.getByRole("option", { selected: true })).toHaveCount(1);
+  await dialog.getByRole("button", { name: "All brands", exact: true }).click();
+  await dialog.getByRole("listbox").press("End");
+  await expect(dialog.getByRole("option", { selected: true })).toBeVisible();
   await dialog.getByRole("textbox",{name:"Search brand logos"}).fill("microsoft sql");
-  await expect(dialog.locator('.brand-logo-choice[data-brand-slug="microsoft-sql-server"]')).toBeVisible();
+  await expect(dialog.locator('.brand-logo-choice[id="brand-microsoft-sql-server"]')).toBeVisible();
   await dialog.getByRole("textbox",{name:"Search brand logos"}).fill("aws lambda");
-  await dialog.locator('.brand-logo-choice[data-brand-slug="aws-aws-lambda"]').click();
+  await dialog.locator('.brand-logo-choice[id="brand-aws-aws-lambda"]').click();
   await expect.poll(()=>dialog.locator('.brand-logo-preview img').evaluate((image:HTMLImageElement)=>image.complete && image.naturalWidth > 0)).toBe(true);
   await page.screenshot({path:`release/brand-picker-${theme}-wide.png`});
   await dialog.getByRole("textbox",{name:"Search brand logos"}).fill("nonexistent-brand-test");
-  await expect(dialog.getByRole("status").filter({hasText:"No logos found"})).toBeVisible();
+  await expect(dialog.getByRole("status").filter({hasText:"No brands found"})).toBeVisible();
   await page.setViewportSize({width:850,height:600}); await page.emulateMedia({reducedMotion:"reduce"});
   const box = await dialog.boundingBox(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(850); expect(box!.y + box!.height).toBeLessThanOrEqual(600);
   await page.screenshot({path:`release/brand-picker-${theme}.png`});
   await page.keyboard.press("Escape"); await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button",{name:"Brand logos",exact:true})).toBeFocused();
+  await expect(page.getByRole("button",{name:"Insert",exact:true})).toBeFocused();
   expect(await canvas!.evaluate(el=>el.isConnected)).toBe(true); expect(remote).toEqual([]); expect((await board(page)).elements).toHaveLength(0);
 });
 
 test("inserting a brand creates one reversible component with offline image, Mermaid label and portable exports", async ({page}) => {
   await open(page); const dialog = await pick(page);
-  await dialog.getByRole("button",{name:"Insert component"}).click(); await expect(dialog).toHaveCount(0);
+  await dialog.getByRole("button",{name:"Insert component"}).click();
+  await expect(dialog.getByRole("status")).toContainText("1 component inserted");
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expect.poll(async()=> (await board(page)).elements.length).toBe(3);
   let saved = await board(page); const component = saved.elements.find(e=>e.type==="rectangle")!;
   expect(component.customData?.notifyBrand.slug).toBe("oracle"); expect(boardToMermaid(saved).code).toContain('["Oracle"]'); expect(boardToMermaid(saved).issues).toEqual([]);
@@ -57,20 +63,23 @@ test("inserting a brand creates one reversible component with offline image, Mer
   expect(label.x).toBeGreaterThan(component.x); expect(label.x + label.width).toBeLessThan(component.x + component.width);
   expect(label.y).toBeGreaterThan(saved.elements.find(e=>e.type==='image')!.y + saved.elements.find(e=>e.type==='image')!.height);
   expect(Object.values(saved.files)[0].dataURL).toMatch(/^data:image\/png;base64,/);
-  const drawing = page.waitForEvent("download"); await page.getByRole("button",{name:"Drawing",exact:true}).first().click();
+  const drawing = page.waitForEvent("download"); await boardCommand(page, 'Drawing (.excalidraw)');
   const restored = boardFromScene(JSON.parse(await readFile((await (await drawing).path())!,"utf8"))); expect(boardToMermaid(restored).code).toContain('["Oracle"]'); expect(restored.files).toEqual(saved.files);
-  const png = page.waitForEvent("download"); await page.getByRole("button",{name:"PNG",exact:true}).click(); expect((await readFile((await (await png).path())!)).subarray(0,8).toString("hex")).toBe("89504e470d0a1a0a");
+  const png = page.waitForEvent("download"); await boardCommand(page, 'PNG image'); expect((await readFile((await (await png).path())!)).subarray(0,8).toString("hex")).toBe("89504e470d0a1a0a");
   await page.getByRole("button",{name:"Undo",exact:true}).click(); await expect.poll(async()=> (await board(page)).elements.filter(e=>!e.isDeleted).length).toBe(0);
   await page.getByRole("button",{name:"Redo",exact:true}).click(); await expect.poll(async()=> (await board(page)).elements.filter(e=>!e.isDeleted).length).toBe(3);
-  await page.reload(); await expect(page.getByRole("button",{name:"Brand logos",exact:true})).toBeVisible({timeout:30000});
+  await page.reload(); await expect(page.getByRole("button",{name:"Insert",exact:true})).toBeVisible({timeout:30000});
   saved = await board(page); expect(boardToMermaid(saved).code).toContain('["Oracle"]');
-  const github = await pick(page,"github"); await github.getByLabel("Logo variant").click(); await page.getByRole("option",{name:"mono",exact:true}).click(); await github.getByRole("button",{name:"Insert component"}).click();
+  const github = await pick(page,"github"); await github.getByLabel("Logo variant").click(); await page.getByRole("option",{name:/^mono(?: \u00b7|$)/}).click(); await github.getByRole("button",{name:"Insert component"}).click();
   await expect.poll(async()=>Object.keys((await board(page)).files).length).toBe(2);
   const components = (await board(page)).elements.filter(e=>!e.isDeleted && e.type === "rectangle");
   expect(components[1].x).toBeGreaterThanOrEqual(components[0].x + components[0].width);
+  await expect(github.getByRole("button", { name: "Insert component", exact: true })).toBeEnabled();
   const repeated = await pick(page); await repeated.getByRole("button",{name:"Insert component"}).click();
   await expect.poll(async()=> (await board(page)).elements.filter(e=>!e.isDeleted).length).toBe(9);
   expect(Object.keys((await board(page)).files)).toHaveLength(2);
+  await expect(repeated.getByRole("button", { name: "Insert component", exact: true })).toBeEnabled();
+  await repeated.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByRole('button', {name:'Reference',exact:true}).click();
   await expect.poll(async()=>(await page.locator('.board-canvas').boundingBox())!.width).toBeGreaterThan(900);
   const canvas = (await page.locator('.board-canvas').boundingBox())!;
@@ -86,19 +95,19 @@ test("inserting a brand creates one reversible component with offline image, Mer
 test("catalog and artwork failures are recoverable and closing during insertion cancels the command", async ({page}) => {
   await open(page);
   await page.route("**/brand-logos/catalog.json",route=>route.fulfill({status:503,body:"Unavailable"}));
-  await page.getByRole("button",{name:"Brand logos",exact:true}).click(); const dialog = page.getByRole("dialog",{name:"Brand logos",exact:true});
+  await boardCommand(page, 'Brand logos'); const dialog = page.getByRole("dialog",{name:"Brand logos",exact:true});
   await expect(dialog.getByRole("alert")).toContainText("could not be opened"); await page.unroute("**/brand-logos/catalog.json");
-  await dialog.getByRole("button",{name:"Retry catalog"}).click(); await expect(dialog.getByRole("button",{name:/^Choose /}).first()).toBeVisible();
-  await dialog.getByRole("textbox",{name:"Search brand logos"}).fill("oracle"); await dialog.locator('.brand-logo-choice[data-brand-slug="oracle"]').click();
+  await dialog.getByRole("button",{name:"Retry catalog"}).click(); await expect(dialog.getByRole("option").first()).toBeVisible();
+  await dialog.getByRole("textbox",{name:"Search brand logos"}).fill("oracle"); await dialog.locator('.brand-logo-choice[id="brand-oracle"]').click();
   await page.route("**/brand-logos/oracle/default.svg",async route=>{if(route.request().resourceType()==="fetch") await route.fulfill({status:404,body:"Missing"}); else await route.continue();});
   await dialog.getByRole("button",{name:"Insert component"}).click(); await expect(dialog.getByRole("alert")).toContainText("could not be opened"); expect((await board(page)).elements).toHaveLength(0);
   await page.unroute("**/brand-logos/oracle/default.svg");
   await page.route("**/brand-logos/oracle/default.svg",async route=>{if(route.request().resourceType()==="fetch"){ await new Promise(resolve=>setTimeout(resolve,600)); await route.continue().catch(()=>{}); } else await route.continue();});
-  await dialog.getByRole("button",{name:"Insert component"}).click(); await dialog.getByRole("button",{name:"Cancel",exact:true}).click(); await page.waitForTimeout(800); expect((await board(page)).elements).toHaveLength(0);
+  await dialog.getByRole("button",{name:"Insert component"}).click(); await dialog.getByRole("button",{name:"Stop and close",exact:true}).click(); await page.waitForTimeout(800); expect((await board(page)).elements).toHaveLength(0);
 });
 
 test("archived boards cannot insert logos", async ({page}) => {
-  await open(page,"light",true); await expect(page.getByRole("button",{name:"Brand logos",exact:true})).toHaveCount(0);
+  await open(page,"light",true); await expect(page.getByRole("button",{name:"Insert",exact:true})).toHaveCount(0);
 });
 
 test("board capacity is checked before adding logo files or scene elements", async ({page}) => {
@@ -108,5 +117,5 @@ test("board capacity is checked before adding logo files or scene elements", asy
   await dialog.getByRole('button',{name:'Insert component'}).click();
   await expect(dialog.getByRole('alert')).toContainText('2,500 element limit');
   expect((await board(page)).elements).toHaveLength(2498); expect(Object.keys((await board(page)).files)).toHaveLength(0);
-  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  await dialog.getByRole('button',{name:'Done',exact:true}).click();
 });
