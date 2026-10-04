@@ -1,0 +1,2 @@
+# Ephemeral Playwright output; durable evidence and logs are committed explicitly.
+/retest-results/

@@ -1,0 +1,1754 @@
+[
+  {
+    "tag": "light-small-850",
+    "chromePct": 27.33333396911621,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 524,
+      "fontSize": "18px",
+      "height": 846.9000244140625,
+      "position": "relative",
+      "scrollWidth": 524,
+      "width": 523.7000122070312,
+      "x": 266.3000183105469,
+      "y": 243.1000061035156
+    },
+    "documentScroll": {
+      "clientWidth": 581,
+      "fontSize": "18px",
+      "height": 450.1000061035156,
+      "position": "static",
+      "scrollWidth": 581,
+      "width": 586.9000244140625,
+      "x": 237.5,
+      "y": 73.70000457763672
+    },
+    "editor": {
+      "clientWidth": 587,
+      "fontSize": "16px",
+      "height": 510.8999938964844,
+      "position": "relative",
+      "scrollWidth": 587,
+      "width": 588.5,
+      "x": 236.6999969482422,
+      "y": 72.9000015258789
+    },
+    "footer": {
+      "clientWidth": 587,
+      "fontSize": "14px",
+      "height": 59.20000076293945,
+      "position": "static",
+      "scrollWidth": 587,
+      "width": 586.9000244140625,
+      "x": 237.5,
+      "y": 523.7999877929688
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 510.8999938964844,
+      "position": "static",
+      "scrollWidth": 89,
+      "width": 0,
+      "x": 834.2000122070312,
+      "y": 72.9000015258789
+    },
+    "scale": "0.9",
+    "sidebar": {
+      "clientWidth": 210,
+      "fontSize": "16px",
+      "height": 510.8999938964844,
+      "position": "static",
+      "scrollWidth": 210,
+      "width": 211.5,
+      "x": 16.200000762939453,
+      "y": 72.9000015258789
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 96.6750030517578,
+        "x": 69.0999984741211,
+        "y": 200.40000915527344
+      },
+      {
+        "disabled": false,
+        "height": 478.8999938964844,
+        "name": "Resize sidebar",
+        "width": 9,
+        "x": 227.6999969482422,
+        "y": 88.9000015258789
+      },
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Saved in browser. Save now",
+        "width": 132.3625030517578,
+        "x": 257.3000183105469,
+        "y": 542.4000244140625
+      }
+    ],
+    "theme": "light",
+    "toolbar": {
+      "clientWidth": 524,
+      "fontSize": "18px",
+      "height": 54.400001525878906,
+      "position": "sticky",
+      "scrollWidth": 566,
+      "width": 523.7000122070312,
+      "x": 266.3000183105469,
+      "y": 174.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 816,
+      "fontSize": "16px",
+      "height": 50.400001525878906,
+      "position": "static",
+      "scrollWidth": 816,
+      "width": 818,
+      "x": 16.200000762939453,
+      "y": 12.600000381469728
+    },
+    "viewport": [
+      850,
+      600
+    ]
+  },
+  {
+    "tag": "light-small-1280",
+    "chromePct": 21.333333651224773,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 752.4000244140625,
+      "position": "relative",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 429.8875122070313,
+      "y": 232.6999969482422
+    },
+    "documentScroll": {
+      "clientWidth": 958,
+      "fontSize": "18px",
+      "height": 570.1000366210938,
+      "position": "static",
+      "scrollWidth": 958,
+      "width": 963.4000244140624,
+      "x": 290.6000061035156,
+      "y": 73.70000457763672
+    },
+    "editor": {
+      "clientWidth": 963,
+      "fontSize": "16px",
+      "height": 630.9000244140625,
+      "position": "relative",
+      "scrollWidth": 963,
+      "width": 965,
+      "x": 289.8000183105469,
+      "y": 72.9000015258789
+    },
+    "footer": {
+      "clientWidth": 963,
+      "fontSize": "14px",
+      "height": 59.20000076293945,
+      "position": "static",
+      "scrollWidth": 963,
+      "width": 963.4000244140624,
+      "x": 290.6000061035156,
+      "y": 643.7999877929688
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 630.9000244140625,
+      "position": "static",
+      "scrollWidth": 89,
+      "width": 0,
+      "x": 1263.800048828125,
+      "y": 72.9000015258789
+    },
+    "scale": "0.9",
+    "sidebar": {
+      "clientWidth": 263,
+      "fontSize": "16px",
+      "height": 630.9000244140625,
+      "position": "static",
+      "scrollWidth": 263,
+      "width": 264.6000061035156,
+      "x": 16.200000762939453,
+      "y": 72.9000015258789
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 142.5749969482422,
+        "x": 72.70000457763672,
+        "y": 202.1999969482422
+      },
+      {
+        "disabled": false,
+        "height": 598.9000244140625,
+        "name": "Resize sidebar",
+        "width": 9,
+        "x": 280.8000183105469,
+        "y": 88.9000015258789
+      },
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Saved in browser. Save now",
+        "width": 132.3625030517578,
+        "x": 319.3999938964844,
+        "y": 662.4000244140625
+      }
+    ],
+    "theme": "light",
+    "toolbar": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 44,
+      "position": "sticky",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 429.8875122070313,
+      "y": 174.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 1246,
+      "fontSize": "16px",
+      "height": 50.400001525878906,
+      "position": "static",
+      "scrollWidth": 1246,
+      "width": 1247.5999755859375,
+      "x": 16.200000762939453,
+      "y": 12.600000381469728
+    },
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "tag": "light-medium-850",
+    "chromePct": 28.96666653951009,
+    "clippedControls": [
+      {
+        "disabled": false,
+        "height": 33,
+        "name": "Drawing options",
+        "width": 34,
+        "x": 845.5125122070312,
+        "y": 192.6000061035156
+      },
+      {
+        "disabled": true,
+        "height": 33,
+        "name": "Text and background color options",
+        "width": 34,
+        "x": 882.5125122070312,
+        "y": 192.6000061035156
+      }
+    ],
+    "content": {
+      "clientWidth": 487,
+      "fontSize": "18px",
+      "height": 923.1000366210938,
+      "position": "relative",
+      "scrollWidth": 487,
+      "width": 487.3999938964844,
+      "x": 295.8000183105469,
+      "y": 259.1000061035156
+    },
+    "documentScroll": {
+      "clientWidth": 551,
+      "fontSize": "18px",
+      "height": 438.3999938964844,
+      "position": "static",
+      "scrollWidth": 551,
+      "width": 557.7999877929688,
+      "x": 263.8000183105469,
+      "y": 81.80000305175781
+    },
+    "editor": {
+      "clientWidth": 558,
+      "fontSize": "16px",
+      "height": 501,
+      "position": "relative",
+      "scrollWidth": 558,
+      "width": 559.4000244140625,
+      "x": 263,
+      "y": 81
+    },
+    "footer": {
+      "clientWidth": 558,
+      "fontSize": "14px",
+      "height": 61,
+      "position": "static",
+      "scrollWidth": 558,
+      "width": 557.7999877929688,
+      "x": 263.8000183105469,
+      "y": 520.2000122070312
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 501,
+      "position": "static",
+      "scrollWidth": 92,
+      "width": 0,
+      "x": 832.4000244140625,
+      "y": 81
+    },
+    "scale": "1",
+    "sidebar": {
+      "clientWidth": 233,
+      "fontSize": "16px",
+      "height": 501,
+      "position": "static",
+      "scrollWidth": 233,
+      "width": 235,
+      "x": 18,
+      "y": 81
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 110.9749984741211,
+        "x": 76.5999984741211,
+        "y": 223.8000030517578
+      },
+      {
+        "disabled": false,
+        "height": 469,
+        "name": "Resize sidebar",
+        "width": 10,
+        "x": 253,
+        "y": 97
+      },
+      {
+        "disabled": false,
+        "height": 22.399999618530273,
+        "name": "Saved in browser. Save now",
+        "width": 135.3625030517578,
+        "x": 285.8000183105469,
+        "y": 539.5
+      }
+    ],
+    "theme": "light",
+    "toolbar": {
+      "clientWidth": 487,
+      "fontSize": "18px",
+      "height": 56.79999923706055,
+      "position": "sticky",
+      "scrollWidth": 621,
+      "width": 487.3999938964844,
+      "x": 295.8000183105469,
+      "y": 186.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 813,
+      "fontSize": "16px",
+      "height": 56,
+      "position": "static",
+      "scrollWidth": 813,
+      "width": 814.4000244140625,
+      "x": 18,
+      "y": 14
+    },
+    "viewport": [
+      850,
+      600
+    ]
+  },
+  {
+    "tag": "light-medium-1280",
+    "chromePct": 22.69444465637207,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 765.6000366210938,
+      "position": "relative",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 444.1875,
+      "y": 248.6999969482422
+    },
+    "documentScroll": {
+      "clientWidth": 922,
+      "fontSize": "18px",
+      "height": 558.4000244140625,
+      "position": "static",
+      "scrollWidth": 922,
+      "width": 928.4000244140624,
+      "x": 322.8000183105469,
+      "y": 81.80000305175781
+    },
+    "editor": {
+      "clientWidth": 928,
+      "fontSize": "16px",
+      "height": 621,
+      "position": "relative",
+      "scrollWidth": 928,
+      "width": 930,
+      "x": 322,
+      "y": 81
+    },
+    "footer": {
+      "clientWidth": 928,
+      "fontSize": "14px",
+      "height": 61,
+      "position": "static",
+      "scrollWidth": 928,
+      "width": 928.4000244140624,
+      "x": 322.8000183105469,
+      "y": 640.2000122070312
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 621,
+      "position": "static",
+      "scrollWidth": 92,
+      "width": 0,
+      "x": 1262,
+      "y": 81
+    },
+    "scale": "1",
+    "sidebar": {
+      "clientWidth": 292,
+      "fontSize": "16px",
+      "height": 621,
+      "position": "static",
+      "scrollWidth": 292,
+      "width": 294,
+      "x": 18,
+      "y": 81
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 161.97500610351562,
+        "x": 80.5999984741211,
+        "y": 225.8000030517578
+      },
+      {
+        "disabled": false,
+        "height": 589,
+        "name": "Resize sidebar",
+        "width": 10,
+        "x": 312,
+        "y": 97
+      },
+      {
+        "disabled": false,
+        "height": 22.399999618530273,
+        "name": "Saved in browser. Save now",
+        "width": 135.3625030517578,
+        "x": 354.8000183105469,
+        "y": 659.5
+      }
+    ],
+    "theme": "light",
+    "toolbar": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 46.400001525878906,
+      "position": "sticky",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 444.1875,
+      "y": 186.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 1242,
+      "fontSize": "16px",
+      "height": 56,
+      "position": "static",
+      "scrollWidth": 1242,
+      "width": 1244,
+      "x": 18,
+      "y": 14
+    },
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "tag": "light-large-850",
+    "chromePct": 31.566666920979817,
+    "clippedControls": [
+      {
+        "disabled": false,
+        "height": 36.29999923706055,
+        "name": "Highlighter options",
+        "width": 37.400001525878906,
+        "x": 844.6124877929688,
+        "y": 204.90000915527344
+      },
+      {
+        "disabled": false,
+        "height": 36.29999923706055,
+        "name": "Start drawing",
+        "width": 37.400001525878906,
+        "x": 885.0125122070312,
+        "y": 204.90000915527344
+      },
+      {
+        "disabled": false,
+        "height": 36.29999923706055,
+        "name": "Drawing options",
+        "width": 37.400001525878906,
+        "x": 922.4125366210938,
+        "y": 204.90000915527344
+      },
+      {
+        "disabled": true,
+        "height": 36.29999923706055,
+        "name": "Text and background color options",
+        "width": 37.400001525878906,
+        "x": 963.1124877929688,
+        "y": 204.90000915527344
+      }
+    ],
+    "content": {
+      "clientWidth": 451,
+      "fontSize": "18px",
+      "height": 936.2999877929688,
+      "position": "relative",
+      "scrollWidth": 451,
+      "width": 451.1000061035156,
+      "x": 325.3000183105469,
+      "y": 276.6000061035156
+    },
+    "documentScroll": {
+      "clientWidth": 522,
+      "fontSize": "18px",
+      "height": 422.3999938964844,
+      "position": "static",
+      "scrollWidth": 522,
+      "width": 528.7000122070312,
+      "x": 290.1000061035156,
+      "y": 89.9000015258789
+    },
+    "editor": {
+      "clientWidth": 529,
+      "fontSize": "16px",
+      "height": 491.1000061035156,
+      "position": "relative",
+      "scrollWidth": 529,
+      "width": 530.2999877929688,
+      "x": 289.3000183105469,
+      "y": 89.0999984741211
+    },
+    "footer": {
+      "clientWidth": 529,
+      "fontSize": "14px",
+      "height": 67.0999984741211,
+      "position": "static",
+      "scrollWidth": 529,
+      "width": 528.7000122070312,
+      "x": 290.1000061035156,
+      "y": 512.2999877929688
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 491.1000061035156,
+      "position": "static",
+      "scrollWidth": 96,
+      "width": 0,
+      "x": 830.6000366210938,
+      "y": 89.0999984741211
+    },
+    "scale": "1.1",
+    "sidebar": {
+      "clientWidth": 257,
+      "fontSize": "16px",
+      "height": 491.1000061035156,
+      "position": "static",
+      "scrollWidth": 257,
+      "width": 258.5,
+      "x": 19.80000114440918,
+      "y": 89.0999984741211
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 125.2750015258789,
+        "x": 84.0999984741211,
+        "y": 247.1999969482422
+      },
+      {
+        "disabled": false,
+        "height": 459.1000061035156,
+        "name": "Resize sidebar",
+        "width": 11,
+        "x": 278.3000183105469,
+        "y": 105.0999984741211
+      },
+      {
+        "disabled": false,
+        "height": 22.80000114440918,
+        "name": "Saved in browser. Save now",
+        "width": 138.3625030517578,
+        "x": 314.3000183105469,
+        "y": 534.4500122070312
+      }
+    ],
+    "theme": "light",
+    "toolbar": {
+      "clientWidth": 451,
+      "fontSize": "18px",
+      "height": 60.70000076293945,
+      "position": "sticky",
+      "scrollWidth": 675,
+      "width": 451.1000061035156,
+      "x": 325.3000183105469,
+      "y": 198.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 809,
+      "fontSize": "16px",
+      "height": 61.60000228881836,
+      "position": "static",
+      "scrollWidth": 809,
+      "width": 810.7999877929688,
+      "x": 19.80000114440918,
+      "y": 15.40000057220459
+    },
+    "viewport": [
+      850,
+      600
+    ]
+  },
+  {
+    "tag": "light-large-1280",
+    "chromePct": 24.90277820163303,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 778.7999877929688,
+      "position": "relative",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 458.4875183105469,
+      "y": 266.5
+    },
+    "documentScroll": {
+      "clientWidth": 886,
+      "fontSize": "18px",
+      "height": 542.4000244140625,
+      "position": "static",
+      "scrollWidth": 886,
+      "width": 893.4000244140625,
+      "x": 355,
+      "y": 89.9000015258789
+    },
+    "editor": {
+      "clientWidth": 893,
+      "fontSize": "16px",
+      "height": 611.1000366210938,
+      "position": "relative",
+      "scrollWidth": 893,
+      "width": 895,
+      "x": 354.20001220703125,
+      "y": 89.0999984741211
+    },
+    "footer": {
+      "clientWidth": 893,
+      "fontSize": "14px",
+      "height": 67.0999984741211,
+      "position": "static",
+      "scrollWidth": 893,
+      "width": 893.4000244140625,
+      "x": 355,
+      "y": 632.2999877929688
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 611.1000366210938,
+      "position": "static",
+      "scrollWidth": 96,
+      "width": 0,
+      "x": 1260.2000732421875,
+      "y": 89.0999984741211
+    },
+    "scale": "1.1",
+    "sidebar": {
+      "clientWidth": 322,
+      "fontSize": "16px",
+      "height": 611.1000366210938,
+      "position": "static",
+      "scrollWidth": 322,
+      "width": 323.3999938964844,
+      "x": 19.80000114440918,
+      "y": 89.0999984741211
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 181.375,
+        "x": 88.5,
+        "y": 249.40000915527344
+      },
+      {
+        "disabled": false,
+        "height": 579.1000366210938,
+        "name": "Resize sidebar",
+        "width": 11,
+        "x": 343.20001220703125,
+        "y": 105.0999984741211
+      },
+      {
+        "disabled": false,
+        "height": 22.80000114440918,
+        "name": "Saved in browser. Save now",
+        "width": 138.3625030517578,
+        "x": 390.2000122070313,
+        "y": 654.4500122070312
+      }
+    ],
+    "theme": "light",
+    "toolbar": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 50.60000228881836,
+      "position": "sticky",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 458.4875183105469,
+      "y": 198.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 1239,
+      "fontSize": "16px",
+      "height": 61.60000228881836,
+      "position": "static",
+      "scrollWidth": 1239,
+      "width": 1240.4000244140625,
+      "x": 19.80000114440918,
+      "y": 15.40000057220459
+    },
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "tag": "dark-small-850",
+    "chromePct": 27.33333396911621,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 522,
+      "fontSize": "18px",
+      "height": 846.9000244140625,
+      "position": "relative",
+      "scrollWidth": 522,
+      "width": 522.4000244140625,
+      "x": 267.6000061035156,
+      "y": 243.1000061035156
+    },
+    "documentScroll": {
+      "clientWidth": 580,
+      "fontSize": "18px",
+      "height": 450.1000061035156,
+      "position": "static",
+      "scrollWidth": 580,
+      "width": 585.6000366210938,
+      "x": 238.8000030517578,
+      "y": 73.70000457763672
+    },
+    "editor": {
+      "clientWidth": 586,
+      "fontSize": "16px",
+      "height": 510.8999938964844,
+      "position": "relative",
+      "scrollWidth": 586,
+      "width": 587.2000122070312,
+      "x": 238,
+      "y": 72.9000015258789
+    },
+    "footer": {
+      "clientWidth": 586,
+      "fontSize": "14px",
+      "height": 59.20000076293945,
+      "position": "static",
+      "scrollWidth": 586,
+      "width": 585.6000366210938,
+      "x": 238.8000030517578,
+      "y": 523.7999877929688
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 510.8999938964844,
+      "position": "static",
+      "scrollWidth": 89,
+      "width": 0,
+      "x": 834.2000122070312,
+      "y": 72.9000015258789
+    },
+    "scale": "0.9",
+    "sidebar": {
+      "clientWidth": 211,
+      "fontSize": "16px",
+      "height": 510.8999938964844,
+      "position": "static",
+      "scrollWidth": 211,
+      "width": 212.8000030517578,
+      "x": 16.200000762939453,
+      "y": 72.9000015258789
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 97.9749984741211,
+        "x": 69.0999984741211,
+        "y": 200.40000915527344
+      },
+      {
+        "disabled": false,
+        "height": 478.8999938964844,
+        "name": "Resize sidebar",
+        "width": 9,
+        "x": 227.6999969482422,
+        "y": 88.9000015258789
+      },
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Saved in browser. Save now",
+        "width": 132.3625030517578,
+        "x": 258.6000061035156,
+        "y": 542.4000244140625
+      }
+    ],
+    "theme": "dark",
+    "toolbar": {
+      "clientWidth": 522,
+      "fontSize": "18px",
+      "height": 54.400001525878906,
+      "position": "sticky",
+      "scrollWidth": 566,
+      "width": 522.4000244140625,
+      "x": 267.6000061035156,
+      "y": 174.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 816,
+      "fontSize": "16px",
+      "height": 50.400001525878906,
+      "position": "static",
+      "scrollWidth": 816,
+      "width": 818,
+      "x": 16.200000762939453,
+      "y": 12.600000381469728
+    },
+    "viewport": [
+      850,
+      600
+    ]
+  },
+  {
+    "tag": "dark-small-1280",
+    "chromePct": 21.333333651224773,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 752.4000244140625,
+      "position": "relative",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 429.625,
+      "y": 232.6999969482422
+    },
+    "documentScroll": {
+      "clientWidth": 958,
+      "fontSize": "18px",
+      "height": 570.1000366210938,
+      "position": "static",
+      "scrollWidth": 958,
+      "width": 963.9249877929688,
+      "x": 290.07501220703125,
+      "y": 73.70000457763672
+    },
+    "editor": {
+      "clientWidth": 964,
+      "fontSize": "16px",
+      "height": 630.9000244140625,
+      "position": "relative",
+      "scrollWidth": 964,
+      "width": 965.5250244140624,
+      "x": 289.2749938964844,
+      "y": 72.9000015258789
+    },
+    "footer": {
+      "clientWidth": 964,
+      "fontSize": "14px",
+      "height": 59.20000076293945,
+      "position": "static",
+      "scrollWidth": 964,
+      "width": 963.9249877929688,
+      "x": 290.07501220703125,
+      "y": 643.7999877929688
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 630.9000244140625,
+      "position": "static",
+      "scrollWidth": 89,
+      "width": 0,
+      "x": 1263.800048828125,
+      "y": 72.9000015258789
+    },
+    "scale": "0.9",
+    "sidebar": {
+      "clientWidth": 262,
+      "fontSize": "16px",
+      "height": 630.9000244140625,
+      "position": "static",
+      "scrollWidth": 262,
+      "width": 264.07501220703125,
+      "x": 16.200000762939453,
+      "y": 72.9000015258789
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 142.0500030517578,
+        "x": 72.70000457763672,
+        "y": 202.1999969482422
+      },
+      {
+        "disabled": false,
+        "height": 598.9000244140625,
+        "name": "Resize sidebar",
+        "width": 9,
+        "x": 280.8000183105469,
+        "y": 88.9000015258789
+      },
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Saved in browser. Save now",
+        "width": 132.3625030517578,
+        "x": 318.875,
+        "y": 662.4000244140625
+      }
+    ],
+    "theme": "dark",
+    "toolbar": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 44,
+      "position": "sticky",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 429.625,
+      "y": 174.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 1246,
+      "fontSize": "16px",
+      "height": 50.400001525878906,
+      "position": "static",
+      "scrollWidth": 1246,
+      "width": 1247.5999755859375,
+      "x": 16.200000762939453,
+      "y": 12.600000381469728
+    },
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "tag": "dark-medium-850",
+    "chromePct": 28.96666653951009,
+    "clippedControls": [
+      {
+        "disabled": false,
+        "height": 33,
+        "name": "Drawing options",
+        "width": 34,
+        "x": 846.9500122070312,
+        "y": 192.6000061035156
+      },
+      {
+        "disabled": true,
+        "height": 33,
+        "name": "Text and background color options",
+        "width": 34,
+        "x": 883.9500122070312,
+        "y": 192.6000061035156
+      }
+    ],
+    "content": {
+      "clientWidth": 486,
+      "fontSize": "18px",
+      "height": 923.1000366210938,
+      "position": "relative",
+      "scrollWidth": 486,
+      "width": 485.9624938964844,
+      "x": 297.2375183105469,
+      "y": 259.1000061035156
+    },
+    "documentScroll": {
+      "clientWidth": 550,
+      "fontSize": "18px",
+      "height": 438.3999938964844,
+      "position": "static",
+      "scrollWidth": 550,
+      "width": 556.3624877929688,
+      "x": 265.2375183105469,
+      "y": 81.80000305175781
+    },
+    "editor": {
+      "clientWidth": 556,
+      "fontSize": "16px",
+      "height": 501,
+      "position": "relative",
+      "scrollWidth": 556,
+      "width": 557.9625244140625,
+      "x": 264.4375,
+      "y": 81
+    },
+    "footer": {
+      "clientWidth": 556,
+      "fontSize": "14px",
+      "height": 61,
+      "position": "static",
+      "scrollWidth": 556,
+      "width": 556.3624877929688,
+      "x": 265.2375183105469,
+      "y": 520.2000122070312
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 501,
+      "position": "static",
+      "scrollWidth": 92,
+      "width": 0,
+      "x": 832.4000244140625,
+      "y": 81
+    },
+    "scale": "1",
+    "sidebar": {
+      "clientWidth": 235,
+      "fontSize": "16px",
+      "height": 501,
+      "position": "static",
+      "scrollWidth": 235,
+      "width": 236.4375,
+      "x": 18,
+      "y": 81
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 112.4124984741211,
+        "x": 76.5999984741211,
+        "y": 223.8000030517578
+      },
+      {
+        "disabled": false,
+        "height": 469,
+        "name": "Resize sidebar",
+        "width": 10,
+        "x": 253,
+        "y": 97
+      },
+      {
+        "disabled": false,
+        "height": 22.399999618530273,
+        "name": "Saved in browser. Save now",
+        "width": 135.3625030517578,
+        "x": 287.2375183105469,
+        "y": 539.5
+      }
+    ],
+    "theme": "dark",
+    "toolbar": {
+      "clientWidth": 486,
+      "fontSize": "18px",
+      "height": 56.79999923706055,
+      "position": "sticky",
+      "scrollWidth": 621,
+      "width": 485.9624938964844,
+      "x": 297.2375183105469,
+      "y": 186.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 813,
+      "fontSize": "16px",
+      "height": 56,
+      "position": "static",
+      "scrollWidth": 813,
+      "width": 814.4000244140625,
+      "x": 18,
+      "y": 14
+    },
+    "viewport": [
+      850,
+      600
+    ]
+  },
+  {
+    "tag": "dark-medium-1280",
+    "chromePct": 22.69444465637207,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 765.6000366210938,
+      "position": "relative",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 443.4500122070313,
+      "y": 248.6999969482422
+    },
+    "documentScroll": {
+      "clientWidth": 923,
+      "fontSize": "18px",
+      "height": 558.4000244140625,
+      "position": "static",
+      "scrollWidth": 923,
+      "width": 929.875,
+      "x": 321.32501220703125,
+      "y": 81.80000305175781
+    },
+    "editor": {
+      "clientWidth": 930,
+      "fontSize": "16px",
+      "height": 621,
+      "position": "relative",
+      "scrollWidth": 930,
+      "width": 931.4750366210938,
+      "x": 320.5249938964844,
+      "y": 81
+    },
+    "footer": {
+      "clientWidth": 930,
+      "fontSize": "14px",
+      "height": 61,
+      "position": "static",
+      "scrollWidth": 930,
+      "width": 929.875,
+      "x": 321.32501220703125,
+      "y": 640.2000122070312
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 621,
+      "position": "static",
+      "scrollWidth": 92,
+      "width": 0,
+      "x": 1262,
+      "y": 81
+    },
+    "scale": "1",
+    "sidebar": {
+      "clientWidth": 291,
+      "fontSize": "16px",
+      "height": 621,
+      "position": "static",
+      "scrollWidth": 291,
+      "width": 292.5249938964844,
+      "x": 18,
+      "y": 81
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 160.5,
+        "x": 80.5999984741211,
+        "y": 225.8000030517578
+      },
+      {
+        "disabled": false,
+        "height": 589,
+        "name": "Resize sidebar",
+        "width": 10,
+        "x": 312,
+        "y": 97
+      },
+      {
+        "disabled": false,
+        "height": 22.399999618530273,
+        "name": "Saved in browser. Save now",
+        "width": 135.3625030517578,
+        "x": 353.32501220703125,
+        "y": 659.5
+      }
+    ],
+    "theme": "dark",
+    "toolbar": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 46.400001525878906,
+      "position": "sticky",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 443.4500122070313,
+      "y": 186.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 1242,
+      "fontSize": "16px",
+      "height": 56,
+      "position": "static",
+      "scrollWidth": 1242,
+      "width": 1244,
+      "x": 18,
+      "y": 14
+    },
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "tag": "dark-large-850",
+    "chromePct": 31.566666920979817,
+    "clippedControls": [
+      {
+        "disabled": false,
+        "height": 36.29999923706055,
+        "name": "Highlighter options",
+        "width": 37.400001525878906,
+        "x": 846.25,
+        "y": 204.90000915527344
+      },
+      {
+        "disabled": false,
+        "height": 36.29999923706055,
+        "name": "Start drawing",
+        "width": 37.400001525878906,
+        "x": 886.6500244140625,
+        "y": 204.90000915527344
+      },
+      {
+        "disabled": false,
+        "height": 36.29999923706055,
+        "name": "Drawing options",
+        "width": 37.400001525878906,
+        "x": 924.0499877929688,
+        "y": 204.90000915527344
+      },
+      {
+        "disabled": true,
+        "height": 36.29999923706055,
+        "name": "Text and background color options",
+        "width": 37.400001525878906,
+        "x": 964.75,
+        "y": 204.90000915527344
+      }
+    ],
+    "content": {
+      "clientWidth": 449,
+      "fontSize": "18px",
+      "height": 936.2999877929688,
+      "position": "relative",
+      "scrollWidth": 449,
+      "width": 449.4624938964844,
+      "x": 326.9375,
+      "y": 276.6000061035156
+    },
+    "documentScroll": {
+      "clientWidth": 520,
+      "fontSize": "18px",
+      "height": 422.3999938964844,
+      "position": "static",
+      "scrollWidth": 520,
+      "width": 527.0625,
+      "x": 291.7375183105469,
+      "y": 89.9000015258789
+    },
+    "editor": {
+      "clientWidth": 527,
+      "fontSize": "16px",
+      "height": 491.1000061035156,
+      "position": "relative",
+      "scrollWidth": 527,
+      "width": 528.6625366210938,
+      "x": 290.9375,
+      "y": 89.0999984741211
+    },
+    "footer": {
+      "clientWidth": 527,
+      "fontSize": "14px",
+      "height": 67.0999984741211,
+      "position": "static",
+      "scrollWidth": 527,
+      "width": 527.0625,
+      "x": 291.7375183105469,
+      "y": 512.2999877929688
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 491.1000061035156,
+      "position": "static",
+      "scrollWidth": 96,
+      "width": 0,
+      "x": 830.6000366210938,
+      "y": 89.0999984741211
+    },
+    "scale": "1.1",
+    "sidebar": {
+      "clientWidth": 259,
+      "fontSize": "16px",
+      "height": 491.1000061035156,
+      "position": "static",
+      "scrollWidth": 259,
+      "width": 260.13751220703125,
+      "x": 19.80000114440918,
+      "y": 89.0999984741211
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 126.9124984741211,
+        "x": 84.0999984741211,
+        "y": 247.1999969482422
+      },
+      {
+        "disabled": false,
+        "height": 459.1000061035156,
+        "name": "Resize sidebar",
+        "width": 11,
+        "x": 278.3000183105469,
+        "y": 105.0999984741211
+      },
+      {
+        "disabled": false,
+        "height": 22.80000114440918,
+        "name": "Saved in browser. Save now",
+        "width": 138.3625030517578,
+        "x": 315.9375,
+        "y": 534.4500122070312
+      }
+    ],
+    "theme": "dark",
+    "toolbar": {
+      "clientWidth": 449,
+      "fontSize": "18px",
+      "height": 60.70000076293945,
+      "position": "sticky",
+      "scrollWidth": 675,
+      "width": 449.4624938964844,
+      "x": 326.9375,
+      "y": 198.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 809,
+      "fontSize": "16px",
+      "height": 61.60000228881836,
+      "position": "static",
+      "scrollWidth": 809,
+      "width": 810.7999877929688,
+      "x": 19.80000114440918,
+      "y": 15.40000057220459
+    },
+    "viewport": [
+      850,
+      600
+    ]
+  },
+  {
+    "tag": "dark-large-1280",
+    "chromePct": 24.90277820163303,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 778.7999877929688,
+      "position": "relative",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 457.6750183105469,
+      "y": 266.5
+    },
+    "documentScroll": {
+      "clientWidth": 888,
+      "fontSize": "18px",
+      "height": 542.4000244140625,
+      "position": "static",
+      "scrollWidth": 888,
+      "width": 895.0250244140625,
+      "x": 353.375,
+      "y": 89.9000015258789
+    },
+    "editor": {
+      "clientWidth": 895,
+      "fontSize": "16px",
+      "height": 611.1000366210938,
+      "position": "relative",
+      "scrollWidth": 895,
+      "width": 896.625,
+      "x": 352.57501220703125,
+      "y": 89.0999984741211
+    },
+    "footer": {
+      "clientWidth": 895,
+      "fontSize": "14px",
+      "height": 67.0999984741211,
+      "position": "static",
+      "scrollWidth": 895,
+      "width": 895.0250244140625,
+      "x": 353.375,
+      "y": 632.2999877929688
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 611.1000366210938,
+      "position": "static",
+      "scrollWidth": 96,
+      "width": 0,
+      "x": 1260.2000732421875,
+      "y": 89.0999984741211
+    },
+    "scale": "1.1",
+    "sidebar": {
+      "clientWidth": 320,
+      "fontSize": "16px",
+      "height": 611.1000366210938,
+      "position": "static",
+      "scrollWidth": 320,
+      "width": 321.7749938964844,
+      "x": 19.80000114440918,
+      "y": 89.0999984741211
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 179.75,
+        "x": 88.5,
+        "y": 249.40000915527344
+      },
+      {
+        "disabled": false,
+        "height": 579.1000366210938,
+        "name": "Resize sidebar",
+        "width": 11,
+        "x": 343.20001220703125,
+        "y": 105.0999984741211
+      },
+      {
+        "disabled": false,
+        "height": 22.80000114440918,
+        "name": "Saved in browser. Save now",
+        "width": 138.3625030517578,
+        "x": 388.5750122070313,
+        "y": 654.4500122070312
+      }
+    ],
+    "theme": "dark",
+    "toolbar": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 50.60000228881836,
+      "position": "sticky",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 457.6750183105469,
+      "y": 198.3000030517578
+    },
+    "topbar": {
+      "clientWidth": 1239,
+      "fontSize": "16px",
+      "height": 61.60000228881836,
+      "position": "static",
+      "scrollWidth": 1239,
+      "width": 1240.4000244140625,
+      "x": 19.80000114440918,
+      "y": 15.40000057220459
+    },
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "tag": "dark-medium-1920",
+    "chromePct": 15.129629770914711,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 765.6000366210938,
+      "position": "relative",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 777.1875,
+      "y": 189.5
+    },
+    "documentScroll": {
+      "clientWidth": 1536,
+      "fontSize": "18px",
+      "height": 918.4000244140624,
+      "position": "static",
+      "scrollWidth": 1536,
+      "width": 1542.4000244140625,
+      "x": 348.8000183105469,
+      "y": 81.80000305175781
+    },
+    "editor": {
+      "clientWidth": 1542,
+      "fontSize": "16px",
+      "height": 981,
+      "position": "relative",
+      "scrollWidth": 1542,
+      "width": 1544,
+      "x": 348,
+      "y": 81
+    },
+    "footer": {
+      "clientWidth": 1542,
+      "fontSize": "14px",
+      "height": 61,
+      "position": "static",
+      "scrollWidth": 1542,
+      "width": 1542.4000244140625,
+      "x": 348.8000183105469,
+      "y": 1000.2000122070312
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 981,
+      "position": "static",
+      "scrollWidth": 92,
+      "width": 0,
+      "x": 1902,
+      "y": 81
+    },
+    "scale": "1",
+    "sidebar": {
+      "clientWidth": 318,
+      "fontSize": "16px",
+      "height": 981,
+      "position": "static",
+      "scrollWidth": 318,
+      "width": 320,
+      "x": 18,
+      "y": 81
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 187.9750061035156,
+        "x": 80.5999984741211,
+        "y": 225.8000030517578
+      },
+      {
+        "disabled": false,
+        "height": 949,
+        "name": "Resize sidebar",
+        "width": 10,
+        "x": 338,
+        "y": 97
+      },
+      {
+        "disabled": false,
+        "height": 22.399999618530273,
+        "name": "Saved in browser. Save now",
+        "width": 135.3625030517578,
+        "x": 380.8000183105469,
+        "y": 1019.5
+      }
+    ],
+    "theme": "dark",
+    "toolbar": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 46.400001525878906,
+      "position": "sticky",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 777.1875,
+      "y": 127.0999984741211
+    },
+    "topbar": {
+      "clientWidth": 1882,
+      "fontSize": "16px",
+      "height": 56,
+      "position": "static",
+      "scrollWidth": 1882,
+      "width": 1884,
+      "x": 18,
+      "y": 14
+    },
+    "viewport": [
+      1920,
+      1080
+    ]
+  },
+  {
+    "tag": "dark-medium-2560",
+    "chromePct": 15.129629770914711,
+    "clippedControls": [],
+    "content": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 765.6000366210938,
+      "position": "relative",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 1097.1875,
+      "y": 189.5
+    },
+    "documentScroll": {
+      "clientWidth": 2176,
+      "fontSize": "18px",
+      "height": 918.4000244140624,
+      "position": "static",
+      "scrollWidth": 2176,
+      "width": 2182.400146484375,
+      "x": 348.8000183105469,
+      "y": 81.80000305175781
+    },
+    "editor": {
+      "clientWidth": 2182,
+      "fontSize": "16px",
+      "height": 981,
+      "position": "relative",
+      "scrollWidth": 2182,
+      "width": 2184,
+      "x": 348,
+      "y": 81
+    },
+    "footer": {
+      "clientWidth": 2182,
+      "fontSize": "14px",
+      "height": 61,
+      "position": "static",
+      "scrollWidth": 2182,
+      "width": 2182.400146484375,
+      "x": 348.8000183105469,
+      "y": 1000.2000122070312
+    },
+    "headings": [],
+    "reference": {
+      "clientWidth": 0,
+      "fontSize": "16px",
+      "height": 981,
+      "position": "static",
+      "scrollWidth": 92,
+      "width": 0,
+      "x": 2542,
+      "y": 81
+    },
+    "scale": "1",
+    "sidebar": {
+      "clientWidth": 318,
+      "fontSize": "16px",
+      "height": 981,
+      "position": "static",
+      "scrollWidth": 318,
+      "width": 320,
+      "x": 18,
+      "y": 81
+    },
+    "smallTargets": [
+      {
+        "disabled": false,
+        "height": 22,
+        "name": "Search notes",
+        "width": 187.9750061035156,
+        "x": 80.5999984741211,
+        "y": 225.8000030517578
+      },
+      {
+        "disabled": false,
+        "height": 949,
+        "name": "Resize sidebar",
+        "width": 10,
+        "x": 338,
+        "y": 97
+      },
+      {
+        "disabled": false,
+        "height": 22.399999618530273,
+        "name": "Saved in browser. Save now",
+        "width": 135.3625030517578,
+        "x": 380.8000183105469,
+        "y": 1019.5
+      }
+    ],
+    "theme": "dark",
+    "toolbar": {
+      "clientWidth": 679,
+      "fontSize": "18px",
+      "height": 46.400001525878906,
+      "position": "sticky",
+      "scrollWidth": 679,
+      "width": 679.2125244140625,
+      "x": 1097.1875,
+      "y": 127.0999984741211
+    },
+    "topbar": {
+      "clientWidth": 2522,
+      "fontSize": "16px",
+      "height": 56,
+      "position": "static",
+      "scrollWidth": 2522,
+      "width": 2524,
+      "x": 18,
+      "y": 14
+    },
+    "viewport": [
+      2560,
+      1080
+    ]
+  }
+]

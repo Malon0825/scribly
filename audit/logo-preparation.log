@@ -1,0 +1,5 @@
+
+> scribly@1.3.12 prepare:logos
+> node scripts/prepare-brand-logos.mjs
+
+{"icons":7387,"assets":12077,"svgBytes":25774171,"skipped":23}

@@ -1,0 +1,773 @@
+
+[WebServer] (node:9828) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 70 tests using 2 workers
+
+
+(node:35152) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:6260) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/70] tests\board-context-menu.spec.ts:23:49 › board context menu matches light surfaces, presses without early activation and keeps Undo
+[2/70] tests\board-context-menu.spec.ts:23:49 › board context menu matches dark surfaces, presses without early activation and keeps Undo
+  1) tests\board-context-menu.spec.ts:23:49 › board context menu matches light surfaces, presses without early activation and keeps Undo 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.goto: Test timeout of 30000ms exceeded.
+    Call log:
+      - navigating to "http://127.0.0.1:1430/", waiting until "load"
+
+
+       9 | async function open(page: Page, theme: Workspace['theme'], large = false) {
+      10 |   await page.addInitScript(document => { localStorage.clear(); localStorage.setItem('still-notes-browser-v1', JSON.stringify({ revision: 1, document, dataPath: 'Context test' })); }, fixture(theme, large));
+    > 11 |   await page.goto('/'); await expect(page.locator('.board-canvas canvas').first()).toBeVisible({ timeout: 30000 });
+         |              ^
+      12 |   await page.getByRole('button', { name: 'Focus', exact: true }).click();
+      13 |   await expect.poll(async () => (await page.locator('.workspace').boundingBox())!.width - (await page.locator('.document-panel').boundingBox())!.width).toBeLessThan(3);
+      14 | }
+        at open (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\board-context-menu.spec.ts:11:14)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\board-context-menu.spec.ts:24:3
+
+    Error Context: test-results\board-context-menu-board-c-745b3-y-activation-and-keeps-Undo\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\board-context-menu-board-c-745b3-y-activation-and-keeps-Undo\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\board-context-menu-board-c-745b3-y-activation-and-keeps-Undo\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  2) tests\board-context-menu.spec.ts:23:49 › board context menu matches dark surfaces, presses without early activation and keeps Undo 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.goto: Test timeout of 30000ms exceeded.
+    Call log:
+      - navigating to "http://127.0.0.1:1430/", waiting until "load"
+
+
+       9 | async function open(page: Page, theme: Workspace['theme'], large = false) {
+      10 |   await page.addInitScript(document => { localStorage.clear(); localStorage.setItem('still-notes-browser-v1', JSON.stringify({ revision: 1, document, dataPath: 'Context test' })); }, fixture(theme, large));
+    > 11 |   await page.goto('/'); await expect(page.locator('.board-canvas canvas').first()).toBeVisible({ timeout: 30000 });
+         |              ^
+      12 |   await page.getByRole('button', { name: 'Focus', exact: true }).click();
+      13 |   await expect.poll(async () => (await page.locator('.workspace').boundingBox())!.width - (await page.locator('.document-panel').boundingBox())!.width).toBeLessThan(3);
+      14 | }
+        at open (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\board-context-menu.spec.ts:11:14)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\board-context-menu.spec.ts:24:3
+
+    Error Context: test-results\board-context-menu-board-c-c395c-y-activation-and-keeps-Undo\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\board-context-menu-board-c-c395c-y-activation-and-keeps-Undo\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\board-context-menu-board-c-c395c-y-activation-and-keeps-Undo\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:14512) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:1300) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[3/70] tests\board-context-menu.spec.ts:46:1 › context menu supports arrow/Home/End navigation, Escape focus return and Tab exit without changing the drawing
+[4/70] tests\board-context-menu.spec.ts:64:1 › large-text context menu fits a minimum window, scrolls to every command and responds to reduced motion
+[5/70] tests\brand-logos.spec.ts:33:49 › light: local catalog searches, stays bounded and fits Focus/narrow/reduced motion
+[6/70] tests\brand-logos.spec.ts:33:49 › dark: local catalog searches, stays bounded and fits Focus/narrow/reduced motion
+  3) tests\brand-logos.spec.ts:33:49 › light: local catalog searches, stays bounded and fits Focus/narrow/reduced motion 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first() with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+
+
+      39 |   await boardCommand(page, 'Brand logos');
+      40 |   const dialog = page.getByRole("dialog", {name:"Brand logos",exact:true});
+    > 41 |   await expect(dialog.getByRole("option").first()).toBeVisible();
+         |                                                    ^
+      42 |   expect(await dialog.getByRole("option").count()).toBeLessThanOrEqual(48);
+      43 |   await expect(dialog.getByRole("button", { name: "Popular", exact: true })).toHaveAttribute("aria-pressed", "true");
+      44 |   await expect(dialog.getByRole("option", { selected: true })).toHaveCount(1);
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:41:52
+
+    Error Context: test-results\brand-logos-light-local-ca-f74a9-Focus-narrow-reduced-motion\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\brand-logos-light-local-ca-f74a9-Focus-narrow-reduced-motion\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\brand-logos-light-local-ca-f74a9-Focus-narrow-reduced-motion\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:14480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[7/70] tests\brand-logos.spec.ts:64:1 › inserting a brand creates one reversible component with offline image, Mermaid label and portable exports
+  4) tests\brand-logos.spec.ts:33:49 › dark: local catalog searches, stays bounded and fits Focus/narrow/reduced motion 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first() with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+
+
+      39 |   await boardCommand(page, 'Brand logos');
+      40 |   const dialog = page.getByRole("dialog", {name:"Brand logos",exact:true});
+    > 41 |   await expect(dialog.getByRole("option").first()).toBeVisible();
+         |                                                    ^
+      42 |   expect(await dialog.getByRole("option").count()).toBeLessThanOrEqual(48);
+      43 |   await expect(dialog.getByRole("button", { name: "Popular", exact: true })).toHaveAttribute("aria-pressed", "true");
+      44 |   await expect(dialog.getByRole("option", { selected: true })).toHaveCount(1);
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:41:52
+
+    Error Context: test-results\brand-logos-dark-local-cat-b1558-Focus-narrow-reduced-motion\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\brand-logos-dark-local-cat-b1558-Focus-narrow-reduced-motion\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\brand-logos-dark-local-cat-b1558-Focus-narrow-reduced-motion\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:21848) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[8/70] tests\brand-logos.spec.ts:109:1 › catalog and artwork failures are recoverable and closing during insertion cancels the command
+  5) tests\brand-logos.spec.ts:64:1 › inserting a brand creates one reversible component with offline image, Mermaid label and portable exports 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first() with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+
+
+      17 |   if (!await page.getByRole("dialog", { name: "Brand logos", exact: true }).isVisible()) await boardCommand(page, 'Brand logos');
+      18 |   const dialog = page.getByRole("dialog", { name: "Brand logos", exact: true });
+    > 19 |   await expect(dialog.getByRole("option").first()).toBeVisible();
+         |                                                    ^
+      20 |   await dialog.getByRole("textbox", { name: "Search brand logos" }).fill(query);
+      21 |   if (query === "aws") for (let attempt = 0; attempt < 80 && !await dialog.locator('.brand-logo-choice[id="brand-aws"]').count(); attempt++) {
+      22 |     const previous = await dialog.getByRole("option").first().getAttribute("aria-posinset");
+        at pick (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:19:52)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:65:36
+
+    Error Context: test-results\brand-logos-inserting-a-br-8b8dc--label-and-portable-exports\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\brand-logos-inserting-a-br-8b8dc--label-and-portable-exports\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\brand-logos-inserting-a-br-8b8dc--label-and-portable-exports\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:2200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[9/70] tests\brand-logos.spec.ts:123:49 › light: AWS and Azure fit their artwork without bottom labels
+  6) tests\brand-logos.spec.ts:109:1 › catalog and artwork failures are recoverable and closing during insertion cancels the command 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first() with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+
+
+      112 |   await boardCommand(page, 'Brand logos'); const dialog = page.getByRole("dialog",{name:"Brand logos",exact:true});
+      113 |   await expect(dialog.getByRole("alert")).toContainText("could not be opened"); await page.unroute("**/brand-logos/catalog.json");
+    > 114 |   await dialog.getByRole("button",{name:"Retry catalog"}).click(); await expect(dialog.getByRole("option").first()).toBeVisible();
+          |                                                                                                                     ^
+      115 |   await dialog.getByRole("textbox",{name:"Search brand logos"}).fill("oracle"); await dialog.locator('.brand-logo-choice[id="brand-oracle"]').click();
+      116 |   await page.route("**/brand-logos/oracle/default.svg",async route=>{if(route.request().resourceType()==="fetch") await route.fulfill({status:404,body:"Missing"}); else await route.continue();});
+      117 |   await dialog.getByRole("button",{name:"Insert component"}).click(); await expect(dialog.getByRole("alert")).toContainText("could not be opened"); expect((await board(page)).elements).toHaveLength(0);
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:114:117
+
+    Error Context: test-results\brand-logos-catalog-and-ar-e915a-sertion-cancels-the-command\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\brand-logos-catalog-and-ar-e915a-sertion-cancels-the-command\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\brand-logos-catalog-and-ar-e915a-sertion-cancels-the-command\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:15180) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[10/70] tests\brand-logos.spec.ts:123:49 › dark: AWS and Azure fit their artwork without bottom labels
+  7) tests\brand-logos.spec.ts:123:49 › light: AWS and Azure fit their artwork without bottom labels 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first() with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+
+
+      17 |   if (!await page.getByRole("dialog", { name: "Brand logos", exact: true }).isVisible()) await boardCommand(page, 'Brand logos');
+      18 |   const dialog = page.getByRole("dialog", { name: "Brand logos", exact: true });
+    > 19 |   await expect(dialog.getByRole("option").first()).toBeVisible();
+         |                                                    ^
+      20 |   await dialog.getByRole("textbox", { name: "Search brand logos" }).fill(query);
+      21 |   if (query === "aws") for (let attempt = 0; attempt < 80 && !await dialog.locator('.brand-logo-choice[id="brand-aws"]').count(); attempt++) {
+      22 |     const previous = await dialog.getByRole("option").first().getAttribute("aria-posinset");
+        at pick (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:19:52)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:127:20
+
+    Error Context: test-results\brand-logos-light-AWS-and--765f2-twork-without-bottom-labels\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\brand-logos-light-AWS-and--765f2-twork-without-bottom-labels\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\brand-logos-light-AWS-and--765f2-twork-without-bottom-labels\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:25956) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[11/70] tests\brand-logos.spec.ts:165:1 › archived boards cannot insert logos
+  8) tests\brand-logos.spec.ts:123:49 › dark: AWS and Azure fit their artwork without bottom labels 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first() with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+
+
+      17 |   if (!await page.getByRole("dialog", { name: "Brand logos", exact: true }).isVisible()) await boardCommand(page, 'Brand logos');
+      18 |   const dialog = page.getByRole("dialog", { name: "Brand logos", exact: true });
+    > 19 |   await expect(dialog.getByRole("option").first()).toBeVisible();
+         |                                                    ^
+      20 |   await dialog.getByRole("textbox", { name: "Search brand logos" }).fill(query);
+      21 |   if (query === "aws") for (let attempt = 0; attempt < 80 && !await dialog.locator('.brand-logo-choice[id="brand-aws"]').count(); attempt++) {
+      22 |     const previous = await dialog.getByRole("option").first().getAttribute("aria-posinset");
+        at pick (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:19:52)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:127:20
+
+    Error Context: test-results\brand-logos-dark-AWS-and-A-a214c-twork-without-bottom-labels\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\brand-logos-dark-AWS-and-A-a214c-twork-without-bottom-labels\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\brand-logos-dark-AWS-and-A-a214c-twork-without-bottom-labels\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:34180) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[12/70] tests\brand-logos.spec.ts:169:1 › board capacity is checked before adding logo files or scene elements
+[13/70] tests\focus-mode.spec.ts:30:49 › board focus uses the full light workspace, keeps drawing tools and restores secondary commands
+[14/70] tests\focus-mode.spec.ts:30:49 › board focus uses the full dark workspace, keeps drawing tools and restores secondary commands
+  9) tests\brand-logos.spec.ts:169:1 › board capacity is checked before adding logo files or scene elements 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first() with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Brand logos', exact: true }).getByRole('option').first()
+
+
+      17 |   if (!await page.getByRole("dialog", { name: "Brand logos", exact: true }).isVisible()) await boardCommand(page, 'Brand logos');
+      18 |   const dialog = page.getByRole("dialog", { name: "Brand logos", exact: true });
+    > 19 |   await expect(dialog.getByRole("option").first()).toBeVisible();
+         |                                                    ^
+      20 |   await dialog.getByRole("textbox", { name: "Search brand logos" }).fill(query);
+      21 |   if (query === "aws") for (let attempt = 0; attempt < 80 && !await dialog.locator('.brand-logo-choice[id="brand-aws"]').count(); attempt++) {
+      22 |     const previous = await dialog.getByRole("option").first().getAttribute("aria-posinset");
+        at pick (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:19:52)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\brand-logos.spec.ts:172:55
+
+    Error Context: test-results\brand-logos-board-capacity-f813b-ogo-files-or-scene-elements\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\brand-logos-board-capacity-f813b-ogo-files-or-scene-elements\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\brand-logos-board-capacity-f813b-ogo-files-or-scene-elements\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:17564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[15/70] tests\focus-mode.spec.ts:58:1 › minimum-window focus with large text and reduced motion keeps exit, actions and saving reachable
+[16/70] tests\focus-mode.spec.ts:72:1 › writing focus preserves the editor and selection; formatting, saving failure and retry stay available
+[17/70] tests\menu-exclusivity.spec.ts:26:5 › light menu ownership › folder and note ellipsis menus replace each other, toggle off, and keep the editor draft
+[18/70] tests\menu-exclusivity.spec.ts:47:5 › light menu ownership › right-click replaces an open folder menu; Escape and outside click dismiss the active menu
+[19/70] tests\menu-exclusivity.spec.ts:63:5 › light menu ownership › editor options and sidebar menus replace each other too
+[20/70] tests\menu-exclusivity.spec.ts:26:5 › dark menu ownership › folder and note ellipsis menus replace each other, toggle off, and keep the editor draft
+[21/70] tests\menu-exclusivity.spec.ts:47:5 › dark menu ownership › right-click replaces an open folder menu; Escape and outside click dismiss the active menu
+[22/70] tests\menu-exclusivity.spec.ts:63:5 › dark menu ownership › editor options and sidebar menus replace each other too
+[23/70] tests\permanent-delete.spec.ts:40:1 › each live note has delete last in its menu; Cancel and Escape preserve all notes
+[24/70] tests\permanent-delete.spec.ts:58:1 › deleting the open live note selects its folder sibling, clears Reference, and persists
+[25/70] tests\permanent-delete.spec.ts:73:1 › deleting another note preserves the live editor, unsaved draft, query, and Reference
+[26/70] tests\permanent-delete.spec.ts:90:1 › the editor note-options menu can directly delete an unarchived note
+[27/70] tests\permanent-delete.spec.ts:98:1 › deleting the only search result keeps the query without opening a hidden note
+[28/70] tests\permanent-delete.spec.ts:108:1 › deleting the last Unfiled note keeps the Unfiled view and clears the editor
+[29/70] tests\permanent-delete.spec.ts:118:1 › archived notes retain permanent deletion without selecting live notes afterward
+[30/70] tests\permanent-delete.spec.ts:130:1 › right-click menu and confirmation remain usable in dark mode at minimum width with reduced motion
+[31/70] tests\recovery.spec.ts:33:1 › board resize recovery reuses image bytes and reconstructs portable files
+[32/70] tests\recovery.spec.ts:43:1 › board images survive failed manifest commits, stale conflicts and reopen
+[33/70] tests\recovery.spec.ts:61:1 › missing board recovery image preserves draft artifacts
+[34/70] tests\recovery.spec.ts:71:1 › legacy inline board cache migrates within one-image quota only after acknowledgement
+[35/70] tests\recovery.spec.ts:92:1 › rewrites only the changed note; navigation writes only the manifest
+[36/70] tests\recovery.spec.ts:107:1 › a failed manifest commit leaves the entire previous draft recoverable
+[37/70] tests\recovery.spec.ts:121:1 › failure writing an image note retains its previous snapshot
+[38/70] tests\recovery.spec.ts:129:1 › rebasing an acknowledged save retains edits made while saving
+[39/70] tests\recovery.spec.ts:140:1 › archive/restore/delete/reorder/folder changes survive recovery together
+[40/70] tests\recovery.spec.ts:151:1 › stale revisions preserve all conflict records through later writes and reloads
+[41/70] tests\recovery.spec.ts:163:1 › a corrupt draft and its available records are preserved before subsequent edits
+[42/70] tests\recovery.spec.ts:174:1 › cannot overwrite a damaged draft if even its preservation write fails
+[43/70] tests\recovery.spec.ts:184:1 › clean cache cannot replace changed legacy drafts or changed database revisions
+[44/70] tests\recovery.spec.ts:193:1 › warm checkpoints reuse unchanged records after reopening
+[45/70] tests\recovery.spec.ts:201:1 › benchmark complete-snapshot versus incremental recovery work
+[46/70] tests\reference-resize.spec.ts:19:1 › drag tracks both directions, preserves the draft and selection, and remembers width
+  10) tests\permanent-delete.spec.ts:130:1 › right-click menu and confirmation remain usable in dark mode at minimum width with reduced motion 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('.sidebar-note-dropdown').getByRole('button', { name: 'Delete permanently' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('.sidebar-note-dropdown').getByRole('button', { name: 'Delete permanently' }) with timeout 5000ms
+      - waiting for locator('.sidebar-note-dropdown').getByRole('button', { name: 'Delete permanently' })
+
+
+      133 |   await open(page, { ...fixture, theme: "dark" });
+      134 |   await page.locator(".note-select").filter({ hasText: "First note" }).click({ button: "right" });
+    > 135 |   await expect(page.locator(".sidebar-note-dropdown").getByRole("button", { name: "Delete permanently" })).toBeVisible();
+          |                                                                                                            ^
+      136 |   // Visibility alone does not catch clipping by the sidebar's scrolling area.
+      137 |   const deleteButton = page.locator(".sidebar-note-dropdown").getByRole("button", { name: "Delete permanently" });
+      138 |   expect(await deleteButton.evaluate((el) => {
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\permanent-delete.spec.ts:135:108
+
+    Error Context: test-results\permanent-delete-right-cli-eed31-m-width-with-reduced-motion\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\permanent-delete-right-cli-eed31-m-width-with-reduced-motion\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\permanent-delete-right-cli-eed31-m-width-with-reduced-motion\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:17824) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[47/70] tests\reference-resize.spec.ts:50:1 › Escape, blur, pointercancel and lost capture restore the last committed width
+[48/70] tests\reference-resize.spec.ts:69:1 › keyboard follows the divider direction, clamps at limits, and resets
+[49/70] tests\reference-resize.spec.ts:88:1 › both resizers reserve writing space and saved widths adapt to narrow overlays
+[50/70] tests\reference-resize.spec.ts:110:1 › hiding or focusing away removes the handle and restores keyboard focus
+[51/70] tests\reference-resize.spec.ts:124:3 › light note actions stay inset and clear of long note text
+[52/70] tests\reference-resize.spec.ts:124:3 › dark note actions stay inset and clear of long note text
+[53/70] tests\selection-colors.spec.ts:35:1 › compact right-click palette formats only selected text and preserves bold/list/content
+[54/70] tests\selection-colors.spec.ts:57:1 › expanded palette is keyboard accessible; colors persist and Reference stays read-only
+  11) tests\selection-colors.spec.ts:35:1 › compact right-click palette formats only selected text and preserves bold/list/content 
+
+    Error: expect(locator).toBeEnabled() failed
+
+    Locator: getByRole('button', { name: 'Selection colors', exact: true })
+    Expected: enabled
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeEnabled" getByRole('button', { name: 'Selection colors', exact: true }) with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Selection colors', exact: true })
+
+
+      24 |   await page.keyboard.up("Shift");
+      25 |   await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("Selected words");
+    > 26 |   await expect(page.getByRole("button", { name: "Selection colors", exact: true })).toBeEnabled();
+         |                                                                                     ^
+      27 | }
+      28 | const palette = (page: Page) => page.getByRole("dialog", { name: "Selection colors", exact: true });
+      29 | async function context(page: Page) {
+        at select (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:26:85)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:36:21
+
+    Error Context: test-results\selection-colors-compact-r-fc34b-preserves-bold-list-content\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\selection-colors-compact-r-fc34b-preserves-bold-list-content\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\selection-colors-compact-r-fc34b-preserves-bold-list-content\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:14824) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[55/70] tests\selection-colors.spec.ts:83:1 › dismissal and menu replacement preserve editor identity; empty and code selections use native menu
+  12) tests\selection-colors.spec.ts:57:1 › expanded palette is keyboard accessible; colors persist and Reference stays read-only 
+
+    Error: expect(locator).toBeEnabled() failed
+
+    Locator: getByRole('button', { name: 'Selection colors', exact: true })
+    Expected: enabled
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeEnabled" getByRole('button', { name: 'Selection colors', exact: true }) with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Selection colors', exact: true })
+
+
+      24 |   await page.keyboard.up("Shift");
+      25 |   await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("Selected words");
+    > 26 |   await expect(page.getByRole("button", { name: "Selection colors", exact: true })).toBeEnabled();
+         |                                                                                     ^
+      27 | }
+      28 | const palette = (page: Page) => page.getByRole("dialog", { name: "Selection colors", exact: true });
+      29 | async function context(page: Page) {
+        at select (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:26:85)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:58:21
+
+    Error Context: test-results\selection-colors-expanded--ed185-d-Reference-stays-read-only\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\selection-colors-expanded--ed185-d-Reference-stays-read-only\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\selection-colors-expanded--ed185-d-Reference-stays-read-only\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:1284) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[56/70] tests\selection-colors.spec.ts:104:49 › light palette stays in a narrow viewport and respects reduced motion
+  13) tests\selection-colors.spec.ts:83:1 › dismissal and menu replacement preserve editor identity; empty and code selections use native menu 
+
+    Error: expect(locator).toBeEnabled() failed
+
+    Locator: getByRole('button', { name: 'Selection colors', exact: true })
+    Expected: enabled
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeEnabled" getByRole('button', { name: 'Selection colors', exact: true }) with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Selection colors', exact: true })
+
+
+      24 |   await page.keyboard.up("Shift");
+      25 |   await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("Selected words");
+    > 26 |   await expect(page.getByRole("button", { name: "Selection colors", exact: true })).toBeEnabled();
+         |                                                                                     ^
+      27 | }
+      28 | const palette = (page: Page) => page.getByRole("dialog", { name: "Selection colors", exact: true });
+      29 | async function context(page: Page) {
+        at select (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:26:85)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:89:3
+
+    Error Context: test-results\selection-colors-dismissal-9048a--selections-use-native-menu\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\selection-colors-dismissal-9048a--selections-use-native-menu\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\selection-colors-dismissal-9048a--selections-use-native-menu\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:2088) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[57/70] tests\selection-colors.spec.ts:104:49 › dark palette stays in a narrow viewport and respects reduced motion
+  14) tests\selection-colors.spec.ts:104:49 › light palette stays in a narrow viewport and respects reduced motion 
+
+    Error: expect(locator).toBeEnabled() failed
+
+    Locator: getByRole('button', { name: 'Selection colors', exact: true })
+    Expected: enabled
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeEnabled" getByRole('button', { name: 'Selection colors', exact: true }) with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Selection colors', exact: true })
+
+
+      24 |   await page.keyboard.up("Shift");
+      25 |   await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("Selected words");
+    > 26 |   await expect(page.getByRole("button", { name: "Selection colors", exact: true })).toBeEnabled();
+         |                                                                                     ^
+      27 | }
+      28 | const palette = (page: Page) => page.getByRole("dialog", { name: "Selection colors", exact: true });
+      29 | async function context(page: Page) {
+        at select (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:26:85)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:109:3
+
+    Error Context: test-results\selection-colors-light-pal-25fd4-and-respects-reduced-motion\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\selection-colors-light-pal-25fd4-and-respects-reduced-motion\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\selection-colors-light-pal-25fd4-and-respects-reduced-motion\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:11292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[58/70] tests\selection-colors.spec.ts:118:49 › light authored text colors remain readable with every background choice
+[59/70] tests\selection-colors.spec.ts:118:49 › dark authored text colors remain readable with every background choice
+[60/70] tests\selection-colors.spec.ts:135:1 › portable backup imports keep validated color marks and strip arbitrary style/attributes
+  15) tests\selection-colors.spec.ts:104:49 › dark palette stays in a narrow viewport and respects reduced motion 
+
+    Error: expect(locator).toBeEnabled() failed
+
+    Locator: getByRole('button', { name: 'Selection colors', exact: true })
+    Expected: enabled
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeEnabled" getByRole('button', { name: 'Selection colors', exact: true }) with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Selection colors', exact: true })
+
+
+      24 |   await page.keyboard.up("Shift");
+      25 |   await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("Selected words");
+    > 26 |   await expect(page.getByRole("button", { name: "Selection colors", exact: true })).toBeEnabled();
+         |                                                                                     ^
+      27 | }
+      28 | const palette = (page: Page) => page.getByRole("dialog", { name: "Selection colors", exact: true });
+      29 | async function context(page: Page) {
+        at select (C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:26:85)
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\selection-colors.spec.ts:109:3
+
+    Error Context: test-results\selection-colors-dark-pale-26b9c-and-respects-reduced-motion\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\selection-colors-dark-pale-26b9c-and-respects-reduced-motion\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\selection-colors-dark-pale-26b9c-and-respects-reduced-motion\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:7632) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[61/70] tests\sidebar-resize.spec.ts:18:1 › drag tracks displacement and reversal, preserving editor selection and persisted width
+[62/70] tests\sidebar-resize.spec.ts:45:1 › Escape, blur and pointer cancellation restore the pre-drag width
+[63/70] tests\sidebar-resize.spec.ts:62:1 › keyboard sizing, bounds, hiding and reset
+[64/70] tests\sidebar-resize.spec.ts:84:1 › narrow windows clamp saved width and restore it when room returns under reduced motion
+[65/70] tests\ux-critique.spec.ts:28:1 › ordering, filtering and snippets preserve the stored manual order
+[66/70] tests\ux-critique.spec.ts:37:1 › Reference starts closed, opens directly without changing the editor and supports shortcuts
+[67/70] tests\ux-critique.spec.ts:61:1 › large folders support persistent density, safe sorting, filters and relevant search snippets
+[68/70] tests\ux-critique.spec.ts:83:1 › Export labels formats; backup tracking records requests only after successful export
+  16) tests\ux-critique.spec.ts:83:1 › Export labels formats; backup tracking records requests only after successful export 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('dialog')
+    Expected substring: "does not confirm the file was saved"
+    Received string:    "SettingsMake yourself at home.AppearanceStartupBackup & restoreAboutThemeLightDarkSystemSize & typeReset defaultsApp elementsSmallMediumLargeResize controls, icons, and spacing.Text size100%Adjust text throughout the app, independently of controls.Note fontSegoe UI · DefaultUses your system font.A little space for your thoughtsWrite a note, make a list, start something new.Today · Aa Bb Cc · 0123456789Note fonts apply to titles, the editor, and Reference. Changes save automatically.STARTUPStart Scribly when I sign inAvailable in the installed Windows app.Keep a separate copyExport your notebook regularly and before updates. Local saving does not create a backup; copying the live database folder is not supported.Backup download requested: todayCheck Downloads to confirm the file was saved.Export notebook backupImport notes & backupScribly 1.3.12A personal notebook for writing and drawing. No cloud sync or account required.Keyboard shortcuts Ctrl /Check for updates Opens the release page. Export a backup before installing an update manually.Browser preview detailsThis preview uses browser storage. The installed Windows app uses PostgreSQL.UX critique testChanges save automaticallyDone"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" getByRole('dialog') with timeout 5000ms
+      - waiting for getByRole('dialog')
+        13 × locator resolved to <div role="dialog" aria-modal="true" class="modal settings-dialog" aria-labelledby="dialog-title">…</div>
+           - unexpected value "SettingsMake yourself at home.AppearanceStartupBackup & restoreAboutThemeLightDarkSystemSize & typeReset defaultsApp elementsSmallMediumLargeResize controls, icons, and spacing.Text size100%Adjust text throughout the app, independently of controls.Note fontSegoe UI · DefaultUses your system font.A little space for your thoughtsWrite a note, make a list, start something new.Today · Aa Bb Cc · 0123456789Note fonts apply to titles, the editor, and Reference. Changes save automatically.STARTUPStart Scribly when I sign inAvailable in the installed Windows app.Keep a separate copyExport your notebook regularly and before updates. Local saving does not create a backup; copying the live database folder is not supported.Backup download requested: todayCheck Downloads to confirm the file was saved.Export notebook backupImport notes & backupScribly 1.3.12A personal notebook for writing and drawing. No cloud sync or account required.Keyboard shortcuts Ctrl /Check for updates Opens the release page. Export a backup before installing an update manually.Browser preview detailsThis preview uses browser storage. The installed Windows app uses PostgreSQL.UX critique testChanges save automaticallyDone"
+
+
+      92 |   await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      93 |   await page.getByRole('tab', { name: 'Backup & restore', exact: true }).click();
+    > 94 |   await expect(page.getByRole('dialog')).toContainText('does not confirm the file was saved');
+         |                                          ^
+      95 |   await page.evaluate(() => { HTMLAnchorElement.prototype.click = () => { throw Error('Export blocked'); }; });
+      96 |   await page.getByRole('button', { name: 'Export notebook backup', exact: true }).click();
+      97 |   await expect(page.getByRole('status').filter({ hasText: 'Export failed: Error: Export blocked' })).toBeVisible();
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\ux-critique.spec.ts:94:42
+
+    Error Context: test-results\ux-critique-Export-labels--7b978-nly-after-successful-export\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\ux-critique-Export-labels--7b978-nly-after-successful-export\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\ux-critique-Export-labels--7b978-nly-after-successful-export\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:2076) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[69/70] tests\ux-critique.spec.ts:103:49 › dark readability, one-row toolbar and reduced-motion controls at desktop and minimum size
+[70/70] tests\ux-critique.spec.ts:103:49 › light readability, one-row toolbar and reduced-motion controls at desktop and minimum size
+  17) tests\ux-critique.spec.ts:103:49 › dark readability, one-row toolbar and reduced-motion controls at desktop and minimum size 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Draw pen', exact: true })
+
+
+      127 |     });
+      128 |     for (const ratio of contrast) expect(ratio).toBeGreaterThanOrEqual(4.5);
+    > 129 |     await page.getByRole('button', { name: 'Draw pen', exact: true }).click();
+          |                                                                       ^
+      130 |     await expect(page.locator('.pen-mode-status')).toContainText('Drawing · Freehand');
+      131 |     await page.getByRole('button', { name: 'Return to writing Esc', exact: true }).click();
+      132 |     await page.getByRole('button', { name: 'Reference', exact: true }).click();
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\ux-critique.spec.ts:129:71
+
+    Error Context: test-results\ux-critique-dark-readabili-3423c-at-desktop-and-minimum-size\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\ux-critique-dark-readabili-3423c-at-desktop-and-minimum-size\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\ux-critique-dark-readabili-3423c-at-desktop-and-minimum-size\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  18) tests\ux-critique.spec.ts:103:49 › light readability, one-row toolbar and reduced-motion controls at desktop and minimum size 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Draw pen', exact: true })
+
+
+      127 |     });
+      128 |     for (const ratio of contrast) expect(ratio).toBeGreaterThanOrEqual(4.5);
+    > 129 |     await page.getByRole('button', { name: 'Draw pen', exact: true }).click();
+          |                                                                       ^
+      130 |     await expect(page.locator('.pen-mode-status')).toContainText('Drawing · Freehand');
+      131 |     await page.getByRole('button', { name: 'Return to writing Esc', exact: true }).click();
+      132 |     await page.getByRole('button', { name: 'Reference', exact: true }).click();
+        at C:\Users\Admin\.codex\worktrees\860a\work-essential\tests\ux-critique.spec.ts:129:71
+
+    Error Context: test-results\ux-critique-light-readabil-ed2da-at-desktop-and-minimum-size\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\ux-critique-light-readabil-ed2da-at-desktop-and-minimum-size\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\ux-critique-light-readabil-ed2da-at-desktop-and-minimum-size\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  18 failed
+    tests\board-context-menu.spec.ts:23:49 › board context menu matches light surfaces, presses without early activation and keeps Undo 
+    tests\board-context-menu.spec.ts:23:49 › board context menu matches dark surfaces, presses without early activation and keeps Undo 
+    tests\brand-logos.spec.ts:33:49 › light: local catalog searches, stays bounded and fits Focus/narrow/reduced motion 
+    tests\brand-logos.spec.ts:33:49 › dark: local catalog searches, stays bounded and fits Focus/narrow/reduced motion 
+    tests\brand-logos.spec.ts:64:1 › inserting a brand creates one reversible component with offline image, Mermaid label and portable exports 
+    tests\brand-logos.spec.ts:109:1 › catalog and artwork failures are recoverable and closing during insertion cancels the command 
+    tests\brand-logos.spec.ts:123:49 › light: AWS and Azure fit their artwork without bottom labels 
+    tests\brand-logos.spec.ts:123:49 › dark: AWS and Azure fit their artwork without bottom labels ─
+    tests\brand-logos.spec.ts:169:1 › board capacity is checked before adding logo files or scene elements 
+    tests\permanent-delete.spec.ts:130:1 › right-click menu and confirmation remain usable in dark mode at minimum width with reduced motion 
+    tests\selection-colors.spec.ts:35:1 › compact right-click palette formats only selected text and preserves bold/list/content 
+    tests\selection-colors.spec.ts:57:1 › expanded palette is keyboard accessible; colors persist and Reference stays read-only 
+    tests\selection-colors.spec.ts:83:1 › dismissal and menu replacement preserve editor identity; empty and code selections use native menu 
+    tests\selection-colors.spec.ts:104:49 › light palette stays in a narrow viewport and respects reduced motion 
+    tests\selection-colors.spec.ts:104:49 › dark palette stays in a narrow viewport and respects reduced motion 
+    tests\ux-critique.spec.ts:83:1 › Export labels formats; backup tracking records requests only after successful export 
+    tests\ux-critique.spec.ts:103:49 › light readability, one-row toolbar and reduced-motion controls at desktop and minimum size 
+    tests\ux-critique.spec.ts:103:49 › dark readability, one-row toolbar and reduced-motion controls at desktop and minimum size 
+  52 passed (4.4m)
