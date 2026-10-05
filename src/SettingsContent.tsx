@@ -43,7 +43,7 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
         <span className="field-label">Theme</span>
         <div className="theme-options">
           {([{ value: 'light', label: 'Light', kind: 'sun' }, { value: 'dark', label: 'Dark', kind: 'moon' },
-            { value: 'system', label: 'System', kind: 'system' }] as const).map(item => <button key={item.value}
+            { value: 'system', label: 'System', kind: 'system' }, { value: 'notebook', label: 'Notebook', kind: 'reference' }] as const).map(item => <button key={item.value}
             aria-pressed={theme === item.value} onClick={() => onTheme(item.value)}>
             <AnimatedIcon kind={item.kind} size={22} /><span>{item.label}</span>{theme === item.value && <Check size={16} />}
           </button>)}

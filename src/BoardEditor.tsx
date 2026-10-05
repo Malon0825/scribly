@@ -25,6 +25,7 @@ import "./board.css";
 
 export type BoardEditorProps = {
   id: string; title: string; board: BoardData; dark: boolean; readOnly: boolean;
+  notebook?: boolean;
   focusMode?: boolean;
   controlsHost?: HTMLElement | null;
   searchTarget?: { elementId: string; serial: number };
@@ -50,10 +51,14 @@ const fileSignature = (file: BinaryFiles[string]) => {
 const fingerprint = (elements: readonly ExcalidrawElement[], state: BoardData["appState"], files: BinaryFiles) =>
   `${elements.map((e) => `${e.id}:${e.version}:${e.versionNonce}:${e.isDeleted}:${e.index}`).join("|")}/${state.viewBackgroundColor}/${state.gridSize}/${Object.keys(files).sort().map((id) => `${id}:${fileSignature(files[id])}`).join("|")}`;
 
-export default function BoardEditor({ id, title, board, dark, readOnly, focusMode = false, controlsHost, searchTarget, checkpoint, registerDraft, onDirty, onCreateBoard, onShowTools, onLinkRequest, onLinkReady, onItemLink, onExternalLink }: BoardEditorProps) {
+export default function BoardEditor({ id, title, board, dark, readOnly, notebook = false, focusMode = false, controlsHost, searchTarget, checkpoint, registerDraft, onDirty, onCreateBoard, onShowTools, onLinkRequest, onLinkReady, onItemLink, onExternalLink }: BoardEditorProps) {
   const initial = useRef(board), live = useRef(board);
   const api = useRef<ExcalidrawImperativeAPI | null>(null);
   const [engine, setEngine] = useState<ExcalidrawImperativeAPI | null>(null);
+  // Paper is presentation only; keep the authored background for saving/export.
+  useEffect(() => {
+    engine?.updateScene({ appState: { viewBackgroundColor: notebook ? "transparent" : live.current.appState.viewBackgroundColor ?? "#ffffff" }, captureUpdate: CaptureUpdateAction.NEVER });
+  }, [engine, notebook]);
   const linkHandlers = useRef({ onLinkRequest,onLinkReady,readOnly }); linkHandlers.current = { onLinkRequest,onLinkReady,readOnly };
   function requestItemLink() {
     const instance = api.current; if (!instance || linkHandlers.current.readOnly) return;
@@ -194,7 +199,8 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
     const selected = Object.keys(state.selectedElementIds).filter((key) => state.selectedElementIds[key]);
     const key = selected.join("|");
     if (key !== selectionKey.current) { selectionKey.current = key; setSelection(selected); }
-    const settings = { viewBackgroundColor: state.viewBackgroundColor, gridSize: state.gridSize };
+    const settings = { viewBackgroundColor: notebook || state.viewBackgroundColor === "transparent"
+      ? live.current.appState.viewBackgroundColor : state.viewBackgroundColor, gridSize: state.gridSize };
     // The canvas keeps deleted image data for session Undo. Persist only live
     // images so removing one actually frees notebook capacity.
     files = activeBoardFiles(elements, files);
@@ -304,7 +310,7 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
     } catch (e) { setError(String(e)); }
   };
   // Defaults affect newly drawn elements only; existing scene styles stay intact.
-  const initialData = useMemo(() => ({ ...initial.current, elements: restoreElements(initial.current.elements, null, { repairBindings: true }).map((e) => architectureTag(e) ? { ...e, customData: { ...e.customData, notifyArchitecture: { ...architectureTag(e), sourceId: e.id } } } : e), appState: { ...initial.current.appState, currentItemRoughness: 0, currentItemArrowType: "elbow" as const, objectsSnapModeEnabled: true, activeTool: { type: "selection" as const, customType: null, locked: false, lastActiveTool: null }, scrollX: 0, scrollY: 0 } }), []);
+  const initialData = useMemo(() => ({ ...initial.current, elements: restoreElements(initial.current.elements, null, { repairBindings: true }).map((e) => architectureTag(e) ? { ...e, customData: { ...e.customData, notifyArchitecture: { ...architectureTag(e), sourceId: e.id } } } : e), appState: { ...initial.current.appState, viewBackgroundColor: notebook ? "transparent" : initial.current.appState.viewBackgroundColor, currentItemRoughness: 0, currentItemArrowType: "elbow" as const, objectsSnapModeEnabled: true, activeTool: { type: "selection" as const, customType: null, locked: false, lastActiveTool: null }, scrollX: 0, scrollY: 0 } }), []);
   const duplicate = (next: readonly ExcalidrawElement[], prev: readonly ExcalidrawElement[]) => {
     const oldIds = new Set(prev.map((e) => e.id)), remap = new Map<string, string>();
     for (const copy of next.filter((e) => !oldIds.has(e.id))) {
@@ -346,7 +352,7 @@ export default function BoardEditor({ id, title, board, dark, readOnly, focusMod
         onChange={capture} onDuplicate={duplicate}
         generateIdForFile={async (file) => { await readImage(file); return crypto.randomUUID(); }}
         onPaste={async (_data, event) => { for (const file of Array.from(event?.clipboardData?.files || [])) { try { await readImage(file); } catch (e) { setError(String(e)); return false; } } return true; }}
-        UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false } }} />
+        UIOptions={{ canvasActions: { changeViewBackgroundColor: !notebook, loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false } }} />
       </BoardBoundary>
     </div>
     {commandMenu && <ActionPopover anchor={commandMenu === "insert" ? insertTrigger.current : exportTrigger.current} label={commandMenu === "insert" ? "Insert into board" : "Export this board"} className="board-command-menu" onClose={() => setCommandMenu(null)}>

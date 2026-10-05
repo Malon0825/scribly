@@ -28,7 +28,7 @@ export type Workspace = {
   schemaVersion?: 2 | 3 | 4 | 5;
   folders: Folder[];
   notes: Note[];
-  theme: "light" | "dark" | "system";
+  theme: "light" | "dark" | "system" | "notebook";
   activeId: string;
   referenceId: string | null;
   recentIds?: string[];

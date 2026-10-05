@@ -71,7 +71,7 @@ fn validate_workspace_items(
         .ok_or("Invalid notebook folders")?;
     if !matches!(
         doc.get("theme").and_then(Value::as_str),
-        Some("light" | "dark" | "system")
+        Some("light" | "dark" | "system" | "notebook")
     ) {
         return Err("Invalid appearance setting".into());
     }
@@ -434,6 +434,14 @@ pub(crate) fn validate_board(board: &Value) -> Result<(), String> {
 mod navigation_tests {
     use super::validate_workspace;
     use serde_json::json;
+
+    #[test]
+    fn notebook_theme_is_valid_for_persistence() {
+        let mut doc = json!({"schemaVersion":5,"theme":"notebook","folders":[],"notes":[],"activeId":"","referenceId":null});
+        assert!(validate_workspace(&doc).is_ok());
+        doc["theme"] = json!("unknown");
+        assert!(validate_workspace(&doc).is_err());
+    }
     #[test]
     fn item_links_and_template_defaults_reject_malformed_or_dangling_metadata() {
         assert!(super::valid_internal_link("#scribly-item/n"));

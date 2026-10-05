@@ -126,6 +126,7 @@ export default function App() {
   const [focusTools, setFocusTools] = useState(false);
   const [boardControlsHost, setBoardControlsHost] = useState<HTMLDivElement | null>(null);
   const [notebookView, setNotebookView] = useState(readNotebookView);
+  const rowDensity = workspace?.theme === 'notebook' ? notebookView.notebookDensity || 'compact' : notebookView.density;
   const [backup, setBackup] = useState<BackupRecord | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
   const backupInFlight = useRef(false);
@@ -134,6 +135,10 @@ export default function App() {
   useEffect(() => { setBackup(readBackupHistory(dataPath)); }, [dataPath]);
   function changeNotebookView(next: Partial<NotebookView>) {
     const value = { ...notebookView, ...next };
+    if (workspace?.theme === 'notebook' && next.density) {
+      value.notebookDensity = next.density;
+      value.density = notebookView.density;
+    }
     setNotebookView(value);
     try { localStorage.setItem('scribly-notebook-view', JSON.stringify(value)); } catch { /* Session preferences remain usable. */ }
   }
@@ -390,8 +395,8 @@ export default function App() {
     return () => mq.removeEventListener("change", apply);
   }, []);
   useEffect(() => {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
-  }, [dark]);
+    document.documentElement.dataset.theme = workspace?.theme === "notebook" ? "notebook" : dark ? "dark" : "light";
+  }, [dark, workspace?.theme]);
   useAppIcon(dark);
   useEffect(() => {
     if (!desktop) return;
@@ -891,7 +896,7 @@ export default function App() {
         {isBoard(n) ? <AnimatedIcon kind="board" size={26} /> : <AnimatedIcon kind="note" size={26} />}
         <span>
           <span className="note-name">{n.pinned && <PushPin size={13} aria-label="Pinned" />} {n.title || "Untitled"}</span>
-          {query.trim() ? <span className="note-preview search-excerpt">{(() => { const excerpt = matchingExcerpt(noteSummary(n).text, query); return <>{excerpt.before}<mark>{excerpt.match}</mark>{excerpt.after}</>; })()}</span> : notebookView.density === 'comfortable' && (
+          {query.trim() ? <span className="note-preview search-excerpt">{(() => { const excerpt = matchingExcerpt(noteSummary(n).text, query); return <>{excerpt.before}<mark>{excerpt.match}</mark>{excerpt.after}</>; })()}</span> : rowDensity === 'comfortable' && (
             <span className="note-preview">
               {notePreview(n) || (isBoard(n) ? 'Board' : 'Start writing…')}
             </span>
@@ -1086,12 +1091,12 @@ export default function App() {
               title={`Appearance: ${workspace.theme}`}
               onClick={() => setChromeMenu(value => value === 'theme' ? null : 'theme')}
             >
-              <AnimatedIcon kind={workspace.theme === 'system' ? 'system' : dark ? 'moon' : 'sun'} size={21} />
+              <AnimatedIcon kind={workspace.theme === 'notebook' ? 'reference' : workspace.theme === 'system' ? 'system' : dark ? 'moon' : 'sun'} size={21} />
             </button>
             {chromeMenu === 'theme' && <ActionPopover anchor={themeAnchor.current} label="Appearance" className="theme-dropdown" onClose={() => setChromeMenu(null)}>
-              {(['light', 'dark', 'system'] as const).map(theme => <button key={theme} aria-pressed={workspace.theme === theme}
+              {(['light', 'dark', 'system', 'notebook'] as const).map(theme => <button key={theme} aria-pressed={workspace.theme === theme}
                 onClick={() => { update(w => ({ ...w, theme })); setChromeMenu(null); }}>
-                <AnimatedIcon kind={theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'system'} size={18} />
+                <AnimatedIcon kind={theme === 'notebook' ? 'reference' : theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'system'} size={18} />
                 {theme[0].toUpperCase() + theme.slice(1)}{workspace.theme === theme && <Check size={16} />}
               </button>)}
             </ActionPopover>}
@@ -1144,7 +1149,7 @@ export default function App() {
           )}
           <aside
             id="notes-sidebar"
-            className={`sidebar panel density-${notebookView.density}`}
+            className={`sidebar panel density-${rowDensity}`}
             aria-label="Notes navigation"
             inert={!sidebar || focus}
           >
@@ -1190,8 +1195,8 @@ export default function App() {
                 options={[{ value: 'all', label: 'All items' }, { value: 'notes', label: 'Notes' }, { value: 'boards', label: 'Boards' }]} />
               <AppSelect className="sort-picker" label="Sort items" value={notebookView.sort} onChange={sort => changeNotebookView({ sort: sort as NotebookView['sort'] })}
                 options={[{ value: 'manual', label: 'Manual' }, { value: 'updated', label: 'Modified' }, { value: 'title', label: 'A–Z' }]} />
-              <button aria-label="Compact note rows" aria-pressed={notebookView.density === 'compact'} title={notebookView.density === 'compact' ? 'Compact rows · switch to comfortable rows' : 'Comfortable rows · switch to compact rows'}
-                onClick={() => changeNotebookView({ density: notebookView.density === 'compact' ? 'comfortable' : 'compact' })}>
+              <button aria-label="Compact note rows" aria-pressed={rowDensity === 'compact'} title={rowDensity === 'compact' ? 'Compact rows · switch to comfortable rows' : 'Comfortable rows · switch to compact rows'}
+                onClick={() => changeNotebookView({ density: rowDensity === 'compact' ? 'comfortable' : 'compact' })}>
                 <AnimatedIcon kind="list" size={18} />
               </button>
             </div>
@@ -1449,6 +1454,7 @@ export default function App() {
             </nav>
           </aside>
           <PanelResize panel="sidebar" visible={sidebar && !focus} layoutKey={`${reference && !focus}-${appearance.elementSize}`} />
+          {workspace.theme === 'notebook' && sidebar && !focus && <div className="notebook-binding" aria-hidden="true" />}
           <main className={`document-panel panel ${isBoard(active) ? "board-document" : ""}`}>
             {active ? (
               <>
@@ -1587,7 +1593,7 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  {isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} readOnly={active.archived || !!active.deletedAt} focusMode={focus} controlsHost={boardControlsHost} searchTarget={boardSearch?.id === active.id ? boardSearch : undefined} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} onLinkRequest={requestLink} onLinkReady={fn => { insertItemLink.current = fn; }} onItemLink={openLinkedItem} onExternalLink={openExternalLink} /></Suspense></BoardBoundary> : <NoteEditor
+                  {isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} notebook={workspace.theme === "notebook"} readOnly={active.archived || !!active.deletedAt} focusMode={focus} controlsHost={boardControlsHost} searchTarget={boardSearch?.id === active.id ? boardSearch : undefined} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} onLinkRequest={requestLink} onLinkReady={fn => { insertItemLink.current = fn; }} onItemLink={openLinkedItem} onExternalLink={openExternalLink} /></Suspense></BoardBoundary> : <NoteEditor
                     key={active.id}
                     content={active.content}
                     onWordSelected={word => { if (!focus) openDictionary(word); }}

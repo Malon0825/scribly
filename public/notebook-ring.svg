@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="44" viewBox="0 0 48 44">
+  <defs><linearGradient id="slot" x2="0" y2="1"><stop stop-color="#1c1c17"/><stop offset=".5" stop-color="#080b09"/><stop offset="1" stop-color="#4b4638"/></linearGradient></defs>
+  <!-- Punched slots sit within each sheet; open wire loops cross the gap. -->
+  <path d="M1 9h10v15H1zM37 9h10v15H37z" fill="#8c7b5c" opacity=".35"/>
+  <path d="M2 10h8v12H2zM38 10h8v12h-8z" fill="url(#slot)" stroke="#645b48" stroke-width=".8"/>
+  <path d="M3 22h6M39 22h6" stroke="#fff2d4" stroke-width=".7" opacity=".65"/>
+  <path d="M6 14C15 9 33 9 42 14M6 19C15 16 33 16 42 19" fill="none" stroke="#302d23" stroke-width="3" stroke-linecap="round" opacity=".25" transform="translate(0 1.5)"/>
+  <path d="M6 14C15 9 33 9 42 14M6 19C15 16 33 16 42 19" fill="none" stroke="#242821" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M6 13.5C15 8.5 33 8.5 42 13.5M6 18.5C15 15.5 33 15.5 42 18.5" fill="none" stroke="#9b9b86" stroke-width=".65" stroke-linecap="round"/>
+  <path d="M6 14v5M42 14v5" stroke="#2a2c23" stroke-width="2"/>
+</svg>

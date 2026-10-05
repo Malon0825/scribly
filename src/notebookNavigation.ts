@@ -1,12 +1,13 @@
 import { isBoard, type Note } from './types';
 import { noteSummary } from './noteSummary';
 
-export type NotebookView = { density: 'compact' | 'comfortable'; sort: 'manual' | 'updated' | 'title'; filter: 'all' | 'notes' | 'boards' };
+export type NotebookView = { density: 'compact' | 'comfortable'; notebookDensity?: 'compact' | 'comfortable'; sort: 'manual' | 'updated' | 'title'; filter: 'all' | 'notes' | 'boards' };
 export const defaultNotebookView: NotebookView = { density: 'comfortable', sort: 'manual', filter: 'all' };
 export function readNotebookView(): NotebookView {
   try {
     const value = JSON.parse(localStorage.getItem('scribly-notebook-view') || 'null');
     return { density: value?.density === 'compact' ? 'compact' : 'comfortable',
+      ...(value?.notebookDensity === 'compact' || value?.notebookDensity === 'comfortable' ? { notebookDensity: value.notebookDensity } : {}),
       sort: ['updated', 'title'].includes(value?.sort) ? value.sort : 'manual',
       filter: ['notes', 'boards'].includes(value?.filter) ? value.filter : 'all' };
   } catch { return defaultNotebookView; }
