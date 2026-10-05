@@ -28,3 +28,5 @@ public/brand-logos/
 *.pfx
 *.p12
 ChatGPT Image *.png
+
+public/dictionary/

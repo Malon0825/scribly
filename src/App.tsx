@@ -4,6 +4,7 @@ import { IconContext, SidebarSimple, FileText, BookOpen, X, Check, UploadSimple,
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { NoteEditor } from "./NoteEditor";
+import { DictionaryPanel } from "./DictionaryPanel";
 import { SettingsContent, type SettingsSection } from "./SettingsContent";
 import { QuickCaptureSettings } from "./QuickCaptureSettings";
 import { QuickCapture } from "./QuickCapture";
@@ -119,6 +120,9 @@ export default function App() {
   const [sidebar, setSidebar] = useState(true),
     [reference, setReference] = useState(false),
     [focus, setFocus] = useState(false);
+  const [dictionary, setDictionary] = useState(false);
+  const [dictionaryTerm, setDictionaryTerm] = useState("");
+  const replaceDictionaryWord = useRef<(word: string, expected: string) => boolean>(() => false);
   const [focusTools, setFocusTools] = useState(false);
   const [boardControlsHost, setBoardControlsHost] = useState<HTMLDivElement | null>(null);
   const [notebookView, setNotebookView] = useState(readNotebookView);
@@ -304,7 +308,7 @@ export default function App() {
     if (document.activeElement?.closest(selector)) document.querySelector<HTMLElement>(destination)?.focus({ preventScroll: true });
   }
   function toggleFocus() {
-    moveFocusFromPanels('.sidebar, .reference-panel, .panel-resize, .brand, .theme-toggle, button[aria-label="Reference"], .document-head, .board-top-controls, .editor-toolbar, .weekly-bar, .export-shortcut, .focus-tools-toggle, .excalidraw .layer-ui__wrapper__top-right, .excalidraw .sidebar', 'button[aria-label="Focus"]');
+    moveFocusFromPanels('.sidebar, .reference-panel, .panel-resize, .brand, .theme-toggle, button[aria-label="Reference"], button[aria-label="Dictionary"], .document-head, .board-top-controls, .editor-toolbar, .weekly-bar, .export-shortcut, .focus-tools-toggle, .excalidraw .layer-ui__wrapper__top-right, .excalidraw .sidebar', 'button[aria-label="Focus"]');
     setMenu(false); setFolderMenu(null); setNoteMenuId(null);
     setFocusTools(false);
     setFocus((value) => !value);
@@ -568,7 +572,7 @@ export default function App() {
     if (!target) { notify("This linked item is missing. Its link is retained for future restoration."); return; }
     if (inReference) {
       if (!isLiveItem(target)) { notify("Restore this item before opening it in Reference."); return; }
-      update(w => ({ ...w,referenceId:id })); setReference(true);
+      update(w => ({ ...w,referenceId:id })); setDictionary(false); setReference(true);
     } else { setQuery(""); selectNote(target,false); }
   }
   function activateLink(id: string, anchor: HTMLElement, action: "open" | "reference" | "options", restore: () => void) {
@@ -623,13 +627,32 @@ export default function App() {
     setMenu(false); setNoteMenuId(null);
     setSidebarAnnouncement(`${note.title || "Untitled"} ${note.pinned ? "unpinned" : "pinned"}.`);
   }
+  useEffect(() => {
+    if (!dictionary || !reference || focus) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || (event.target instanceof HTMLElement && event.target.closest('[role="dialog"], .select-popup'))) return;
+      event.preventDefault();
+      closeDictionary();
+    };
+    document.addEventListener("keydown", dismiss);
+    return () => document.removeEventListener("keydown", dismiss);
+  }, [dictionary, reference, focus]);
+  function openDictionary(word?: string) {
+    if (word) setDictionaryTerm(word);
+    moveFocusFromPanels('.reference-panel', 'button[aria-label="Dictionary"]');
+    setDictionary(true); setReference(true); setFocus(false);
+  }
+  function closeDictionary() {
+    moveFocusFromPanels('.reference-panel', 'button[aria-label="Dictionary"]');
+    setReference(false);
+  }
   function toggleReference() {
     moveFocusFromPanels('.reference-panel', 'button[aria-label="Reference"]');
-    setReference(value => !value); setFocus(false);
+    setReference(value => dictionary || !value); setDictionary(false); setFocus(false);
   }
   function showReference(note: Note) {
     if (!update(w => ({ ...w, referenceId: note.id }))) return;
-    setReference(true); setFocus(false); setNoteMenuId(null);
+    setDictionary(false); setReference(true); setFocus(false); setNoteMenuId(null);
   }
   async function exportData(name: string, content: string | (() => string | Promise<string>), type: string): Promise<boolean> {
     try {
@@ -831,7 +854,7 @@ export default function App() {
     if (weekly) {
       if (!patchNote(weekly.id, { content: weekly.content + content })) return;
       update((w) => ({ ...w, referenceId: weekly.id }));
-      setReference(true);
+      setDictionary(false); setReference(true);
       notify(`${unique.length} items added to Weekly update.`);
     } else {
       createNote(active.folderId, "Weekly update", content);
@@ -1029,11 +1052,17 @@ export default function App() {
                 if (focusTools) moveFocusFromPanels('.board-top-controls, .editor-toolbar, .excalidraw .layer-ui__wrapper__top-right, .excalidraw .sidebar', '.focus-tools-toggle');
                 setFocusTools(value => !value);
               }}><AnimatedIcon kind="tools" size={21} /><span>{isBoard(active) ? 'Board actions' : 'Formatting'}</span></button>}
+            <button className={`pill dictionary-toggle ${dictionary && reference && !focus ? "selected" : ""}`}
+              aria-label="Dictionary" aria-pressed={dictionary && reference && !focus} aria-controls="reference-panel"
+              title="Dictionary · Select a word to look it up" onMouseDown={preserveDocumentFocus}
+              onClick={() => dictionary && reference && !focus ? closeDictionary() : openDictionary()}>
+              <BookOpen size={21} /><span>Dictionary</span>
+            </button>
             <button
-              className={`pill ${reference && !focus ? "selected" : ""}`}
+              className={`pill ${reference && !dictionary && !focus ? "selected" : ""}`}
               aria-label="Reference"
               title="Reference (Ctrl+Shift+R)"
-              aria-pressed={reference && !focus}
+              aria-pressed={reference && !dictionary && !focus}
               onMouseDown={preserveDocumentFocus}
               onClick={toggleReference}
             >
@@ -1103,7 +1132,7 @@ export default function App() {
           </div>
         </header>
         <div
-          className={`workspace ${sidebar && !focus ? "with-sidebar" : ""} ${reference && !focus ? "with-reference" : ""}`}
+          className={`workspace ${sidebar && !focus ? "with-sidebar" : ""} ${reference && !focus ? "with-reference" : ""} ${dictionary ? "dictionary-layout" : ""}`}
         >
           {(fileDrop.target || importing) && (
             <div className="file-drop-hint" role="status" aria-live="polite">
@@ -1561,6 +1590,8 @@ export default function App() {
                   {isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} readOnly={active.archived || !!active.deletedAt} focusMode={focus} controlsHost={boardControlsHost} searchTarget={boardSearch?.id === active.id ? boardSearch : undefined} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} onLinkRequest={requestLink} onLinkReady={fn => { insertItemLink.current = fn; }} onItemLink={openLinkedItem} onExternalLink={openExternalLink} /></Suspense></BoardBoundary> : <NoteEditor
                     key={active.id}
                     content={active.content}
+                    onWordSelected={word => { if (!focus) openDictionary(word); }}
+                    onDictionaryReplaceReady={replace => { replaceDictionaryWord.current = replace; }}
                     findRequest={findFor?.id === active.id ? findFor : undefined}
                     onFindOpen={() => { if (window.matchMedia("(max-width: 1050px)").matches) setReference(false); }}
                     onLinkRequest={requestLink}
@@ -1649,19 +1680,21 @@ export default function App() {
           <aside
             id="reference-panel"
             className="reference-panel panel"
-            aria-label="Reference panel"
+            aria-label={dictionary ? "Dictionary panel" : "Reference panel"}
+            onKeyDown={event => { if (dictionary && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeDictionary(); } }}
             inert={!reference || focus}
           >
             <div className="reference-label">
-              <span>Reference</span>
+              <div className="reference-modes"><button aria-pressed={!dictionary} onMouseDown={preserveDocumentFocus} onClick={() => setDictionary(false)}>Reference</button><button aria-pressed={dictionary} onMouseDown={preserveDocumentFocus} onClick={() => { setDictionary(true); }}>Dictionary</button></div>
               <button
                 className="icon-button"
-                aria-label="Close reference"
-                onClick={() => { moveFocusFromPanels(".reference-panel", 'button[aria-label="Reference"]'); setReference(false); }}
+                aria-label={dictionary ? "Close dictionary" : "Close reference"}
+                onClick={() => { if (dictionary) { closeDictionary(); return; } moveFocusFromPanels(".reference-panel", 'button[aria-label="Reference"]'); setReference(false); }}
               >
                 <AnimatedIcon kind="close" size={21} />
               </button>
             </div>
+            {dictionary ? <DictionaryPanel word={dictionaryTerm} onWord={word => setDictionaryTerm(word)} onRelatedWord={word => { replaceDictionaryWord.current(word, dictionaryTerm); setDictionaryTerm(word); }} onExternalLink={openExternalLink} /> : <>
             <AppSelect
               className="reference-picker"
               label="Reference note or board"
@@ -1719,6 +1752,7 @@ export default function App() {
                 </div>
               </div>
             )}
+            </>}
           </aside>
         </div>
         {toast && (

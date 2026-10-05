@@ -34,6 +34,14 @@ The desktop app stores notes under `%LOCALAPPDATA%\com.still.notes\database`. It
 
 Scribly is currently a personal notebook with **no cloud sync or shared editing**. The browser development preview uses browser local storage and is separate from your desktop notebook.
 
+## Word suggestions
+
+While writing English prose, a subtle next-word suggestion appears at the end of a paragraph or heading. Type a space after a complete word to request the next word, or keep typing to complete a partial word. Press **Tab** to accept it or **Escape** to dismiss it. The **Next word suggestions** toolbar toggle remembers your preference. Suggestions stay outside saved notes, exports, and word counts until accepted, and acceptance can be undone normally. Code blocks, selected text, read-only Reference, drawing, and Find mode do not request predictions. Tab keeps its usual behavior when no suggestion is visible.
+
+Suggestions use the [Datamuse API](https://www.datamuse.com/api/): frequent followers of the previous word, a typed prefix, and up to five recent topic words. These limited context words are sent to Datamuse; the complete note is not sent. Datamuse provides statistical context hints, not full sentence understanding. Requests are debounced, cancelled when stale, cached only in memory, and silently skipped on connection failure. Nearby topic words use a means-like constraint alongside frequent followers and left context; live checks showed that the topic-hint parameter fails with some frequent-follower queries. If semantic filtering fails, the request falls back to immediate context and frequent followers within the same time budget. API responses are not inserted automatically.
+
+Datamuse currently allows up to 100,000 requests per day without a key. Its documentation announces that an API key will be required starting **January 1, 2027**. This integration will need key support before that date; no secret key should be embedded in a distributed frontend.
+
 ## Develop
 
 For the browser preview, install Node.js **22.12+**:

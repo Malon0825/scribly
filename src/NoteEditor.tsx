@@ -27,6 +27,8 @@ import { ItemLink } from "./ItemLink";
 import { NoteControls } from "./NoteControls";
 import { Link as LinkIcon, DotsThree } from "@phosphor-icons/react";
 import type { Note } from "./types";
+import { dictionaryWord } from "./dictionary";
+import { NextWordPrediction } from "./wordPrediction";
 export function NoteEditor({
   content,
   readOnly = false,
@@ -37,6 +39,8 @@ export function NoteEditor({
   findRequest,
   onFindOpen,
   onLinkRequest, onItemLink, onExternalLink, onLinkReady,
+  onWordSelected,
+  onDictionaryReplaceReady,
 }: {
   content: string;
   readOnly?: boolean;
@@ -50,8 +54,12 @@ export function NoteEditor({
   onItemLink?: (id: string, anchor: HTMLElement, action: "open" | "reference" | "options", restoreFocus: () => void) => void;
   onExternalLink?: (href: string) => void;
   onLinkReady?: (request: () => void) => void;
+  onWordSelected?: (word: string) => void;
+  onDictionaryReplaceReady?: (replace: (word: string, expected: string) => boolean) => void;
 }) {
   const imageInput = useRef<HTMLInputElement>(null);
+  const wordSelected = useRef(onWordSelected); wordSelected.current = onWordSelected;
+  const dictionaryReplaceReady = useRef(onDictionaryReplaceReady); dictionaryReplaceReady.current = onDictionaryReplaceReady;
   const linkHandlers = useRef({ onLinkRequest, onItemLink, onExternalLink, readOnly });
   linkHandlers.current = { onLinkRequest, onItemLink, onExternalLink, readOnly };
   const pendingLink = useRef<(() => void) | null>(null);
@@ -72,6 +80,12 @@ export function NoteEditor({
   const [imageLoading, setImageLoading] = useState(false);
   const [find, setFind] = useState<FindRequest | null>(null);
   const [findVisible, setFindVisible] = useState(false);
+  const [predictions, setPredictions] = useState(() => {
+    try { return localStorage.getItem("scribly-word-predictions") !== "false"; } catch { return true; }
+  });
+  const [predictionAnnouncement, setPredictionAnnouncement] = useState("");
+  const predictionEnabled = useRef(false);
+  predictionEnabled.current = predictions && !readOnly && !pen.active && !findVisible;
   const findOpen = useRef(onFindOpen); findOpen.current = onFindOpen;
   useEffect(() => {
     if (!findVisible) return;
@@ -107,6 +121,7 @@ export function NoteEditor({
       NotifyImage,
       NotifySourceFile,
       NoteSearch,
+      NextWordPrediction.configure({ enabled: () => predictionEnabled.current, announce: setPredictionAnnouncement }),
       ItemLink.configure({
         readOnly: () => linkHandlers.current.readOnly,
         activate: (id, anchor, action) => linkHandlers.current.onItemLink?.(id,anchor,action,() => editor?.commands.focus()),
@@ -154,6 +169,66 @@ export function NoteEditor({
     },
   });
   useEffect(() => { editor?.setEditable(!readOnly,false); }, [editor,readOnly]);
+  useEffect(() => {
+    if (!editor || readOnly) return;
+    dictionaryReplaceReady.current?.((word, expected) => {
+      if (editor.isDestroyed || !editor.isEditable || !dictionaryWord(word)) return false;
+      const { selection, doc } = editor.state;
+      if (!(selection instanceof TextSelection) || selection.empty || !selection.$from.sameParent(selection.$to)) return false;
+      const selected = doc.textBetween(selection.from, selection.to, " ");
+      if (dictionaryWord(selected) !== expected) return false;
+      const match = /[a-z]+(?:['’-][a-z]+)*/i.exec(selected);
+      if (!match) return false;
+      const from = selection.from + match.index, to = from + match[0].length;
+      if (/[a-z]/i.test(doc.textBetween(Math.max(0, from - 1), from, " ")) || /[a-z]/i.test(doc.textBetween(to, Math.min(doc.content.size, to + 1), " "))) return false;
+      const original = match[0];
+      const replacement = original === original.toUpperCase() ? word.toUpperCase()
+        : /^[A-Z]/.test(original) ? word[0].toUpperCase() + word.slice(1) : word;
+      const marks = doc.resolve(from).nodeAfter?.marks ?? doc.resolve(from).marks();
+      const transaction = closeHistory(editor.state.tr).replaceWith(from, to, editor.state.schema.text(replacement, marks));
+      transaction.setSelection(TextSelection.create(transaction.doc, from, from + replacement.length));
+      editor.view.dispatch(transaction);
+      editor.view.dom.focus({ preventScroll: true });
+      return editor.state.doc !== doc;
+    });
+    return () => { dictionaryReplaceReady.current?.(() => false); };
+  }, [editor, readOnly]);
+  useEffect(() => {
+    try { localStorage.setItem("scribly-word-predictions", String(predictions)); } catch { /* Keep the session toggle usable. */ }
+    if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta("predictionPreference", predictions));
+  }, [editor, predictions, readOnly, pen.active, findVisible]);
+  useEffect(() => {
+    if (!editor) return;
+    let timer = 0, dragging = false, last = "";
+    const selectionChanged = () => {
+      window.clearTimeout(timer);
+      const { selection, doc } = editor.state;
+      if (!(selection instanceof TextSelection) || selection.empty) { last = ""; return; }
+      if (dragging || editor.view.composing || !editor.view.hasFocus()) return;
+      const before = doc.textBetween(Math.max(0, selection.from - 1), selection.from, " ");
+      const after = doc.textBetween(selection.to, Math.min(doc.content.size, selection.to + 1), " ");
+      const selected = doc.textBetween(selection.from, selection.to, " ");
+      if ((/^[a-z]/i.test(selected) && /[a-z]/i.test(before)) || (/[a-z]$/i.test(selected) && /[a-z]/i.test(after))) return;
+      const word = dictionaryWord(selected);
+      const signature = `${selection.from}:${selection.to}:${word}`;
+      if (!word || signature === last) return;
+      timer = window.setTimeout(() => { last = signature; wordSelected.current?.(word); }, 300);
+    };
+    const down = () => { dragging = true; window.clearTimeout(timer); };
+    const up = () => { dragging = false; selectionChanged(); };
+    const cancel = () => { dragging = false; window.clearTimeout(timer); };
+    const el = editor.view.dom;
+    editor.on("selectionUpdate", selectionChanged);
+    el.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
+    return () => {
+      window.clearTimeout(timer); editor.off("selectionUpdate", selectionChanged);
+      el.removeEventListener("pointerdown", down); window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel); window.removeEventListener("blur", cancel);
+    };
+  }, [editor]);
   useEffect(() => {
     if (!editor || readOnly) return;
     const key = (event: KeyboardEvent) => {
@@ -268,7 +343,7 @@ export function NoteEditor({
   return (
     <>
       {(!readOnly || findVisible) && <NoteControls>
-      {!readOnly && <EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} onFindRequest={openFind} onLinkRequest={onLinkRequest ? requestItemLink : undefined} pen={pen} changePen={changePen} />}
+      {!readOnly && <EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} onFindRequest={openFind} onLinkRequest={onLinkRequest ? requestItemLink : undefined} pen={pen} changePen={changePen} predictions={predictions} onPredictionsChange={() => setPredictions(value => !value)} />}
       {find && <NoteFind editor={editor} request={find} open={findVisible} readOnly={readOnly} onClose={() => setFindVisible(false)} />}
       </NoteControls>}
       {!readOnly && <>
@@ -286,15 +361,17 @@ export function NoteEditor({
       <InkLayer editor={editor} surface={surface} settings={readOnly ? { ...pen, active: false } : pen} toggleMode={togglePenMode} exit={exitPen} onStatus={readOnly ? undefined : setImageStatus} />
       </div>
       {!readOnly && <SelectionColors editor={editor} onOpenReady={registerColors} />}
+      {!readOnly && <span className="prediction-announcement" role="status" aria-live="polite">{predictionAnnouncement}</span>}
     </>
   );
 }
 
 // Selection transactions update only controls whose state actually changed.
 // ProseMirror still owns the live document and selection.
-const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImageRequest, onColorsRequest, onFindRequest, onLinkRequest, pen, changePen }: {
+const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImageRequest, onColorsRequest, onFindRequest, onLinkRequest, pen, changePen, predictions, onPredictionsChange }: {
   editor: Editor; imageLoading: boolean; onImageRequest: () => void; onColorsRequest: () => void; onFindRequest: () => void; pen: PenSettings; changePen: (next: Partial<PenSettings>) => void;
   onLinkRequest?: () => void;
+  predictions: boolean; onPredictionsChange: () => void;
 }) {
   const toolbar = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(false);
@@ -362,6 +439,9 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
           {onLinkRequest && <button aria-label="Link to item" title="Link to a note or board (Ctrl+L)" onClick={onLinkRequest}><LinkIcon size={20} /></button>}
           <button aria-label="Text and background color options" title="Text and background color options (select text, then Shift+F10)" disabled={!state.canColor}
             onClick={onColorsRequest}><AnimatedIcon kind="palette" size={20} /></button>
+          <button className="prediction-toggle" aria-label="Next word suggestions" aria-pressed={predictions}
+            title="Next word suggestions · Tab to accept, Escape to dismiss. Sends the previous word, typed prefix and up to five topic words to Datamuse."
+            onClick={onPredictionsChange}><span aria-hidden="true">Aa<span className="prediction-toggle-mark">›</span></span></button>
   </div>;
   return (
       <>
