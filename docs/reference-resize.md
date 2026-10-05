@@ -10,6 +10,5 @@ Resizing deliberately changes grid layout because the document and Reference tex
 
 Pointer-down prevents focus transfer, preserving the active Tiptap instance, caret and selection. Handles expose a labelled vertical separator, controlled panel, current value and limits. Hidden handles leave the tab order; entering Focus mode from either divider moves keyboard focus to Exit focus. Panels retain their existing solid theme surfaces, borders and shadows; the divider feedback uses `--accent`, with no new glass, backdrop, sound or animation dependency.
 
-Validation covers drag recognition, reversal, release, all cancellation paths, keyboard adjustment, limits/reset, persistence, editor selection and saved drafts, panel toggles, Focus mode, both themes and narrow overlays. Native WebView2 behavior and frame timing require a desktop runtime check; browser results do not establish native performance.
 
-The production TypeScript/Vite build passed. All 21 selected production browser checks passed in installed Edge: Reference resizing, existing sidebar resizing, menu ownership and note/board Focus behavior. Light/dark desktop and 850×600 dark overlay screenshots were inspected in `release/reference-layout/`. The mechanical design scan reported only the existing sidebar drop-target accent border; that insertion feedback was retained. Two development board navigation checks timed out during build contention; both passed against the production build.
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.

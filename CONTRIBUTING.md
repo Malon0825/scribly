@@ -33,8 +33,8 @@ The preparation script downloads PostgreSQL from EDB. The database runtime, buil
 
 1. Create a branch in your fork for one focused change.
 2. Read [AGENTS.md](AGENTS.md) and the relevant implementation. Preserve editor selection, keyboard access, read-only Reference behavior, and truthful save/error feedback.
-3. Run `npm run build`. For behavior changes, run the applicable Playwright tests after `npx playwright install chromium`; use `npm test -- tests/<name>.spec.ts`. For native changes, run `npm run check:rust` on Windows with the prepared PostgreSQL resources. Run `.\scripts\check-rust.ps1 -Database` when persistence behavior changes.
-4. For UI work, check light/dark/System themes, reduced motion, narrow/wide windows, and keyboard use. Identify native behavior you could not test.
+3. Consult [verification history](tests/verification.md) and validate only critical behavior affected by your change. For frontend code, run `npm run build` and applicable Playwright cases after `npx playwright install chromium`; use `npm test -- tests/<name>.spec.ts`. For native changes, use the relevant Cargo checks/tests on Windows with the prepared PostgreSQL resources; `npm run check:rust` is available when the full native check is warranted. Use database integrations when persistence changes. Documentation-only edits need a content/diff review.
+4. For UI work, check the affected themes, motion preferences, window sizes, and keyboard interactions. Record results and material limits in the existing verification history; keep generated output in ignored directories and remove disposable artifacts after summarizing them.
 5. Open a pull request against `main`. Explain the problem, resulting behavior, and validation; include screenshots when useful.
 
 Never commit personal notebooks, database files, credentials, private keys, build output, or installers. Update the existing lockfiles deliberately; avoid unrelated dependency upgrades.

@@ -17,13 +17,6 @@ Preparation errors remain visible with **Retry preparation**. Cancel or Escape a
 
 One export is bounded to 1,000 notes, 24 MiB of estimated input strings, 32 MiB of unique raster assets, and 96 MiB of estimated output; individual note content is limited to 12 MiB of characters. Images retain their existing 5 MiB / 25 million pixel validation. Complex documents also have structural safety limits. Export fewer notes when these limits are reached. These are working-memory limits for an export operation, not notebook capacity limits.
 
-## Verification boundaries
+## Verification
 
-Five focused browser checks passed across targeted runs: actual current-draft Markdown ZIP contents; unique safe folder names and deduplicated images; sanitized standalone HTML and a real multi-page Chromium PDF with extracted text; dialog dismissal without editor replacement and download failure/retry; and visible fidelity disclosures in narrow light and wide dark dialogs. Direct sanitizer checks use raw unsafe HTML, and an already-aborted preparation rejects with `AbortError`.
-
-The final HTML/PDF and disclosure checks passed again after the export material/layout corrections, including a long code-line fixture; only those two affected checks were repeated. The initial development-server interruption required rerunning failed checks only. Fixture corrections supplied the required schema version for source-file blocks and used the installed PDF loading-task cleanup API. The narrow dialog capture closes Reference with its existing toggle because the two-panel layout overlaps the note-options trigger at 850px; that app-shell geometry is outside this export change.
-
-Evidence is saved in `release/phase5-export-evidence` (actual ZIP, HTML and PDF), `release/phase5-export-checks.log`, `release/phase5-export-final.log`, and `.impeccable/review/phase5-export-{narrow-light,wide-dark}.png`.
-
-The packaged 1.3.15 Windows app passed an isolated WebView2 workflow: real attachment storage/read, HTML/ZIP formatting, captured Save cancellation, native print preview/cancellation and iframe cleanup, and actual native HTML Save with matching SHA-256. Exporting left the saved notebook document and revision unchanged. ZIP picker-bound bytes were captured at the IPC handoff; its actual Save dialog was not completed. Native PDF saving was not exercised; Chromium PDF generation verifies printable content. Select the desired printer/PDF destination and paper size in the system dialog. Full Unicode glyph coverage, large-image pagination and sustained export memory profiling remain unmeasured. [Native report](../release/formatted-webview-test-cbb004fbccf24e07842429b6bc88ab9c/formatted.json), [release audit](../release/build-1.3.15-20261004-190839/verification.json).
-
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.

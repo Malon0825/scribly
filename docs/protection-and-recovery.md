@@ -1,6 +1,6 @@
 # Backups, history, and Trash
 
-Included in the locally built [Windows 1.3.12 installer](../release/Scribly_1.3.12_x64-setup.exe). The public 1.3.11 release does not include these changes; 1.3.12 has not been published. See the [enhancement plan](enhancement-plan.md) for delivery tracking.
+Included in the locally built [historical build record](../tests/verification.md). The public 1.3.11 release does not include these changes; 1.3.12 has not been published. See the [enhancement plan](enhancement-plan.md) for delivery tracking.
 
 ## Backups
 
@@ -57,8 +57,4 @@ Image pruning protects current and archived notes, Trash, retained history, and 
 
 ## Verification
 
-Behavioral checks cover Trash/Undo/restart, original-folder fallback, Archive separation, editor preservation, confirmation cancellation, history restart/restoration/retention, backup rotation, daily scheduling, failed safety copies/checkpoints, stale revisions, and complete original-byte preservation. Existing recovery, image, large-file, menu, and sidebar drag regressions also run.
-
-The isolated Windows WebView2 run verified history after reload, Trash restore, a portable backup with an intact XML original and Trash state, and backup replacement with a safety copy. Evidence: [native report](../release/protection-webview-test-a761764a694549cfb111a10452d95507/protection.json) and [history screenshot](../release/protection-webview-test-a761764a694549cfb111a10452d95507/native-history.png). Reproduce with `scripts/test-native-protection.ps1` after a development build, using the existing Vite server. It uses a separate profile, not the installed notebook.
-
-Native unit tests cover indexed backup rotation, unavailable destinations, retention of prior state, and atomic writer failure with simulated full-disk errors. PostgreSQL integration tests cover migration, saved historical image references, Trash/history restart, permanent purge, and conflicts. Native folder/save picker interaction and a physically full backup drive remain untested. Sustained RAM/startup profiling and streaming/ZIP64 exports remain Phase 1 follow-ups.
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.

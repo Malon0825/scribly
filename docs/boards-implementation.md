@@ -1,6 +1,6 @@
 # Boards in Notify 1.1.1
 
-For the subsequent 1.1.3 theme, sizing, keyboard-focus and reduced-motion corrections, see the [AGENTS.md design review](boards-design-review.md). The workflow below reflects the current topbar command grouping; see the [flowchart export review](board-export-review.md) for conversion details and the [usability follow-up](ux-critique-implementation.md) for current limited validation. Release-specific observations and the A–F scores below describe the original implementation.
+This guide describes the board workflow and integration boundaries. Historical validation and remaining runtime limits are consolidated in [verification history](../tests/verification.md).
 
 Implemented 3 October 2026. Boards live in folders alongside notes and open an embedded Excalidraw editor in the central panel. Use **New board**, **Ctrl+Shift+N**, or a folder's options menu. The folder plus button retains its existing New note behavior.
 
@@ -41,37 +41,14 @@ All drawing fonts are bundled in `public/excalidraw/fonts`, with `EXCALIDRAW_ASS
 
 The desktop CSP permits same-origin font-byte fetching. SVG uses complete bundled font shards because the upstream subsetting runtime requires JavaScript unsafe-eval; the patch avoids that runtime. Same-origin scripts/workers remain enforced, with neither unsafe-eval nor external network sources enabled. SVG files may be larger than glyph-subset exports. Arbitrary embeds and hosted AI controls are disabled. Local Mermaid rendering uses strict security, plain labels and bounded graph size. Board and Mermaid modules load on demand, preserving the note startup path. The drawing chunks are large; Vite's chunk-size advisory is retained rather than hidden.
 
-## Verification of the original 1.1.0 release
+## Verification
 
-- Full regression suite: 113 checks passed, including 11 board checks. An additional disk-failure/retry check passed. Existing note, image, import, naming, archive, deletion, menu, recovery and sidebar checks passed.
-- Rust unit checks: four passed, covering board validation and existing folder integrity.
-- Native PostgreSQL diagnostic: boards, raster assets and architecture metadata survived restart alongside note HTML, Unicode, code, images and appearance settings. Stale revisions remained rejected. Final report: `release/database-test-boards-1.1.0.json`.
-- Production build, Windows NSIS packaging and dependency audit are recorded in the release verification. The audit reported zero vulnerabilities.
-- Browser screenshots cover light desktop and dark 850×600 with reduced motion. Canvas identity survives panel changes; properties, export dialogs and PNG output were checked. Production CSP/local-font SVG checks are recorded after the final security adjustment.
-- 21st review of the touched board/editor/dialog files reported zero findings. Existing Dialog, AppSelect and ActionPopover were reused; catalog toolbar metadata informed the compact command strip without importing catalog code.
-
-Native drawing gestures, clipboard and Windows save-dialog interaction remain unverified: automatic approval review rejected the isolated WebView2 UI diagnostic with “blocked by policy.” The database diagnostic runs without UI. The installed app and personal notebook were not upgraded or edited by these checks. Miro account interoperability, IME behavior and large-board WebView2 performance remain manual checks.
-
-## A–F interaction review of the original implementation
-
-**A. Feel audit.** Browser evidence only: response 4/5 (tool controls and inspector respond on click, existing immediate press treatment); directness 4/5 (engine drawing and native sidebar ownership retained); interruptibility 4/5 (panel changes retain the canvas and menus/dialogs dismiss immediately); spring behavior N/A (no new spring or custom gesture); spatial consistency 4/5 (canvas resizes within central panel, anchored app controls retained); materials 4/5 (solid themed shell and editor, existing modal scrim); reduced motion 4/5 (850×600 check, instant Mermaid dialog, engine CSS transitions disabled). Native feel and measured latency: [NEEDS INPUT]. Scores do not imply target-display frame measurements.
-
-**B. Interaction.** New board opens in its chosen folder; draw/select with the engine's tools; manipulate contextual styles; assign roles/membership through keyboard-accessible app controls; review conversion; copy/download; dismiss and return to the command. App keyboard commands respect dialog ownership and handled events. Textarea participates in Dialog's focus trap. Hidden panels retain the app's existing focus semantics; the canvas remains mounted across layout changes. No synthetic overscroll or momentum is introduced.
-
-**C. Motion.** No new physics controller, velocity projection or bounce. Engine owns canvas gestures; sidebar retains native drag. Mermaid dialog entry/exit is instant (`animation: none`), within the existing centered modal geometry. Reduced motion disables engine CSS animation/transitions. Existing app panel transitions remain their current owner; no second animation competes with them. Direct pointer tracking is not decorated with a settling animation.
-
-**D. Materials.** Commands/inspector use `--chrome`, `--panel`, `--line`, `--fg`, `--muted`, `--accent` and `--active`. Document/canvas are solid. Mermaid uses the existing solid Dialog and scrim; no new glass layers, sounds, blur animation or palette. Excalidraw theme follows Notify while authored drawing colors/fonts remain scene data.
-
-**E. Implementation checks.** Discriminated payload, backup/recovery, Rust validation, scoped shortcuts, file ownership, lazy engine, local fonts, editor error recovery, truthful save status, clipboard fallback, explicit partial export, history and boundary duplication are implemented. Note editing regressions and light/dark compact layouts passed. Native pointer/clipboard and Miro paste: [NEEDS INPUT].
-
-**F. Do/don't.** Use bound labels/arrows and explicit boundaries; retain exact drawing format for editing; review conversion warnings; retry failed saves; use SVG/PNG for visual interchange. Do not infer server membership from visual proximity, promise Mermaid layout fidelity, bounce canvas content, route board operations through Tiptap, or tie saving to animation completion.
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.
 
 ## Deliberate scope limits
 
-The stable release does not supply screenshot parity for draw-to-shape, bucket fill or lasso. Hosted AI text-to-diagram, wireframe-to-code, arbitrary web embeds, collaboration and direct Miro synchronization are outside this release. Mermaid import into a new board, packaged architecture templates, nested boundaries and board Reference previews ship in 1.1.1. A larger asset store remains a separate extension. See [the feature audit](boards-feature-audit.md) for implemented gaps and remaining scope. These limits were present in the approved stable-first plan.
+The stable release does not supply screenshot parity for draw-to-shape, bucket fill or lasso. Hosted AI text-to-diagram, wireframe-to-code, arbitrary web embeds, collaboration and direct Miro synchronization are outside this release. Mermaid import into a new board, packaged architecture templates, nested boundaries and board Reference previews ship in 1.1.1. A larger asset store remains a separate extension. See [verification history](../tests/verification.md) for implemented gaps and remaining scope. These limits were present in the approved stable-first plan.
 
 ## Added in 1.1.1
 
-Use **Insert → Import Mermaid** to paste a flowchart or choose a .mmd/.mermaid file, preview the editable drawing, then create a separate board in the current folder. **Insert → Templates** supplies four architecture starting points with editable source and titles. Folder Import files also accepts Mermaid files. Explicit parent boundary selection supports nesting and filters cyclic assignments. In Reference, select a board or choose Show as reference from its sidebar actions; Fit/zoom and keyboard scrolling affect the static preview only. Detailed conversion limits and historical evidence: [feature audit](boards-feature-audit.md).
-
-Validation of 1.1.1: 123 regression checks, two final hierarchy checks, a focused compact-window check, 16 production checks and four Rust checks passed. Desktop nested metadata and board Reference restart diagnostics are recorded with the installer in [tests/verification.md](../tests/verification.md) and release/boards-verification-1.1.1.json. Native UI/clipboard, IME, large-board performance and actual Miro paste remain unverified.
+Use **Insert → Import Mermaid** to paste a flowchart or choose a .mmd/.mermaid file, preview the editable drawing, then create a separate board in the current folder. **Insert → Templates** supplies four architecture starting points with editable source and titles. Folder Import files also accepts Mermaid files. Explicit parent boundary selection supports nesting and filters cyclic assignments. In Reference, select a board or choose Show as reference from its sidebar actions; Fit/zoom and keyboard scrolling affect the static preview only. Detailed conversion limits and historical evidence: [verification history](../tests/verification.md).

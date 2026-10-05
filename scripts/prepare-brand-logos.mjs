@@ -40,6 +40,4 @@ for (const name of (await readdir(directory)).sort()) {
 await writeFile(`${output}/catalog.json`, JSON.stringify({ version: '3.3.12', icons }));
 const license = await readFile('node_modules/@thesvg/icons/LICENSE', 'utf8');
 await writeFile('public/brand-logo-licenses.txt', `theSVG 3.3.12 — https://thesvg.org — https://github.com/glincker/thesvg\n\n${license}\n\nBrand marks remain the trademarks of their owners. Per-icon license and source metadata are preserved in brand-logos/catalog.json and inserted components. AWS architecture artwork © Amazon Web Services, Inc. is provided under CC BY-ND 2.0: https://creativecommons.org/licenses/by-nd/2.0/. The app displays original marks with preserved proportions; canvas insertion uses a PNG rendering for compatibility with the existing notebook image format.\n`);
-await mkdir('release', { recursive: true });
-await writeFile('release/brand-logo-catalog-report.json', JSON.stringify({ version:'3.3.12', icons:icons.length, assets, svgBytes:bytes, catalogBytes:Buffer.byteLength(JSON.stringify({version:'3.3.12',icons})), skipped }, null, 2));
 console.log(JSON.stringify({ icons:icons.length, assets, svgBytes:bytes, skipped:skipped.length }));

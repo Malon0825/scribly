@@ -29,7 +29,7 @@ Scores describe browser checks, not native frame-time measurements.
 | Materials | 4/5 | Existing solid panel/line/accent tokens and control geometry; no new glass, backdrop or canvas effects. |
 | Reduced motion | 4/5 | Runtime preference changes cancel the RAF and commit the final position immediately; highlight remains. |
 
-Native Windows pointer feel, display-dependent drawing frame rates, and real sign-in behavior: **[NEEDS INPUT]**. Existing browser board design checks are documented in [the A–F board review](boards-design-review.md).
+Native Windows pointer feel, display-dependent drawing frame rates, and real sign-in behavior: **[NEEDS INPUT]**. Existing browser board design checks are documented in [verification history](../tests/verification.md).
 
 ## B. Interaction behavior
 
@@ -43,15 +43,9 @@ Startup reads the actual Windows registration on mount and window focus. An unkn
 
 The notebook, Reference and startup row remain solid reading/control surfaces. Track uses `--line` and `--accent`; thumb uses `--panel` and its existing small shadow. Element scaling changes dimensions rather than document transforms. Busy/error feedback stays local and readable. No added translucency needs a new fallback; existing reduced-transparency support remains.
 
-## E. Validation
+## Verification
 
-Development harnesses exercise contained geometry, reversal, keyboard input, live reduced motion, read/write errors, focus refresh during writes, unmount cleanup, raw image migration, portable backup equivalence, missing files, file-backed editor/Reference/copy/Undo, delta acknowledgement and cached byte accounting. Rust checks deduplication, hash verification, path rejection, missing files, cleanup grace/retention and oversized repeated-image backups. Existing notebook, board, recovery, import, drawing and UI regressions remain applicable. Release measurements and verification records are in `release/performance-*-measurement.json` and `tests/verification.md`; distinguish the controlled fixtures from general user workloads.
-
-Final verification: 153 unique applicable development checks verified across the full run and corrected isolated harness reruns; 57 production checks passed (four development-only checks skipped); seven Rust checks passed. The packaged executable passed every isolated database diagnostic field, including attachments and delta saves, plus startup registration/removal. All 63 frozen source/config hashes and 420 frontend asset hashes match the package. Dependency audit found zero vulnerabilities.
-
-The controlled 2 MB unchanged-board fixture sent 170 bytes for a note edit rather than 2,000,165 bytes. Across 100 capacity checks, median timing was below Chromium's 0.1 ms timer resolution and p95 was about 0.1 ms; this is not a universal keystroke-latency guarantee. A seed-notebook browser sample after 20 warm switches and 100 further switches retained one editable and one Reference editor; collected JS heap rose by 1,046,340 bytes. That limited sample does not establish indefinite leak freedom or native image memory behavior.
-
-On the tested Ryzen 5 7535HS/Windows 11 machine, three repeat native launches had a 1,254 ms median readiness time. Median idle private working set across six launches was about 176.1 MiB including Notify, WebView2 and PostgreSQL, versus about 174.9 MiB for the prior release. Startup differences are observational: the baseline overlapped regression/native test work, while the final sample ran afterward; there was no OS cache eviction. The small seed notebook does not establish image-rich notebook savings. Exact method and process-tree samples are preserved in `release/performance-native-1.2.0.json`, with comparison limits in `release/performance-comparison-1.2.0.json`.
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.
 
 ## F. Do / don't
 

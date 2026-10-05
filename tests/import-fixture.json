@@ -1,5 +1,0 @@
-{
-  "folders": [{"id":"backup-folder","name":"Backup test"}],
-  "notes": [{"id":"backup-note","folderId":"backup-folder","title":"Imported backup check","content":"<h2>Restored safely</h2><p>Backup content 日本語.</p><script>window.__badImport=true</script>","createdAt":"2026-10-02T00:00:00Z","updatedAt":"2026-10-02T00:00:00Z","archived":false}],
-  "theme":"light", "activeId":"backup-note", "referenceId":null
-}

@@ -34,6 +34,4 @@ Plain-text note export includes the label and `(Scribly item: ID)` so a connecti
 
 ## Verification
 
-Behavioral coverage lives in `tests/connected-workflows.spec.ts`. The native `scripts/test-native-connected.ps1` uses an isolated diagnostic profile and exercises PostgreSQL delta saves/reload, Reference/backlinks, source purge, template image/original integrity and original-inclusive backup/import link remapping. Rust integration additionally checks metadata-only folder defaults, unchanged PostgreSQL row versions, rejection of dangling defaults and restart retention. The optimized Windows 1.3.14 workflow passed; [release results](../tests/verification.md) and the [release audit](../release/build-1.3.14-20261004-182752/verification.json) record evidence and limitations.
-
-Native picker interaction, external system-browser launch and installer installation are not covered by these automated checks. Startup/body hydration and sustained RAM/frame profiling remain CAP-01/03; this phase does not claim unlimited performance.
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.

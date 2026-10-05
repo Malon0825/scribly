@@ -55,29 +55,9 @@ closed retain their packaged icon. Dynamic resources describe the running
 window. The automated checks inspect real native handles and Shell properties;
 they do not visually verify Explorer's rendered taskbar or pinned shortcuts.
 
-## Validation
+## Verification
 
-The release and installed Scribly 1.3.10 executable both passed the original
-handle/property checks, which did not check the small-icon resolution.
-The installed copy was updated silently while the app was closed. See the
-[verification record](../release/live-icon-verification-1.3.10.json),
-[release native samples](../release/icon-test-c53d17445889454c99637863f99c2f22/icons.json),
-and [installed native samples](../release/icon-test-7f04211412f84241bef0fe9e1875656a/icons.json).
-The optimized executable grew by 11,264 bytes against installed 1.3.9; this is
-a file-size measurement, not a RAM/frame-time benchmark.
-
-- `npm run build` (through `npm run package`): TypeScript and Vite production build.
-- `npm run check:rust`: formatting, Clippy with warnings denied, 18 tests passed;
-  the unrelated PostgreSQL integration test remains explicitly ignored.
-- `tests/app-icon.spec.ts`: 2 browser tests passed. A cold development-server
-  load exceeded 30 seconds; rerun with a 120-second timeout passed.
-- `scripts/test-native-app-icon.ps1`: checks the actual release WebView2 window
-  in an isolated notebook/profile. Seven samples cover Light, Dark, System in
-  both appearances, 20 reversals, and restored dark mode after reload. It checks
-  small/large pixels, resource hashes, relaunch identity, handle reuse, and no
-  file rewrites during switches. The release report records final results.
-- The native lifecycle unit test verifies string values survive their input
-  buffers and are cleared when a hidden test window is destroyed.
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.
 
 ## API references
 

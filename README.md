@@ -1,12 +1,36 @@
 # Scribly
 
-A free Windows notebook for writing, keeping a second note in view, and sketching architecture boards. Your notebook stays on your computer; no account or cloud service is required.
+A free Windows notebook for your notes, ideas, and architecture diagrams. Write with a reference beside you, turn Mermaid flowcharts into editable Excalidraw boards, and find the right word with a built-in offline English dictionary. Your notebook stays on your computer; no account or cloud service is required.
 
 **[Download the latest Windows release](https://github.com/Malon0825/scribly/releases/latest)** · [User guide](docs/user-guide.md) · [Contribute](CONTRIBUTING.md) · [Report a bug](https://github.com/Malon0825/scribly/issues)
 
+![Scribly Notebook theme with folders, rich-text notes, and a checklist](docs/images/notebook.webp)
+
+## Make it yours
+
+Choose **Light**, **Dark**, or **Notebook**, or let **System** follow your Windows appearance. Adjust interface and text size, and choose clean or handwritten note fonts, including Lato, Caveat, Itim, Gaegu, and Gochi Hand.
+
+| Light | Dark |
+| --- | --- |
+| ![Scribly Light theme](docs/images/light.webp) | ![Scribly Dark theme](docs/images/dark.webp) |
+
+## Sketch the architecture
+
+Write a Mermaid flowchart, preview it, and create an editable Excalidraw board. Add shapes, connectors, templates, and offline brand logos; keep a board in Reference while you write.
+
+![Editable architecture diagram imported from Mermaid into Scribly's Excalidraw board](docs/images/architecture.webp)
+
+## Find your words
+
+Select an English word or open **Dictionary** to explore definitions, synonyms, and antonyms beside your note. WordNet 3.1 provides on-device lookup; unlisted words can use the Free Dictionary API online. Click a synonym or antonym to replace the selected word, and undo it normally.
+
+![Scribly's built-in WordNet dictionary showing an offline definition of imagination](docs/images/dictionary.webp)
+
+Screenshots use demo notes in the browser preview and show source version 1.4.0; the desktop app saves locally on Windows. Check the release page for the latest published installer.
+
 ## Install
 
-1. Open the [latest release](https://github.com/Malon0825/scribly/releases/latest) and download `Scribly_1.3.12_x64-setup.exe` from **Assets**. The source ZIP is for developers.
+1. Open the [latest release](https://github.com/Malon0825/scribly/releases/latest) and download the `Scribly_*_x64-setup.exe` installer from **Assets**. The source ZIP is for developers.
 2. Run the setup EXE. Scribly installs for your Windows account without administrator access.
 3. Open Scribly from the Start menu.
 
@@ -23,16 +47,17 @@ To update, export a backup in Settings, close Scribly, and run the newer install
 - Keep a read-only note or board visible in Reference, or use Focus mode for more writing space.
 - Create Excalidraw boards, insert offline brand logos, import Mermaid, and export drawings, SVG, PNG, or Mermaid. Copy flowcharts for Miro.
 - Import text, Markdown, code, selectable-text PDFs, and Word `.docx` files.
-- Choose Light, Dark, or System appearance and adjust interface size and note typography.
+- Choose Light, Dark, or Notebook themes, follow Windows appearance with System, and adjust interface size and note typography.
+- Look up English definitions, synonyms, and antonyms with the offline WordNet dictionary.
 - Autosave locally and export/import portable notebook backups.
 
-See the [user guide](docs/user-guide.md) for shortcuts and feature limits. [Version 1.3.12](docs/releases/v1.3.12.md) starts new notebooks with only an Introduction folder and a getting-started note. Existing notebooks are preserved.
+See the [user guide](docs/user-guide.md) for shortcuts and feature limits, and [version 1.4.0 notes](docs/releases/v1.4.0.md) for the dictionary, suggestions, and Notebook theme. New notebooks start with an Introduction folder and a getting-started note. Existing notebooks are preserved.
 
 ## Your data
 
 The desktop app stores notes under `%LOCALAPPDATA%\com.still.notes\database`. Its bundled PostgreSQL server listens only on loopback, uses a random local port and an app-generated password, and stops when the app exits. Updates and uninstalling preserve the notebook folder. Export backups periodically from Settings; copying a live PostgreSQL folder is not a supported backup method.
 
-Scribly is currently a personal notebook with **no cloud sync or shared editing**. The browser development preview uses browser local storage and is separate from your desktop notebook.
+Scribly is currently a personal notebook with **no cloud sync or shared editing**. The browser development preview uses IndexedDB and local storage and is separate from your desktop notebook.
 
 ## Word suggestions
 
@@ -59,9 +84,11 @@ Open `http://127.0.0.1:1420`. For the Windows app, also install Rust stable, Vis
 npm run tauri -- dev
 ```
 
-Build an installer with `npm run package`. Run `npm run build` for the production frontend and `npm run check:rust` for native checks. Playwright tests are in `tests/`; install Chromium with `npx playwright install chromium` and run the relevant tests with `npm test`. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, pull requests, and validation, and [release guidance](docs/releasing.md) for publishing.
+Build an installer with `npm run package`. Run `npm run build` for the production frontend and `npm run check:rust` for native checks. Playwright tests are in `tests/`; install Chromium with `npx playwright install chromium` and run affected cases with `npm test -- tests/<feature>.spec.ts`. Consult [verification history](tests/verification.md) before repeating checks. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, pull requests, and validation, and [release guidance](docs/releasing.md) for publishing.
 
 ## Contribute and license
+
+Built with **Tauri 2**, **Rust**, **PostgreSQL**, **React**, **Tiptap**, and **Excalidraw**.
 
 Contributions are welcome through [issues](https://github.com/Malon0825/scribly/issues) and pull requests: bug fixes, documentation, accessibility, testing, and thoughtful improvements all help. Fork the repository and submit a focused change against `main`; see [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -1,9 +1,0 @@
-
-Running 1 test using 1 worker
-
-
-
-(node:32640) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
-(Use `node --trace-warnings ...` to show where the warning was created)
-[1/1] audit\corrected-selection-colors.spec.ts:57:1 › expanded palette is keyboard accessible; colors persist and Reference stays read-only
-  1 passed (11.5s)

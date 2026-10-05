@@ -38,17 +38,6 @@ export function attachmentIds(html: string): string[] {
   // IDs only; never cache image bytes. Supports serialized recovery records too.
   return [...html.matchAll(/<img\b[^>]*\bdata-notify-attachment=\\?["']([a-f0-9]{64}\.(?:png|jpeg|gif|webp))\\?["']/g)].map(match => match[1]);
 }
-export function attachmentBytes(ids: Iterable<string>) {
-  let total = 0;
-  for (const id of ids) {
-    const size = sizes.get(id);
-    if (!size) throw Error("A notebook image is missing. Keep a backup and restore the image before saving.");
-    // Diagnostic portable size only. Every image occurrence expands in JSON
-    // backups, even when disk storage deduplicates the original file.
-    total += Math.ceil(size / 3) * 4 + `data:image/${id.split(".")[1]};base64,`.length + "src=".length - "data-notify-attachment=".length - id.length;
-  }
-  return total;
-}
 export async function compactImages<T extends { notes: Workspace["notes"] }>(document: T): Promise<T> {
   if (!isTauri()) return document;
   let changed = false;

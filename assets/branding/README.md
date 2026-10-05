@@ -27,7 +27,7 @@ CSS tinting changes immediately without downloading another image.
 The browser branding payload is about 12.8 KB in light mode or 13.8 KB in dark
 mode. Standalone WebP icons are not requested by the app header. High-resolution
 masters and this preview are stored here, outside the production public assets.
-Legacy Notify public assets were removed; originals remain archived here.
+Legacy Notify assets and their obsolete generators were removed; their history remains in Git.
 
 The running native window assigns both small and large icons from four cached
 handles. Light/Dark/System updates retain the existing serialized queue. Version
@@ -54,7 +54,6 @@ resource identity for explicit/system appearance, rapid reversals, and reload.
 - `scribly-preview.html` / `scribly-preview.png`: light/dark review, actual header
   size, and icon sizes 16, 20, 32, 48 px.
 - [Generation prompts](scribly-prompts.md): exact prompts, built-in imagegen.
-- [Legacy Notify artwork notes](notify-legacy.md): historical assets only.
 
 Run `python scripts/create-scribly-branding.py` with Pillow to re-export. It
 uses a shared crop for the icon pair, antialiased downsampling, real alpha,

@@ -1,6 +1,6 @@
 # Storage and large text files
 
-October 4, 2026 — included in the locally built [Windows 1.3.12 installer](../release/Scribly_1.3.12_x64-setup.exe). The public release remains 1.3.11; 1.3.12 has not been published.
+October 4, 2026 — included in the locally built [historical build record](../tests/verification.md). The public release remains 1.3.11; 1.3.12 has not been published.
 
 ## Decision
 
@@ -55,19 +55,9 @@ These constrain conversion/rendering work independently of total storage:
 
 Do not raise these budgets by changing a constant alone. A future large-file editor should have bounded rendering, incremental parsing/search, background indexing, explicit cancellation, and measured behavior on Windows WebView2. Read-only access plus original download is the initial safe path for large datasets.
 
-## Validation and UI decisions
+## Verification
 
-- A 25,160,014-byte XML fixture (about 24 MiB) imported in browser tests with no whole-file read: the largest read was 1 MiB, and the displayed section stayed below 66,000 characters. Exact original SHA-256 matched after download; notes and originals survived reload.
-- UTF-8 code points and UTF-16 surrogate pairs round-trip across section boundaries without loss/duplication.
-- A 24 MiB aggregate notebook migrated to IndexedDB, saved a small edit, and reloaded successfully. A large dirty draft promoted its recovery journal and restored after reopening it.
-- File-backup tests restore originals with new IDs and reject same-size corruption.
-- Production-preview UI checks export a `.scribly` backup from Settings, restore it in a fresh browser context, download byte-identical originals, and reload the restored viewer.
-- Isolated PostgreSQL tests migrate a 24 MiB legacy notebook, preserve revision conflicts/failed updates, and verify an unchanged row's `xmin` does not change after a small delta save.
-- An isolated Windows WebView2 development run imported the same 24 MiB XML, verified the on-disk original SHA-256, saved annotations, and reloaded them. Import took 17.7 seconds; next-section viewing took 133 ms. These are sample timings, not guaranteed limits; the native save dialog, RAM, and sustained frame rate were not measured.
-- Viewer controls reuse theme tokens, Phosphor icons, existing control geometry, solid reading surfaces, keyboard controls, and native scrolling. No new gesture or animation controller was added. Buttons respond on press without delaying the click action.
-- Wide light native, wide dark browser, and narrow browser screenshots were inspected. At the narrow window size, Reference retains the existing overlay behavior; use Focus or close Reference to give writing the full available width. The mechanical UI detector reported only the existing CSS accent-border warning at the earlier blockquote selector.
-
-Build/test results and the isolated WebView2 report are recorded in the enhancement plan delivery log after final verification. The initial browser fixture timing covers import, navigation, download, reload, and screenshots together; it is not a typing latency, import-only benchmark, sustained frame-rate, or RAM measurement.
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.
 
 ## Next scaling steps
 

@@ -1,5 +1,54 @@
 # Verification history
 
+## README screenshots and repository cleanup, 2026-10-05
+
+Working-tree scope based on `5a1872f`: commits the pending removal of obsolete audit reports, legacy branding/generators and unused workspace-size helpers; updates their maintained documentation/test references. README now describes current 1.4.0 source features and includes five demo-only WebP images reused from the verified promo captures (Light, Dark, Notebook, Mermaid-created board, offline dictionary). Corrected stale installer/source-version wording; the latest published release was verified as v1.3.12 through GitHub's release API.
+
+- Final `npm run build`: passed; existing Vite large-chunk advisory remains. Missing locally installed WordNet dependency restored without package manifest/lockfile changes.
+- `PLAYWRIGHT_PORT=1423 npm test -- tests/performance-enhancements.spec.ts --grep "image migration uses raw bytes" --workers=1`: 1 passed. Checks compact image migration, binary upload, deduplication, portable backup, original preservation on failed migration and missing-image backup rejection against the revised harness.
+- Maintained local Markdown links and image targets checked; staged `git diff --check` passed. Reused image files visually inspected and compressed to about 305 KB combined. No broad regressions, native checks or installer publication performed. The sibling promo source/video stays in `D:\Projects\scribly-promo` outside this application's Git repository.
+
+## Promo feature corrections, 2026-10-05
+
+Scope: sibling `D:\Projects\scribly-promo`, revised `ScriblyCommercial`; no app source changes. Removed the small writing caption, RAM segment, and repeated theme lineups. Added actual note-font captures, local dictionary, Mermaid import/Excalidraw result, and stack logos. Export `out/scribly-commercial-v2.mp4` preserves the prior MP4.
+
+- `npx tsx capture/features.ts`: succeeded after correcting the demo's required `referenceId` and dictionary-toggle locator. Preview lacked generated WordNet assets and its dependency; prepared ignored dictionary shards with the existing app generator using WordNet 3.1.14 installed in the sibling promo project. Local dictionary result confirmed as WordNet with all external browser requests blocked. Mermaid preview and editable board captured through app controls.
+- Final `npm run build` and Remotion H.264 render passed. `npx tsx scripts/verify-commercial.ts`: full video/audio decode passed, 2,110 frames at 60fps (35.1667s), music correlation 0.99983, offset 0ms. Export 18,915,547 bytes. Changed scenes and closing logos visually reviewed before and after export; disposable review captures removed.
+- Browser captures only; no native WebView2 or unrelated app regression tests. Existing app implementation is unchanged; generated local dictionary assets remain for preview use.
+
+## Music-driven product-film revision, 2026-10-05
+
+Scope: sibling `D:\Projects\scribly-promo`, `ScriblyCommercial` composition, GSAP 3.13.0, supplied Shake It Up music excerpt, preparation/review/verification scripts. App source remains unchanged; browser assets reuse the earlier working-tree captures based on `5a1872f`. Earlier compositions/exports preserved.
+
+- `python scripts/analyze-track.py`: spectral-onset timing strongly identified 116 BPM. `npx tsx scripts/prepare-commercial.ts`: prepared 33.1 seconds from source time 16.531897, no music time stretch. Existing footage plays at 116/120 speed to align its calibrated action beats. This is edited footage, not a speed benchmark.
+- Final `npm run build` and `npx remotion render src/index.ts ScriblyCommercial out/scribly-commercial.mp4 --codec=h264 --crf=17 --concurrency=3 --log=error`: passed. 1920×1080, 60fps, 1,986 frames, 19,901,101 bytes. An intermediate render was stopped to correct footage/music tempo alignment before this final export.
+- `npx tsx scripts/verify-commercial.ts`: full video/audio decode passed; source/export audio correlation 0.99983, measured offset 0ms. Representative frames of every scene and final revised typography were visually reviewed. Corrected writing-label overlap; theme views, lineup, memory qualifier and outro checked. Disposable review images removed. These checks do not establish native performance, a total-RAM figure, or a full subjective playback/listening review.
+- Memory card preserves the supplied observation as app-process-only with visible additional WebView2/variable-usage qualification. No unrelated app build or regression suite run.
+
+## Three-theme hype promo, 2026-10-05
+
+Scope: sibling `D:\Projects\scribly-promo`, new `ScriblyHype` composition and `capture/themes.ts`; app preview from working tree based on `5a1872f`. No app implementation changes. Existing writing/Reference footage and original 120 BPM score reused; Light, Dark and Notebook captured with isolated demo data.
+
+- `npx tsx capture/themes.ts`, final `npm run build`, and `npx remotion render src/index.ts ScriblyHype out/scribly-hype.mp4 --codec=h264 --crf=18 --concurrency=3 --log=error`: passed. Final export 4,685,059 bytes, 1920×1080 H.264, 30fps, 32 seconds, stereo AAC at 48kHz.
+- FFmpeg full video/audio decode passed: 960 frames, no decode errors, no dropped/duplicated output frames. Representative frames of all scenes visually reviewed; final framing fixes reviewed for writing, theme spacing, memory card and outro. Disposable contact sheets removed. Original promo/export preserved. No unrelated app tests/builds run; native WebView2 footage and a normal-use RAM benchmark were not captured.
+- Memory wording is bounded to the user's supplied Task Manager observation: “12 MB Scribly app process”, with visible additional-WebView2/variable-usage qualification. Screenshot also shows a 57.4 MB named WebView2 child and 170.2 MB manager; no total memory claim is inferred from that grouping.
+
+## Beat-synchronized promo video, 2026-10-05
+
+Scope: sibling `D:\Projects\scribly-promo` capture/Remotion project; app footage from the working tree based on `5a1872f`. App source, persistence and native code were not changed by this task. Original 120 BPM instrumental and a 32-second 1920×1080 composition share one beat/sample/frame timeline.
+
+- In the sibling project, final `npm run capture`, `npm run normalize`, `npm run build`, `npm run render`, and `npm run verify`: passed after focused retakes. Normalization reads markers painted with actual pointer/key events and aligns feature actions to frames 30/90/150. Final MP4 decodes to 960 frames at 30fps; all four clips decode to 180 frames. Decoded soundtrack correlation 1.0000, measured encoder/mux offset 0ms; stereo score length 32 seconds. Export about 7.2 MB.
+- Title, writing, Reference, boards, Focus and outro rendered frames visually inspected; Remotion Studio opens the composition at 1920×1080/30fps/32 seconds. Disposable screenshots/logs and duplicate capture files removed; named source footage and calibration metadata retained for editing/rebuild.
+- Initial short markers missed frames during held typing frames; replaced with distinct persistent colors tied to actual input events. Retakes corrected board framing and preserved Reference visibility. A preview-server restart exposed a missing `wordnet-db` predev dependency in the current app checkout; direct Vite launch served the affected capture paths. The dependency problem remains outside this task's scope. No app build or unrelated regression suite run. Native WebView2 was not captured; source recording precision is approximately one 25fps frame (40ms), while composition beats and audio use an exact shared clock.
+
+## Animated icons restored and installer rebuilt, 2026-10-05
+
+Working tree on `f991884`: restores the original `AnimatedIcon.tsx` implementation from `98f5285`, including hover/keyboard animations, cancellation and runtime reduced-motion support. Existing icon test definitions again expect animation, with toolbar selectors adjusted for the current controls; none were executed.
+
+- `npm.cmd run package`: passed, including frontend build, optimized native release compilation and NSIS packaging. The existing Vite large-chunk advisory remains.
+- Replaced `release/Scribly_1.3.18_x64-setup.exe` with this rebuilt installer (58.25 MiB). The earlier size/hash below describes the superseded static-icon installer.
+- No tests, installer launch or installation checks performed, as explicitly requested. Restored icon behavior is not runtime-verified by this build.
+
 ## Scribly 1.3.18 installer, 2026-10-05
 
 Editor changes and synchronized npm/Tauri/Cargo version metadata committed as `3ecb38b`. Build input is that revision plus the pre-existing, uncommitted cleanup (including removal of unused attachment-size helpers and generated logo reporting); cleanup was preserved and excluded from the editor commit.

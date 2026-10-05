@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(async () => {
     // Match the app's live module identity after Vite HMR; a bare URL would
     // create a second attachment registry alongside its timestamped import.
-    const source = await (await fetch("/src/workspaceSize.ts")).text();
+    const source = await (await fetch("/src/storage.ts")).text();
     const path = source.match(/["'](\/src\/attachments\.ts[^"']*)["']/)?.[1];
     if (!path) throw Error("Attachment harness could not resolve the live module.");
     (window as any).attachmentModule = await import(path);
@@ -80,27 +80,26 @@ test("image migration uses raw bytes, deduplicated references and portable backu
     const w = window as any; w.isTauri = true;
     const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aAV8AAAAASUVORK5CYII=";
     const bytes = Uint8Array.from(atob(pixel.split(",")[1]), c => c.charCodeAt(0));
-    const id = "a".repeat(64) + ".png"; let uploads = 0, fail = false;
+    const id = "a".repeat(64) + ".png"; let uploads = 0, fail = false, missing = false;
     w.__TAURI_INTERNALS__ = { invoke: async (cmd: string, payload: any) => {
       if (cmd === "store_attachment") { if (fail) throw Error("Disk full"); if (!(payload instanceof Uint8Array)) throw Error("Non-binary upload"); uploads++; return { id, size: bytes.length }; }
-      if (cmd === "read_attachment") return bytes.buffer;
+      if (cmd === "read_attachment") { if (missing) throw Error("Image missing"); return bytes.buffer; }
       throw Error(cmd);
     }, convertFileSrc: (path: string) => "http://asset.localhost/" + encodeURIComponent(path) };
-    const a = w.attachmentModule, { workspaceBytes } = await import("/src/workspaceSize.ts"), { validateWorkspace } = await import("/src/workspaceValidation.ts");
+    const a = w.attachmentModule, { validateWorkspace } = await import("/src/workspaceValidation.ts");
     a.configureAttachments("C:/Notify");
     const original = { theme: "light", activeId: "n", referenceId: null, folders: [], notes: [{ id: "n", title: "Photo", folderId: null, archived: false, createdAt: "now", updatedAt: "now", content: `<figure data-notify-image="" data-width="65" data-align="right"><img src="${pixel}" alt="Photo"><figcaption>Caption</figcaption></figure>` }] };
-    const compact = a.attachmentSchema(await a.compactImages(original)); validateWorkspace(compact); const budget = workspaceBytes(compact);
+    const compact = a.attachmentSchema(await a.compactImages(original)); validateWorkspace(compact);
     const backup = JSON.parse(await a.portableBackup(compact));
     fail = true; let rejected = false; try { await a.compactImages(original); } catch { rejected = true; }
     const originalPreserved = original.notes[0].content.includes(pixel);
-    a.configureAttachments("C:/Notify", {}); let missingRejected = false; try { workspaceBytes(compact); } catch { missingRejected = true; }
+    missing = true; let missingRejected = false; try { await a.portableBackup(compact); } catch { missingRejected = true; }
     w.isTauri = false;
-    return { schema: compact.schemaVersion, html: compact.notes[0].content, portable: backup.notes[0].content, portableVersion: backup.schemaVersion, uploads, originalPreserved, rejected, missingRejected, budget, portableBudget: new TextEncoder().encode(JSON.stringify(backup)).length };
+    return { schema: compact.schemaVersion, html: compact.notes[0].content, portable: backup.notes[0].content, portableVersion: backup.schemaVersion, uploads, originalPreserved, rejected, missingRejected };
   });
   expect(result.schema).toBe(3); expect(result.html).toContain("data-notify-attachment"); expect(result.html).not.toContain("data:image");
   expect(result.portable).toContain("data:image/png;base64,"); expect(result.portable).toContain("Caption"); expect(result.portable).not.toContain("data-notify-attachment");
   expect(result.portableVersion).toBe(2); expect(result.originalPreserved && result.rejected && result.missingRejected).toBe(true); expect(result.uploads).toBe(1);
-  expect(result.budget).toBe(result.portableBudget);
 });
 test("delta save omits unchanged boards and only advances its baseline after an acknowledgement", async ({ page }) => {
   const result = await page.evaluate(async () => {
@@ -125,19 +124,6 @@ test("delta save omits unchanged boards and only advances its baseline after an 
   expect(result.changed).toEqual([["note"], ["note"], ["note"]]); expect(result.revisions).toEqual([1, 2, 2]);
   expect(result.payloadBytes).toBeLessThan(1000); expect(result.fullBytes).toBeGreaterThan(2_000_000);
   await writeFile("release/performance-delta-measurement.json", JSON.stringify(result, null, 2));
-});
-test("capacity checks cache unchanged image-rich boards while retaining exact serialized byte accounting", async ({ page }) => {
-  const result = await page.evaluate(async () => {
-    const { workspaceBytes } = await import("/src/workspaceSize.ts");
-    const board = { id: "board", content: "", board: { files: { image: "x".repeat(2_000_000) } } };
-    const note = { id: "note", content: "Writing" };
-    const before = { theme: "light", activeId: "note", referenceId: null, folders: [], notes: [note, board] };
-    const first = workspaceBytes(before), expected = new TextEncoder().encode(JSON.stringify(before)).length;
-    const times: number[] = []; for (let i = 0; i < 100; i++) { const start = performance.now(); workspaceBytes({ ...before, notes: [{ ...note, content: `Typing ${i}` }, board] }); times.push(performance.now() - start); }
-    times.sort((a,b) => a-b); return { first, expected, medianMs: times[50], p95Ms: times[95], iterations: times.length, unchangedBoardBytes: 2_000_000 };
-  });
-  expect(result.first).toBe(result.expected); expect(result.medianMs).toBeLessThan(10);
-  await writeFile("release/performance-capacity-measurement.json", JSON.stringify(result, null, 2));
 });
 test("file-backed image nodes preserve resize, Reference, copy and Undo while serializing IDs", async ({ page }) => {
   await runtime(page);

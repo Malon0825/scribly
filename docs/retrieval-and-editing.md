@@ -1,6 +1,6 @@
 # Find, replace, pins, and recently opened items
 
-Phase 3 is complete in the [local Scribly 1.3.13 Windows installer](../release/Scribly_1.3.13_x64-setup.exe). Production browser and optimized Windows WebView2 checks passed; local release evidence is recorded in [verification](../tests/verification.md).
+Phase 3 is complete in the [historical build record](../tests/verification.md). Production browser and optimized Windows WebView2 checks passed; local release evidence is recorded in [verification](../tests/verification.md).
 
 ## Find and replace
 
@@ -30,6 +30,6 @@ Archive and Trash hide pinned shortcuts while retaining the pin on the item; res
 
 Pins and recent IDs are optional fields in the existing format 5, so old notebooks open without a mandatory schema migration. Native and browser validators reject malformed pins, duplicate/missing recent IDs and lists beyond the bound. Per-item storage, recovery records and backups retain this metadata independently of note bodies. Existing history restoration preserves today's pin and organization. The overall notebook storage limit remains removed.
 
-## Validation limits
+## Verification
 
-Browser checks cover Unicode/formatting/code matching, empty/literal queries, replacement Undo/Redo, read-only notes, image/ink retention, editor identity/caret restoration, search navigation, board reveal/pins, recent ordering, Archive/Trash/purge and narrow/light/dark/reduced-motion operation. Native validation uses a separate notebook profile; it does not modify the installed personal notebook. Installer installation, interactive native pickers, physical disk-full behavior and sustained RAM/frame profiling are separate checks.
+See [verification history](../tests/verification.md) for recorded results, source snapshots, and remaining limits.
