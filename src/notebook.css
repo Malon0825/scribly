@@ -1,0 +1,278 @@
+/* A separate cover-and-paper theme. Decoration never owns editor hit testing. */
+:root[data-theme="notebook"] {
+  --bg: #ede3ce;
+  --panel: #f6f0e2;
+  --chrome: #eee6d4;
+  --notebook-cover: #20364e;
+  --sidebar: #eee3c6;
+  --fg: #10233e;
+  --text: #294565;
+  --muted: #526176;
+  --line: #cfbc91;
+  --accent: #971f29;
+  --on-accent: #fff8eb;
+  --active: #ebcbb9;
+  --hover: #e9ddc4;
+  --green: #147344;
+  --danger: #a22630;
+  --shadow: 0 3px 12px #07182b24;
+  --floating-shadow: 0 14px 35px #11182725;
+  --dialog-shadow: 0 24px 80px #091b4344;
+  --paper-rule: #56799b24;
+  --paper-margin: #bd555b99;
+  --paper-top-margin: calc(64px * var(--element-scale));
+  --paper-bottom-margin: calc(28px * var(--element-scale));
+  --paper-edge-mask: linear-gradient(180deg, var(--panel) 0, var(--panel) var(--paper-top-margin), transparent var(--paper-top-margin), transparent calc(100% - var(--paper-bottom-margin)), var(--panel) calc(100% - var(--paper-bottom-margin)), var(--panel) 100%);
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpath fill='%238d7445' opacity='.09' filter='url(%23grain)' d='M0 0h128v128H0z'/%3E%3C/svg%3E");
+  --notebook-rings: url("/notebook-ring.svg");
+  --binding-gutter: calc(40px * var(--element-scale));
+  color: var(--fg);
+  color-scheme: light;
+}
+
+:root[data-theme="notebook"] .app {
+  background: linear-gradient(135deg, #314e6b, var(--notebook-cover) 48%, #172b40);
+  border: 1px solid #7088a1;
+  box-shadow: inset 0 0 0 8px #a9bdd60a, inset 0 0 24px #07182b30;
+  gap: calc(3px * var(--element-scale));
+}
+:root[data-theme="notebook"] .topbar {
+  background: linear-gradient(180deg, #31495f, #1c3045);
+  border-color: #637b934f;
+  box-shadow: inset 0 1px #ffffff0c;
+  /* Chrome has its own contrast pair; paper controls retain the root tokens. */
+  --text: #f3efdf;
+  --muted: #bdcbd6;
+  --line: #b7c7d477;
+  --hover: #ffffff14;
+  --active: #ffffff22;
+}
+:root[data-theme="notebook"] .brand-wordmark { background: #f5dda0; }
+:root[data-theme="notebook"] .top-actions .pill {
+  background: transparent;
+  border: 1px dashed #bac6d1;
+  box-shadow: inset 0 0 0 3px #ffffff05;
+}
+:root[data-theme="notebook"] .top-actions .pill:hover { background: var(--hover); }
+:root[data-theme="notebook"] .top-actions .pill.selected {
+  color: #fff4db;
+  background: #ffffff18;
+  border-color: #fff4db;
+}
+:root[data-theme="notebook"] .theme-toggle {
+  color: var(--on-accent);
+  background: linear-gradient(135deg, #b64248, var(--accent));
+  border: 1px solid #f4d2bb;
+  box-shadow: inset 0 0 0 2px #ffffff15;
+}
+:root[data-theme="notebook"] .panel {
+  border: 2px solid var(--line);
+  box-shadow: inset 0 0 0 2px #fff9e588, var(--shadow);
+}
+:root[data-theme="notebook"] .sidebar {
+  background:
+    var(--paper-grain),
+    radial-gradient(ellipse at 20% 10%, #fff9e859, transparent 65%),
+    linear-gradient(90deg, var(--sidebar) 90%, #d8c9a7);
+}
+:root[data-theme="notebook"] .workspace.with-sidebar .sidebar {
+  /* Equal page gutters; retain usable controls when the sidebar is narrowed. */
+  padding-inline: clamp(calc(16px * var(--element-scale)), calc((var(--sidebar-width, var(--sidebar-default)) - 180px * var(--element-scale)) / 2), calc(24px * var(--element-scale)));
+  /* Reserve paper beyond the controls for the punched binding holes. */
+  padding-right: var(--binding-gutter);
+  background:
+    var(--paper-grain),
+    linear-gradient(270deg, #665b4244 0, #b2a58a22 calc(5px * var(--element-scale)), transparent calc(20px * var(--element-scale))),
+    radial-gradient(ellipse at 20% 10%, #fff9e859, transparent 65%),
+    var(--sidebar);
+}
+:root[data-theme="notebook"] .sidebar-scroll {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+:root[data-theme="notebook"] .sidebar-create button { font-weight: 400; }
+:root[data-theme="notebook"] .folder-toggle { font-weight: 400; }
+:root[data-theme="notebook"] .sidebar .note-row::before { display: none; }
+:root[data-theme="notebook"] .folder-notes {
+  padding-left: calc(12px * var(--element-scale));
+  margin-right: 0;
+}
+.notebook-binding { display: none; }
+@media (min-width: 701px) {
+  /* Separate cut paper edges around a narrow recessed gap. */
+  :root[data-theme="notebook"] .workspace.with-sidebar > .document-panel {
+    margin-left: calc(-4px * var(--element-scale));
+  }
+  :root[data-theme="notebook"] .with-sidebar .document-panel::before {
+    width: var(--binding-gutter);
+    /* Flat punched paper margin with a shaded cut edge. */
+    background:
+      var(--paper-grain),
+      linear-gradient(90deg,
+        #a39983 0,
+        #e6dcc7 calc(2px * var(--element-scale)),
+        var(--panel) calc(12px * var(--element-scale)));
+  }
+  :root[data-theme="notebook"] .with-sidebar .document-panel::after { display: none; }
+  :root[data-theme="notebook"] .notebook-binding {
+    display: block;
+    position: absolute;
+    /* Anchor to the live grid edge, including panel-toggle intermediate frames. */
+    grid-column: 2;
+    grid-row: 1;
+    left: calc(-31px * var(--element-scale));
+    top: calc(18px * var(--element-scale));
+    bottom: calc(12px * var(--element-scale));
+    width: calc(48px * var(--element-scale));
+    background: var(--notebook-rings) 0 0 / 100% calc(44px * var(--element-scale)) repeat-y;
+    pointer-events: none;
+    z-index: 10;
+  }
+  :root[data-theme="notebook"] .sidebar-resize {
+    left: calc(var(--sidebar-width, var(--sidebar-default)) + 3px * var(--element-scale));
+    z-index: 11;
+  }
+}
+:root[data-theme="notebook"] .with-sidebar .sidebar {
+  border-top-right-radius: calc(4px * var(--element-scale));
+  border-bottom-right-radius: calc(4px * var(--element-scale));
+  border-right-color: #d0c3a9;
+  box-shadow: inset 0 0 0 2px #fff9e588, inset -3px 0 5px #62553d22, calc(6px * var(--element-scale)) 0 #777064, var(--shadow);
+}
+:root[data-theme="notebook"] .with-sidebar .document-panel {
+  border-top-left-radius: calc(4px * var(--element-scale));
+  border-bottom-left-radius: calc(4px * var(--element-scale));
+}
+:root[data-theme="notebook"] .primary {
+  background: linear-gradient(120deg, #b23a41, #831820);
+  border: 1px solid #8d2029;
+  box-shadow: inset 0 1px #ffffff44, 0 2px 4px #5a252218;
+}
+:root[data-theme="notebook"] .primary:hover { background: linear-gradient(120deg, #bd444b, #97202a); }
+:root[data-theme="notebook"] .primary:active { background: #831820; }
+:root[data-theme="notebook"] .note-row.active {
+  background: linear-gradient(90deg, #efd4be, var(--active));
+}
+:root[data-theme="notebook"] .note-row.active .note-icon { color: var(--accent); }
+:root[data-theme="notebook"] .sidebar-bottom { border-top-style: dashed; }
+
+/* The rings and gutter stay fixed while the sheet scrolls underneath. */
+:root[data-theme="notebook"] .document-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(27px * var(--element-scale));
+  background: linear-gradient(90deg, #a48d61, #eee2bd 18%, #c4b083 33%, #f2e7cd 48%, var(--panel) 100%);
+  pointer-events: none;
+  z-index: 9;
+}
+:root[data-theme="notebook"] .document-panel::after {
+  content: "";
+  position: absolute;
+  top: calc(18px * var(--element-scale));
+  bottom: calc(12px * var(--element-scale));
+  left: 0;
+  right: auto;
+  height: auto;
+  width: calc(35px * var(--element-scale));
+  background-image: var(--notebook-rings);
+  background-size: 100% calc(44px * var(--element-scale));
+  background-repeat: repeat-y;
+  background-color: transparent;
+  pointer-events: none;
+  z-index: 10;
+}
+:root[data-theme="notebook"] .document-panel:not(.board-document) .document-scroll {
+  padding-top: var(--paper-top-margin);
+  padding-bottom: var(--paper-bottom-margin);
+  padding-left: calc(76px * var(--element-scale));
+  background:
+    var(--paper-grain),
+    var(--paper-edge-mask),
+    linear-gradient(90deg, transparent calc(57px * var(--element-scale)), var(--paper-margin) calc(57px * var(--element-scale)), var(--paper-margin) calc(58px * var(--element-scale)), transparent calc(58px * var(--element-scale))),
+    repeating-linear-gradient(180deg, transparent 0, transparent calc(31.5px * var(--text-scale) - 1px), var(--paper-rule) calc(31.5px * var(--text-scale) - 1px), var(--paper-rule) calc(31.5px * var(--text-scale))),
+    var(--panel);
+  /* The red margin starts on the first rule, below the blank page header. */
+  background-position: 0 0, 0 0, 0 calc(var(--paper-top-margin) + 31.5px * var(--text-scale)), 0 var(--paper-top-margin);
+  background-size: auto, auto, 100% calc(100% - var(--paper-top-margin) - 31.5px * var(--text-scale) - var(--paper-bottom-margin)), auto;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: local;
+}
+:root[data-theme="notebook"] .document-panel:not(.board-document) .note-controls {
+  width: 100%;
+  padding-inline: 0;
+  background: transparent;
+}
+:root[data-theme="notebook"] .document-panel:not(.board-document) .note-controls.is-pinned {
+  /* Scrolling text must pass behind an opaque paper surface, not the controls. */
+  background: var(--paper-grain), var(--panel);
+}
+:root[data-theme="notebook"] .document-panel:not(.board-document) .note-controls .editor-toolbar {
+  background: transparent;
+}
+:root[data-theme="notebook"] .document-footer {
+  background: var(--panel);
+  border-top: 1px dashed var(--line);
+  padding-left: calc(48px * var(--element-scale));
+}
+:root[data-theme="notebook"] .reference-panel {
+  padding-top: var(--paper-top-margin);
+  padding-bottom: var(--paper-bottom-margin);
+  background:
+    var(--paper-grain),
+    var(--paper-edge-mask),
+    repeating-linear-gradient(180deg, transparent 0, transparent calc(27px * var(--text-scale) - 1px), var(--paper-rule) calc(27px * var(--text-scale) - 1px), var(--paper-rule) calc(27px * var(--text-scale))),
+    var(--panel);
+  background-position: 0 0, 0 0, 0 var(--paper-top-margin);
+  background-repeat: repeat, no-repeat, no-repeat;
+  background-attachment: local;
+}
+
+/* Narrow windows keep the writing measure ahead of decorative paper margins. */
+@media (max-width: 1050px) {
+  :root[data-theme="notebook"] {
+    --paper-top-margin: calc(48px * var(--element-scale));
+    --paper-bottom-margin: calc(22px * var(--element-scale));
+  }
+  :root[data-theme="notebook"] .document-panel:not(.board-document) .document-scroll {
+    padding-left: calc(52px * var(--element-scale));
+    background:
+      var(--paper-grain),
+      var(--paper-edge-mask),
+      repeating-linear-gradient(180deg, transparent 0, transparent calc(31.5px * var(--text-scale) - 1px), var(--paper-rule) calc(31.5px * var(--text-scale) - 1px), var(--paper-rule) calc(31.5px * var(--text-scale))),
+      var(--panel);
+    background-position: 0 0, 0 0, 0 var(--paper-top-margin);
+    background-size: auto;
+    background-repeat: repeat, no-repeat, no-repeat;
+    background-attachment: local;
+  }
+}
+
+/* Boards share the same punched paper edge and ruled sheet as written notes.
+   The drawing canvas stays transparent; marks and export colors stay authored. */
+:root[data-theme="notebook"] .board-document .document-scroll {
+  padding-left: var(--binding-gutter);
+  background:
+    var(--paper-grain),
+    var(--paper-edge-mask),
+    repeating-linear-gradient(180deg, transparent 0, transparent calc(31.5px * var(--text-scale) - 1px), var(--paper-rule) calc(31.5px * var(--text-scale) - 1px), var(--paper-rule) calc(31.5px * var(--text-scale))),
+    var(--panel);
+  background-position: 0 0, 0 0, 0 var(--paper-top-margin);
+  background-repeat: repeat, no-repeat, no-repeat;
+}
+:root[data-theme="notebook"] .board-document .document-head {
+  padding-left: calc(36px * var(--element-scale));
+  background: transparent;
+}
+:root[data-theme="notebook"] .board-canvas .excalidraw {
+  background: transparent;
+}
+/* Portalled board actions use the cover's light ink, at the same size as
+   Reference and Focus. Paper menus keep their own foreground tokens. */
+:root[data-theme="notebook"] .topbar .board-command-host .board-commands {
+  color: var(--text);
+  font-size: calc(14px * var(--text-scale));
+}
+:root[data-theme="notebook"] .topbar .board-command-host .board-commands > button {
+  color: var(--text);
+}

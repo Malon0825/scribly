@@ -7,7 +7,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
   if (!object(value)) throw Error("Invalid notebook document.");
   if (value.schemaVersion !== undefined && ![2, 3, 4, 5].includes(Number(value.schemaVersion))) throw Error("This notebook needs a newer Scribly version. Preserve a backup before changing it.");
   if (!Array.isArray(value.folders) || !Array.isArray(value.notes)
-    || !["light", "dark", "system"].includes(String(value.theme)) || typeof value.activeId !== "string"
+    || !["light", "dark", "system", "notebook"].includes(String(value.theme)) || typeof value.activeId !== "string"
     || (value.referenceId !== null && typeof value.referenceId !== "string")) throw Error("Invalid notebook structure.");
   const folders = new Set<string>(), notes = new Set<string>(), templates = new Set<string>();
   for (const f of value.folders) {
