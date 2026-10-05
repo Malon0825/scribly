@@ -16,14 +16,14 @@ async function draw(page: Page, wheel = false) {
   await page.mouse.move(p.x + 160, p.y + 18, { steps: 7 }); await page.mouse.up();
 }
 test('Draw defaults to solid freehand; saves, reloads, Reference, Undo/Redo and separate marker clearing', async ({ page }) => {
-  await open(page); await page.getByRole('button', { name: 'Draw pen', exact: true }).click();
+  await open(page); await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click();
   await expect(page.getByRole('button', { name: 'Drawing mode: Free', exact: true })).toBeVisible(); await draw(page);
   await expect(strokes(page)).toHaveCount(1); await expect(strokes(page)).toHaveCSS('opacity', '1'); await expect(strokes(page)).toHaveCSS('stroke-width', '3px');
   expect((await strokes(page).getAttribute('d'))!.match(/Q/g)!.length).toBeGreaterThan(5);
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await expect(strokes(page)).toHaveCount(0);
   await page.getByRole('button', { name: 'Redo', exact: true }).click(); await expect(strokes(page)).toHaveCount(1);
-  await page.getByRole('button', { name: 'Highlighter pen', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Draw pen', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('button', { name: /^(Start|Stop) highlighting$/ }).click();
+  await expect(page.getByRole('button', { name: /^(Start|Stop) drawing$/ })).toHaveAttribute('aria-pressed', 'false');
   await draw(page); await expect(strokes(page)).toHaveCount(2);
   await page.getByRole('button', { name: 'Drawing options', exact: true }).click(); await page.getByRole('button', { name: 'Clear drawing strokes', exact: true }).click();
   await expect(strokes(page)).toHaveCount(1); await expect(strokes(page)).toHaveCSS('opacity', '0.35');
@@ -36,12 +36,12 @@ test('Draw defaults to solid freehand; saves, reloads, Reference, Undo/Redo and 
 test('Drawing options retain color/mode per tool; wheel reverses and Escape cancels without touching prose', async ({ page }) => {
   await open(page); await page.getByRole('button', { name: 'Drawing options', exact: true }).click();
   await page.getByRole('button', { name: 'red pen', exact: true }).click(); await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Draw pen', exact: true }).click(); await draw(page, true);
+  await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click(); await draw(page, true);
   expect((await strokes(page).getAttribute('d'))!.match(/L/g)).toHaveLength(1);
   expect(JSON.parse((await page.locator('.document-editor p').first().getAttribute('data-note-ink'))!)[0].smooth).toBeUndefined();
-  await page.getByRole('button', { name: 'Highlighter pen', exact: true }).click();
+  await page.getByRole('button', { name: /^(Start|Stop) highlighting$/ }).click();
   await expect(page.getByRole('button', { name: 'Highlighter mode: Guided', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Draw pen', exact: true }).click();
+  await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click();
   await expect(page.getByRole('button', { name: 'Drawing mode: Guided', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Drawing options', exact: true }).click();
   await expect(page.getByRole('button', { name: 'red pen', exact: true })).toHaveAttribute('aria-pressed', 'true'); await page.keyboard.press('Escape');
@@ -63,7 +63,7 @@ test('validated drawing imports preserve pen kind and reject unknown tools or ma
 for (const theme of ['light', 'dark']) test(`${theme} keyboard drawing controls fit narrow windows and reduced motion`, async ({ page }) => {
   await page.setViewportSize({ width: 850, height: 600 }); await page.emulateMedia({ reducedMotion: 'reduce' }); await open(page, theme);
   await page.getByRole('button', { name: 'Reference', exact: true }).click(); await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click();
-  await page.getByRole('button', { name: 'Draw pen', exact: true }).focus(); await page.keyboard.press('Enter'); await draw(page);
+  await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).focus(); await page.keyboard.press('Enter'); await draw(page);
   await expect(strokes(page)).toHaveCSS('opacity', '1');
   await page.getByRole('button', { name: 'Drawing options', exact: true }).focus(); await page.keyboard.press('Enter');
   const popup = page.getByRole('dialog', { name: 'Drawing options', exact: true }), box = (await popup.boundingBox())!;
@@ -71,7 +71,7 @@ for (const theme of ['light', 'dark']) test(`${theme} keyboard drawing controls 
   await page.screenshot({ path: `release/draw-${theme}.png` });
 });
 
-for (const theme of ['light', 'dark']) test(`${theme} drawing reaches the bottom of a short note without adding text`, async ({ page }) => {
+for (const theme of ['light', 'dark']) test(`${theme} drawing reaches the bottom of the note surface without adding text`, async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1040 });
   await open(page, theme, '<p>Short note</p>');
   await page.getByRole('button', { name: 'Reference', exact: true }).click();
@@ -85,9 +85,11 @@ for (const theme of ['light', 'dark']) test(`${theme} drawing reaches the bottom
   })); // Panel resize cancels active strokes; start only after its geometry settles.
   const scroll = page.locator('.document-scroll'), box = (await scroll.boundingBox())!;
   const surface = (await layer(page).boundingBox())!;
-  const bottom = box.y + box.height - 45;
-  expect(surface.y + surface.height).toBeGreaterThan(bottom);
-  await page.getByRole('button', { name: 'Draw pen', exact: true }).click();
+  const bottom = surface.y + surface.height - 8;
+  const paragraph = (await page.locator('.document-editor p').boundingBox())!;
+  expect(bottom).toBeGreaterThan(paragraph.y + paragraph.height);
+  expect(surface.y + surface.height).toBeLessThanOrEqual(box.y + box.height);
+  await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click();
   await page.mouse.move(surface.x + 60, bottom - 70); await page.mouse.down();
   await page.mouse.move(surface.x + 190, bottom, { steps: 12 }); await page.mouse.up();
   await expect(strokes(page)).toHaveCount(1);
@@ -110,7 +112,7 @@ test('stroke sizes stay independent per tool and saved strokes keep widths throu
   await open(page);
   await page.getByRole('button', { name: 'Drawing options', exact: true }).click();
   await page.getByRole('button', { name: 'Large 6px stroke', exact: true }).click(); await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Draw pen', exact: true }).click(); await draw(page);
+  await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click(); await draw(page);
   await expect(strokes(page).first()).toHaveCSS('stroke-width', '6px');
   await page.getByRole('button', { name: 'Drawing options', exact: true }).click();
   await page.getByRole('button', { name: 'Small 1px stroke', exact: true }).focus(); await page.keyboard.press('Enter'); await page.keyboard.press('Escape'); await draw(page);
@@ -119,7 +121,7 @@ test('stroke sizes stay independent per tool and saved strokes keep widths throu
   await page.getByRole('button', { name: 'Highlighter options', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Medium 16px stroke', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Large 24px stroke', exact: true }).click(); await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Highlighter pen', exact: true }).click(); await draw(page);
+  await page.getByRole('button', { name: /^(Start|Stop) highlighting$/ }).click(); await draw(page);
   await expect(strokes(page).nth(2)).toHaveCSS('stroke-width', '24px');
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await expect(strokes(page)).toHaveCount(2);
   await page.getByRole('button', { name: 'Redo', exact: true }).click(); await expect(strokes(page).nth(2)).toHaveCSS('stroke-width', '24px');
@@ -148,17 +150,17 @@ test('stroke widths survive safe imports, reject unsafe sizes and preserve legac
 for (const theme of ['light', 'dark']) test(`${theme} stroke mode belongs to its active tool group and stays keyboard operable`, async ({ page }) => {
   await open(page, theme);
   const highlight = page.getByRole('group', { name: 'Highlight tool', exact: true }), drawing = page.getByRole('group', { name: 'Draw tool', exact: true });
-  await drawing.getByRole('button', { name: 'Draw pen', exact: true }).click();
+  await drawing.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click();
   const mode = drawing.getByRole('button', { name: 'Drawing mode: Free', exact: true });
   await expect(mode).toBeVisible(); await expect(mode.locator('svg')).toHaveCount(0);
   await expect(highlight.locator('.highlighter-mode')).toHaveCount(0);
   await mode.focus(); await page.keyboard.press('Enter');
   await expect(drawing.getByRole('button', { name: 'Drawing mode: Guided', exact: true })).toBeVisible();
-  await expect(drawing.getByRole('button', { name: 'Draw pen', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(drawing.getByRole('button', { name: /^(Start|Stop) drawing$/ })).toHaveAttribute('aria-pressed', 'true');
   const groupBox = (await drawing.boundingBox())!, modeBox = (await drawing.locator('.highlighter-mode').boundingBox())!;
   expect(modeBox.x).toBeGreaterThan(groupBox.x); expect(modeBox.x + modeBox.width).toBeLessThan(groupBox.x + groupBox.width);
   await page.locator('.editor-toolbar').screenshot({ path: `release/tool-group-${theme}.png` });
-  await highlight.getByRole('button', { name: 'Highlighter pen', exact: true }).click();
+  await highlight.getByRole('button', { name: /^(Start|Stop) highlighting$/ }).click();
   await expect(highlight.getByRole('button', { name: 'Highlighter mode: Guided', exact: true })).toBeVisible();
   await expect(drawing.locator('.highlighter-mode')).toHaveCount(0);
   await page.keyboard.press('Escape'); await expect(page.locator('.highlighter-mode')).toHaveCount(0);
@@ -196,7 +198,7 @@ test('assisted curves reduce hand jitter, keep endpoints and bound rounded corne
 });
 
 test('Auto assist defaults on; preview agrees with saved curves, Undo, reload and Reference', async ({ page }) => {
-  await open(page); await page.getByRole('button', { name: 'Draw pen', exact: true }).click();
+  await open(page); await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click();
   await page.getByRole('button', { name: 'Drawing options', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Auto assist', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Escape');
@@ -217,15 +219,15 @@ test('Auto assist defaults on; preview agrees with saved curves, Undo, reload an
 });
 
 test('Auto assist can be disabled by keyboard for corners; changing tools preserves the choice and previous strokes', async ({ page }) => {
-  await open(page); await page.getByRole('button', { name: 'Draw pen', exact: true }).click(); await draw(page);
+  await open(page); await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click(); await draw(page);
   const first = await strokes(page).first().getAttribute('d');
   await page.getByRole('button', { name: 'Drawing options', exact: true }).click();
   const assist = page.getByRole('button', { name: 'Auto assist', exact: true }); await assist.focus(); await page.keyboard.press('Enter');
   await expect(assist).toHaveAttribute('aria-pressed', 'false'); await page.keyboard.press('Escape'); await draw(page);
   await expect(strokes(page).nth(1)).toHaveAttribute('d', /L/); expect(await strokes(page).nth(1).getAttribute('d')).not.toContain('Q');
   expect(await strokes(page).first().getAttribute('d')).toBe(first);
-  await page.getByRole('button', { name: 'Highlighter pen', exact: true }).click();
-  await page.getByRole('button', { name: 'Draw pen', exact: true }).click(); await page.getByRole('button', { name: 'Drawing options', exact: true }).click();
+  await page.getByRole('button', { name: /^(Start|Stop) highlighting$/ }).click();
+  await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click(); await page.getByRole('button', { name: 'Drawing options', exact: true }).click();
   await expect(assist).toHaveAttribute('aria-pressed', 'false'); await assist.click(); await page.keyboard.press('Escape');
   expect(await strokes(page).nth(1).getAttribute('d')).not.toContain('Q'); await draw(page); await expect(strokes(page).nth(2)).toHaveAttribute('d', /Q/);
 });
@@ -244,7 +246,7 @@ test('safe imports preserve assisted and legacy drawings and reject nonboolean a
 });
 
 test('wheel reversal restores assisted freehand from guided preview without losing pointer samples', async ({ page }) => {
-  await open(page); await page.getByRole('button', { name: 'Draw pen', exact: true }).click();
+  await open(page); await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click();
   const p = (await page.locator('.document-editor p').first().boundingBox())!;
   await page.mouse.move(p.x + 12, p.y + 12); await page.mouse.down();
   await page.mouse.move(p.x + 70, p.y + 45, { steps: 7 });

@@ -1,3 +1,4 @@
+import { chooseTheme } from "./themeHelper";
 import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -44,7 +45,7 @@ test("24 MiB XML imports intact with bounded reads, section navigation, notes an
   await expect(block.locator(".source-file-text")).toContainText("<root>");
   await expect(paragraph).toContainText("Review this dataset tomorrow.");
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-  await page.getByRole("button", { name: "Use dark mode", exact: true }).click();
+  await chooseTheme(page, "dark");
   await page.screenshot({ path: "test-results/large-source-dark.png" });
   await page.setViewportSize({ width: 850, height: 600 });
   await page.screenshot({ path: "test-results/large-source-narrow.png" });
@@ -72,9 +73,9 @@ test("Settings backup exports and restores a saved original through the import U
   const content = Buffer.from(`<root>\n${"<item>日本語 &amp; backup</item>\n".repeat(15_000)}</root>`);
   await page.getByLabel("Import files", { exact: true }).setInputFiles({ name: "backup-original.xml", mimeType: "application/xml", buffer: content });
   await expect(page.locator(".document-editor .source-file-text")).toContainText("<root>");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   const exported = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export notes & boards", exact: true }).click();
+  await page.getByRole("button", { name: "Export notebook backup", exact: true }).click();
   const backup = await exported;
   expect(backup.suggestedFilename()).toMatch(/\.scribly$/);
   const context = await browser.newContext({ baseURL: process.env.PLAYWRIGHT_PREVIEW === "1" ? "http://127.0.0.1:1421" : "http://127.0.0.1:1420" });

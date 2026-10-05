@@ -1,3 +1,4 @@
+import { chooseTheme } from "./themeHelper";
 import { test, expect, type Page } from "@playwright/test";
 import { emptyBoard } from "../src/boardData";
 import type { Workspace } from "../src/types";
@@ -12,8 +13,8 @@ async function seed(page: Page, document = fixture) {
   await page.addInitScript(({ document, key }) => { if (sessionStorage.getItem("protection-seeded")) return; localStorage.setItem(key,JSON.stringify({ revision: 1, document, dataPath: "Protection test" })); sessionStorage.setItem("protection-seeded","1"); }, { document, key });
   await page.goto("/"); await expect(page.getByRole("textbox",{ name: "Note title", exact: true })).toBeVisible();
 }
-async function saved(page: Page) { await expect(page.getByRole("button",{ name: "Saved in browser", exact: true })).toBeVisible(); }
-const legacyFixture: Workspace = { ...fixture, activeId: "b", referenceId: null, notes: [{ ...fixture.notes[0], deletedAt: time }, fixture.notes[1]] };
+async function saved(page: Page) { await expect(page.getByRole("button",{ name: "Saved in browser. Save now", exact: true })).toBeVisible(); }
+const legacyFixture: Workspace = { ...fixture, schemaVersion: 5, activeId: "b", referenceId: null, notes: [{ ...fixture.notes[0], deletedAt: time }, fixture.notes[1]] };
 async function openEarlierDeletions(page: Page) {
   await page.getByRole("button", { name: "Notebook navigation", exact: true }).click();
   await page.getByRole("button", { name: /^Earlier deletions/ }).click();
@@ -29,7 +30,6 @@ test("earlier deletions preserve bytes after reload and confirm purge",async ({ 
   await expect(page.locator(".document-panel .note-content")).toContainText("Original writing");
   await page.getByRole("button",{ name: "Delete permanently", exact:true }).first().click();
   await page.getByRole("dialog").getByRole("button",{ name: "Delete permanently",exact:true }).click();
-  await saved(page);
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).document.notes.some((note: any) => note.id === "a"),key)).toBe(false);
 });
 
@@ -70,7 +70,7 @@ test("Version history survives restart and restoration preserves the newer conte
   await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("dialog").getByRole("button",{ name:"Close",exact:true }).click();
-  await page.getByRole("button",{ name:"Use dark mode",exact:true }).click();
+  await chooseTheme(page, "dark");
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.getByRole("button",{ name:"Note options",exact:true }).click();
   await page.getByRole("button",{ name:"Version history",exact:true }).click();
@@ -80,25 +80,25 @@ test("Version history survives restart and restoration preserves the newer conte
 
 test("Backup now, preview replace, safety copy and cancel preserve the notebook",async ({ page }) => {
   await seed(page);
-  await page.getByRole("button",{ name: "Settings",exact:true }).click();
+  await page.getByRole("button",{ name: "Settings",exact:true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   await page.getByRole("button",{ name: "Backup now",exact:true }).click();
   await expect(page.getByRole("button",{ name: "Preview restore",exact:true })).toHaveCount(1);
   await page.getByRole("button",{ name: "Done",exact:true }).click();
   await page.getByRole("textbox",{ name: "Note content",exact:true }).fill("Newer writing to protect"); await saved(page);
-  await page.getByRole("button",{ name: "Settings",exact:true }).click();
+  await page.getByRole("button",{ name: "Settings",exact:true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   await page.getByRole("button",{ name: "Preview restore",exact:true }).click();
   await page.getByLabel("Replace this notebook",{ exact:true }).check();
   await expect(page.getByRole("button",{ name: "Replace notebook",exact:true })).toBeDisabled();
   await page.getByRole("button",{ name: "Cancel",exact:true }).click();
   await expect(page.getByRole("textbox",{ name: "Note content",exact:true })).toContainText("Newer writing");
-  await page.getByRole("button",{ name: "Settings",exact:true }).click();
+  await page.getByRole("button",{ name: "Settings",exact:true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   await page.getByRole("button",{ name: "Preview restore",exact:true }).click();
   await page.getByLabel("Replace this notebook",{ exact:true }).check();
   await page.getByLabel("I understand this replaces the current notes and folders.").check();
   await page.getByRole("button",{ name: "Replace notebook",exact:true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0); await saved(page);
   await expect(page.getByRole("textbox",{ name: "Note content",exact:true })).toContainText("Original writing");
-  await page.getByRole("button",{ name: "Settings",exact:true }).click();
+  await page.getByRole("button",{ name: "Settings",exact:true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   await expect(page.locator(".backup-list")).toContainText("Before replacement");
   await page.setViewportSize({ width: 850,height:600 });
   await page.locator(".toast").waitFor({ state: "hidden" });
@@ -171,12 +171,12 @@ test("failed safety backup stops replacement and permits a successful retry",asy
       } };
     }
   ` }));
-  await seed(page); await page.getByRole("button",{ name:"Settings",exact:true }).click();
+  await seed(page); await page.getByRole("button",{ name:"Settings",exact:true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   await page.getByRole("button",{ name:"Backup now",exact:true }).click();
   await expect(page.getByRole("button",{ name:"Preview restore",exact:true })).toHaveCount(1);
   await page.getByRole("button",{ name:"Done",exact:true }).click();
   await page.getByRole("textbox",{ name:"Note content",exact:true }).fill("Keep the current draft"); await saved(page);
-  await page.getByRole("button",{ name:"Settings",exact:true }).click();
+  await page.getByRole("button",{ name:"Settings",exact:true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   await page.getByRole("button",{ name:"Preview restore",exact:true }).click();
   await page.getByLabel("Replace this notebook",{ exact:true }).check();
   await page.getByLabel("I understand this replaces the current notes and folders.").check();
@@ -245,14 +245,14 @@ test("history restores rich text, an image and ink after reload; file backup imp
   await expect(page.locator(".document-panel strong")).toHaveText("Formatted 日本語");
   await expect(page.locator(".document-panel .note-ink-layer g path")).toHaveCount(1);
   await expect(page.locator(".document-panel").getByRole("textbox",{ name:"Image caption",exact:true })).toHaveValue("Keep this caption");
-  await page.getByRole("button",{ name:"Settings",exact:true }).click(); await page.getByRole("button",{ name:"Backup now",exact:true }).click();
+  await page.getByRole("button",{ name:"Settings",exact:true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click(); await page.getByRole("button",{ name:"Backup now",exact:true }).click();
   await expect(page.getByRole("button",{ name:"Preview restore",exact:true })).toHaveCount(1);
   const download = page.waitForEvent("download"); await page.locator(".backup-list").getByRole("button",{ name:"Download",exact:true }).click();
   const file = await download, path = test.info().outputPath("fresh-install-backup.scribly"); await file.saveAs(path);
   const fresh = await browser.newContext();
   try {
     const restored = await fresh.newPage(); await restored.goto(new URL("/",page.url()).href);
-    await restored.getByRole("button",{ name:"Settings",exact:true }).click();
+    await restored.getByRole("button",{ name:"Settings",exact:true }).click(); await restored.getByRole("tab", { name: "Backup & restore", exact: true }).click();
     await restored.getByLabel("Restore backup file",{ exact:true }).setInputFiles(path);
     await expect(restored.getByRole("dialog")).toContainText("2 notes");
     await restored.getByRole("button",{ name:"Import backup",exact:true }).click(); await expect(restored.getByRole("dialog")).toHaveCount(0); await saved(restored);

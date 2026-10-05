@@ -12,7 +12,7 @@ async function open(page: Page, theme: "light" | "dark" = "light") {
     if (!localStorage.getItem("still-notes-browser-v1")) localStorage.setItem("still-notes-browser-v1", JSON.stringify({ revision: 1, document, dataPath: "Test" }));
   }, { ...fixture, theme });
   await page.goto("/");
-  await expect(page.getByRole("textbox", { name: "Note content", exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Note content", exact: true })).toBeVisible(); await page.getByRole("button", { name: "Reference", exact: true }).click();
 }
 async function select(page: Page) {
   const editor = page.getByRole("textbox", { name: "Note content", exact: true });
@@ -23,7 +23,7 @@ async function select(page: Page) {
   for (let i = 0; i < "Selected words".length; i++) await page.keyboard.press("ArrowRight");
   await page.keyboard.up("Shift");
   await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("Selected words");
-  await expect(page.getByRole("button", { name: "Selection colors", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Text and background color options", exact: true })).toBeEnabled();
 }
 const palette = (page: Page) => page.getByRole("dialog", { name: "Selection colors", exact: true });
 async function context(page: Page) {
@@ -64,11 +64,11 @@ test("expanded palette is keyboard accessible; colors persist and Reference stay
   await expect(palette(page).getByRole("group", { name: "Background colors", exact: true }).getByRole("button")).toHaveCount(9);
   await palette(page).getByRole("button", { name: "Red text", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await page.getByRole("button", { name: "Selection colors", exact: true }).click();
+  await page.getByRole("button", { name: "Text and background color options", exact: true }).click();
   await palette(page).getByRole("button", { name: "More colors", exact: true }).click();
   await palette(page).getByRole("button", { name: "Yellow background", exact: true }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("still-notes-browser-v1")!).document.notes[0].content)).toContain('data-background-color="yellow"');
-  await page.reload();
+  await page.reload(); await page.getByRole("button", { name: "Reference", exact: true }).click();
   await expect(page.locator('.document-editor [data-text-color="red"]')).toHaveText("Selected words");
   await expect(page.locator('.reference-editor [data-background-color="yellow"]')).toHaveText("Selected words");
   await page.locator('.reference-editor strong').click({ button: "right" });
@@ -90,14 +90,15 @@ test("dismissal and menu replacement preserve editor identity; empty and code se
   await page.keyboard.press("Escape");
   await expect(palette(page)).toHaveCount(0); await expect(editor).toBeFocused();
   await page.keyboard.press("Shift+F10");
-  await page.getByRole("button", { name: "Options for Work", exact: true }).click();
+  await page.getByRole("button", { name: "Options for Work", exact: true }).focus();
+  await page.keyboard.press("Enter");
   await expect(palette(page)).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "Folder options", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await select(page); await context(page);
   await editor.locator("p").first().click(); await expect(palette(page)).toHaveCount(0);
   await editor.locator(".code-block code").click(); await page.keyboard.press("Home"); await page.keyboard.press("Shift+End");
-  await expect(page.getByRole("button", { name: "Selection colors", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Text and background color options", exact: true })).toBeDisabled();
   await editor.locator(".code-block code").click({ button: "right" }); await expect(palette(page)).toHaveCount(0);
   expect(await editor.evaluate(el => el === (window as any).colorEditor)).toBe(true);
 });

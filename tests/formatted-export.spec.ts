@@ -82,18 +82,22 @@ test("standalone HTML is safe and renders readable multi-page PDF output", async
   const unsafe = '<p onclick="window.exportAttack=1">Safe paragraph<a href="javascript:window.exportAttack=1">unsafe link</a></p><script>window.exportAttack=1</script>';
   const paragraphs = Array.from({ length: 90 }, (_, i) => `<p>Print paragraph ${i} contains readable content.</p>`).join("");
   await open(page, workspace([note("one", "Printable", rich + `<pre><code>${"long_code_segment_".repeat(80)}</code></pre>` + unsafe + paragraphs)]));
-  const boundary = await page.evaluate(async raw => {
-    const path = "/src/formattedExport.ts";
-    const { prepareNoteExport } = await import(/* @vite-ignore */ path);
-    const item = { id: "raw", title: "Raw", content: raw, archived: false, folderId: null, createdAt: "2026-10-04", updatedAt: "2026-10-04" };
-    const output = await prepareNoteExport([item]);
-    const controller = new AbortController(); controller.abort();
-    let abortName = "";
-    try { await prepareNoteExport([item], controller.signal); } catch (error) { abortName = (error as Error).name; }
-    return { html: output.html, abortName };
-  }, unsafe);
-  expect(boundary.html).not.toMatch(/<script|onclick=|href="javascript:/i);
-  expect(boundary.abortName).toBe("AbortError");
+  // The direct module/abort harness is development-only; exercise the exported
+  // HTML, sanitization and PDF rendering through the UI in both build modes.
+  if (process.env.PLAYWRIGHT_PREVIEW !== "1") {
+    const boundary = await page.evaluate(async raw => {
+      const path = "/src/formattedExport.ts";
+      const { prepareNoteExport } = await import(/* @vite-ignore */ path);
+      const item = { id: "raw", title: "Raw", content: raw, archived: false, folderId: null, createdAt: "2026-10-04", updatedAt: "2026-10-04" };
+      const output = await prepareNoteExport([item]);
+      const controller = new AbortController(); controller.abort();
+      let abortName = "";
+      try { await prepareNoteExport([item], controller.signal); } catch (error) { abortName = (error as Error).name; }
+      return { html: output.html, abortName };
+    }, unsafe);
+    expect(boundary.html).not.toMatch(/<script|onclick=|href="javascript:/i);
+    expect(boundary.abortName).toBe("AbortError");
+  }
   await exportDialog(page);
   const html = (await bytes(await download(page, "Save HTML"))).toString("utf8");
   await mkdir("release/phase5-export-evidence", { recursive: true });
@@ -152,7 +156,7 @@ test("export disclosures stay visible in narrow light and wide dark dialogs", as
   const document = workspace([note("one", "Format differences", `<p data-note-ink="${ink}"><span data-text-color="blue">Colored writing</span></p>${rich}${source}`)]);
   await page.setViewportSize({ width: 850, height: 600 });
   await open(page, document);
-  await page.getByRole("button", { name: "Reference", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Reference", exact: true })).toHaveAttribute("aria-pressed", "false");
   const dialog = await exportDialog(page);
   const warnings = dialog.getByLabel("Export format differences");
   await expect(warnings).toContainText(/ink/i);

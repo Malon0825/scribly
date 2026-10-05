@@ -75,6 +75,9 @@ test("large text and controls keep the canvas, save state and board dialogs reac
   expect(canvas!.height).toBeGreaterThan(100); expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(600);
   await expect(page.locator(".document-footer")).toHaveCount(0);
   await expect(page.locator(".save-state")).toBeVisible();
+  const architecture = page.getByRole("button", { name: "Architecture", exact: true });
+  if (await architecture.getAttribute("aria-expanded") !== "true") await architecture.click();
+  await expect(architecture).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("combobox", { name: "Architecture boundary" }).evaluate((e) => e.scrollIntoView({ block: "nearest" }));
   await boardCommand(page, 'Import Mermaid\u2026');
   const dialog = page.getByRole("dialog", { name: "Import Mermaid", exact: true });

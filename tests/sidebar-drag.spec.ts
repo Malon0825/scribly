@@ -33,21 +33,22 @@ async function drag(page: Page, kind: "folder" | "note", id: string, target: str
   const destination = page.locator(target);
   // Start the native drag from the visible source before scrolling its destination.
   // Both may no longer fit together in the sidebar after navigation sections grow.
-  await source.scrollIntoViewIfNeeded();
+  await source.evaluate(element => element.scrollIntoView({ block: "center" }));
   const start = await source.boundingBox();
   const sourceX = start!.x + 30;
   const sourceY = start!.y + start!.height / 2;
   await page.mouse.move(sourceX, sourceY);
   await page.mouse.down();
-  await page.mouse.move(sourceX, sourceY + 12, { steps: 3 });
+  await page.mouse.move(sourceX, sourceY - 12);
+  // Leave the sidebar edge before revealing the destination. Otherwise its
+  // native drag autoscroll continues while Playwright measures the drop.
+  const sidebar = await page.locator(".sidebar-scroll").boundingBox();
+  await page.mouse.move(sidebar!.x + sidebar!.width + 16, start!.y + start!.height / 2);
   if (kind === "folder") {
-    // Leave the sidebar edge before revealing the destination. Otherwise its
-    // native drag autoscroll continues while Playwright measures the drop.
-    const sidebar = await page.locator(".sidebar-scroll").boundingBox();
-    await page.mouse.move(sidebar!.x + sidebar!.width + 16, start!.y + start!.height / 2);
     await destination.locator(".folder-row").evaluate(element => element.scrollIntoView({ block: "start" }));
+  } else {
+    await destination.evaluate(element => element.scrollIntoView({ block: "center" }));
   }
-  await destination.scrollIntoViewIfNeeded();
   const rect = await destination.boundingBox();
   // A folder group's outer 4px edge can be clipped by the scroll viewport.
   // Land inside its header so native scrolling cannot move the hit target

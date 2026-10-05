@@ -1,3 +1,4 @@
+import { chooseTheme } from "./themeHelper";
 import { test, expect, type Page } from "@playwright/test";
 import { Schema } from "@tiptap/pm/model";
 import { findTextMatches } from "../src/textSearch";
@@ -18,10 +19,11 @@ async function seed(page: Page, document = fixture) {
 }
 const editor = (page: Page) => page.getByRole("textbox", { name: "Note content", exact: true });
 const find = (page: Page) => page.getByRole("region", { name: "Find in note", exact: true });
-const saved = (page: Page) => expect(page.getByRole("button", { name: "Saved in browser", exact: true })).toBeVisible();
+const saved = (page: Page) => expect(page.getByRole("button", { name: "Saved in browser. Save now", exact: true })).toBeVisible();
 const documentState = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem("still-notes-browser-v1")!).document as Workspace);
 async function openFind(page: Page, query: string, replace = false) {
-  await editor(page).focus(); await page.keyboard.press(replace ? "Control+h" : "Control+f");
+  if (!await editor(page).evaluate(el => document.activeElement === el)) await editor(page).focus();
+  await page.keyboard.press(replace ? "Control+h" : "Control+f");
   await expect(find(page)).toBeVisible(); await page.getByRole("textbox", { name: "Find text", exact: true }).fill(query);
   await expect(find(page).getByText("Searching…", { exact: true })).toHaveCount(0);
 }
@@ -63,6 +65,7 @@ test("navigation validators accept legacy metadata and reject malformed pins/rec
 test("Find counts across marks/code, navigates with keys, and Escape preserves caret, scroll and editor identity", async ({ page }) => {
   await seed(page); await saved(page);
   await editor(page).focus(); await page.keyboard.press("Control+End");
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.anchorNode?.textContent)).toBe("End position");
   await page.evaluate(() => { (window as any).retrievalEditor = document.querySelector(".document-editor .tiptap"); });
   await openFind(page, "alpha"); await expect(find(page).getByRole("status").first()).toHaveText(/of 7$/);
   await expect(page.locator(".document-editor .find-match")).toHaveCount(8); // a match spanning marks paints two spans
@@ -167,9 +170,9 @@ test("light/narrow and dark/wide Find UI keeps controls accessible, keyboard dis
   await checkPlaceholders();
   await expect(page.getByRole("button", { name: "Replace all", exact: true })).toBeInViewport();
   await expect(page.locator(".reference-panel")).toHaveAttribute("inert", "");
-  await expect(page.locator('button[aria-label="Reference"]')).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator('.topbar button[aria-label="Reference"]')).toHaveAttribute("aria-pressed", "false");
   await page.screenshot({ path: ".impeccable/review/phase3-narrow-light.png" });
-  await page.setViewportSize({ width: 1440, height: 920 }); await page.locator('button[aria-label="Reference"]').click(); await page.getByRole("button", { name: "Use dark mode", exact: true }).click(); await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1440, height: 920 }); await page.locator('.topbar button[aria-label="Reference"]').click(); await chooseTheme(page, "dark"); await page.emulateMedia({ reducedMotion: "reduce" });
   await checkPlaceholders();
   await page.screenshot({ path: ".impeccable/review/phase3-wide-dark.png" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

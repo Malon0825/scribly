@@ -145,7 +145,7 @@ test("invalid and oversized images report errors, preserve good files and allow 
 test("dark narrow reduced-motion image blocks and actions stay inside the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 850, height: 600 }); await page.emulateMedia({ reducedMotion: "reduce" });
   await open(page, { ...fixture, theme: "dark" });
-  await page.getByRole("button", { name: "Close reference", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Reference", exact: true })).toHaveAttribute("aria-pressed", "false");
   await upload(page);
   await options(page); const popup = page.getByRole("dialog", { name: "Image actions", exact: true });
   await expect(popup).toBeVisible(); const bounds = await popup.boundingBox();

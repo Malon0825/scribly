@@ -1,5 +1,14 @@
 # Verification record
 
+## Worktree consolidation and Windows release — Scribly 1.3.17 (2026-10-05)
+
+- All four registered worktrees were inspected. Their heads are included in local `main`; pending application changes were committed as `87f3d29`. Worktrees and the existing stash were preserved.
+- TypeScript/Vite, optimized Rust and NSIS packaging passed. Installer: `release/Scribly_1.3.17_x64-setup.exe`, 61,078,675 bytes; SHA-256 `18A63624ACC1FA9DE4C9E4552800ECB1F12C050C17986545AC7981B76E39DB32`. Copied/generated hashes match; all 408 checked application/build inputs remain unchanged.
+- Rust formatting, Clippy, 36 unit tests and five additional database/recovery checks passed. Optimized native database and WebView2 capture diagnostics passed. Actual foreground OS shortcut input and cross-process shortcut conflicts were not exercised.
+- The full development browser run returned 292 passed, 24 failed and three production-only skips. Focused follow-ups resolved 23 cases after updating stale selectors/fixtures and test interactions: 315 distinct development checks passed across runs. All three production-only cases and production HTML/PDF export passed. This is not a single green full-suite run.
+- One browser regression remains unresolved: moving a note into Unfiled and back hangs during the second native drag's mouse dispatch. The other 11 sidebar checks passed. Traces and logs are retained under `release/` and the isolated result directories; cause remains unconfirmed.
+- Build inputs, worktree inventory, checksum and native evidence: `release/build-1.3.17-20261005/verification.json`. Built locally without pushing, publishing, installing or modifying the installed notebook.
+
 ## Phase 6 Windows quick capture — Scribly 1.3.16 (2026-10-04)
 
 - Implemented optional Windows global shortcuts, a reusable capture window, and browser in-app capture under Settings → Startup. Plain text becomes an ordinary Inbox note. The main notebook remains the only workspace writer: capture submissions join its latest live draft and existing serialized revision/history/recovery pipeline. Capture has no workspace-read/write capability. Save confirms only after persistence; Open follows acknowledgement. [Usage](../docs/quick-capture.md).

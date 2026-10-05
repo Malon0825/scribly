@@ -19,19 +19,19 @@ async function gesture(page: Page, wheel = false) {
   await page.mouse.up();
 }
 test("Guided draws one straight stroke at any angle; Undo/Redo and text selection remain intact", async ({ page }) => {
-  await open(page); await page.getByRole("button", { name: "Highlighter pen", exact: true }).click();
+  await open(page); await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click();
   await expect(page.getByRole("button", { name: "Highlighter mode: Guided", exact: true })).toBeVisible();
   await gesture(page); await expect(strokes(page)).toHaveCount(1);
   expect((await strokes(page).getAttribute("d"))!.match(/L/g)).toHaveLength(1);
   await expect(page.getByRole("textbox", { name: "Note content", exact: true })).toContainText("Mark this paragraph");
   await page.getByRole("button", { name: "Undo", exact: true }).click(); await expect(strokes(page)).toHaveCount(0);
   await page.getByRole("button", { name: "Redo", exact: true }).click(); await expect(strokes(page)).toHaveCount(1);
-  await page.keyboard.press("Escape"); await expect(page.getByRole("button", { name: "Highlighter pen", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await page.keyboard.press("Escape"); await expect(page.getByRole("button", { name: /^(Start|Stop) highlighting$/ })).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("textbox", { name: "Note content", exact: true }).focus(); await page.keyboard.press("Control+Home"); await page.keyboard.press("Shift+End");
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("Mark this paragraph");
 });
 test("wheel while held switches to Free without scrolling; Free follows the hand and saves", async ({ page }) => {
-  await open(page); await page.getByRole("button", { name: "Highlighter pen", exact: true }).click();
+  await open(page); await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click();
   const scroll = await page.locator(".document-scroll").evaluate(el => el.scrollTop);
   await gesture(page, true); await expect(strokes(page)).toHaveCount(1);
   expect((await strokes(page).getAttribute("d"))!.match(/L/g)!.length).toBeGreaterThan(5);
@@ -42,7 +42,7 @@ test("wheel while held switches to Free without scrolling; Free follows the hand
   await expect(page.locator(".reference-editor").locator("..").locator("g path")).toHaveCount(1);
 });
 test("Escape, lost capture, blur and short taps cancel without saving a stroke", async ({ page }) => {
-  await open(page); await page.getByRole("button", { name: "Highlighter pen", exact: true }).click();
+  await open(page); await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click();
   const rect = await layer(page).boundingBox();
   for (const reason of ["pointercancel", "lostpointercapture", "blur", "Escape"]) {
     await page.mouse.move(rect!.x + 10, rect!.y + 15); await page.mouse.down(); await page.mouse.move(rect!.x + 150, rect!.y + 15);
@@ -51,7 +51,7 @@ test("Escape, lost capture, blur and short taps cancel without saving a stroke",
     else await layer(page).dispatchEvent(reason);
     await page.mouse.up(); await expect(strokes(page)).toHaveCount(0);
   }
-  await page.getByRole("button", { name: "Highlighter pen", exact: true }).click();
+  await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click();
   await layer(page).click({ position: { x: 30, y: 30 } }); await expect(strokes(page)).toHaveCount(0);
 });
 test("options provide mode/color choices and clear supports Undo", async ({ page }) => {
@@ -59,13 +59,13 @@ test("options provide mode/color choices and clear supports Undo", async ({ page
   const popup = page.getByRole("dialog", { name: "Highlighter options", exact: true });
   await popup.getByRole("button", { name: "Free Follow your hand", exact: true }).click();
   await popup.getByRole("button", { name: "pink marker", exact: true }).click(); await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Highlighter pen", exact: true }).click(); await gesture(page);
+  await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click(); await gesture(page);
   await expect(strokes(page)).toHaveCSS("stroke", "rgb(220, 129, 185)");
   await page.getByRole("button", { name: "Highlighter options", exact: true }).click(); await popup.getByRole("button", { name: "Clear marker strokes", exact: true }).click();
   await expect(strokes(page)).toHaveCount(0); await page.getByRole("button", { name: "Undo", exact: true }).click(); await expect(strokes(page)).toHaveCount(1);
 });
 test("annotations follow their block when prose is inserted above, including after reload", async ({ page }) => {
-  await open(page); await page.getByRole("button", { name: "Highlighter pen", exact: true }).click(); await gesture(page); await page.keyboard.press("Escape");
+  await open(page); await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click(); await gesture(page); await page.keyboard.press("Escape");
   await page.getByRole("textbox", { name: "Note content", exact: true }).focus(); await page.keyboard.press("Control+Home"); await page.keyboard.press("Enter");
   const p = page.locator('.document-editor p[data-note-ink]'); await expect(p).toHaveText("Mark this paragraph");
   await expect(strokes(page)).toHaveCount(1);
@@ -77,7 +77,7 @@ test("annotation validation rejects unsafe coordinates, unknown colors and overs
   for (const bad of ["not json", [{ color: "url(evil)", points: [[0, 0], [1, 1]] }], [{ color: "yellow", points: [[0, 0], [Infinity, 1]] }], [{ color: "yellow", points: [[0, 0], [1, 900]] }], " ".repeat(2_000_001)]) expect(readInk(bad)).toEqual([]);
 });
 test("splitting a marked paragraph does not duplicate its stroke", async ({ page }) => {
-  await open(page); await page.getByRole("button", { name: "Highlighter pen", exact: true }).click(); await gesture(page); await page.keyboard.press("Escape");
+  await open(page); await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click(); await gesture(page); await page.keyboard.press("Escape");
   await page.getByRole("textbox", { name: "Note content", exact: true }).focus(); await page.keyboard.press("Control+Home");
   for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Enter"); await expect(strokes(page)).toHaveCount(1);
@@ -102,7 +102,7 @@ test("marker selection action is keyboard accessible and portable imports keep o
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("still-notes-browser-v1")!).document.notes[1].content)).not.toMatch(/malformed|onclick/);
 });
 test("wheel can reverse Free to Guided during a stroke and stays native when idle", async ({ page }) => {
-  await open(page); await page.getByRole("button", { name: "Highlighter pen", exact: true }).click();
+  await open(page); await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click();
   await page.getByRole("button", { name: "Highlighter mode: Guided", exact: true }).click();
   const box = await layer(page).boundingBox();
   await page.mouse.move(box!.x + 20, box!.y + 15); await page.mouse.down(); await page.mouse.move(box!.x + 80, box!.y + 60, { steps: 6 });
@@ -112,7 +112,7 @@ test("wheel can reverse Free to Guided during a stroke and stays native when idl
   await page.mouse.wheel(0, 100); await expect(layer(page)).toHaveAttribute("data-mode", "guided");
 });
 test("holding the toolbar pen button and wheeling switches the selected mode", async ({ page }) => {
-  await open(page); const button = page.getByRole("button", { name: "Highlighter pen", exact: true });
+  await open(page); const button = page.getByRole("button", { name: /^(Start|Stop) highlighting$/ });
   const rect = await button.boundingBox();
   await page.mouse.move(rect!.x + rect!.width / 2, rect!.y + rect!.height / 2); await page.mouse.down();
   await page.mouse.wheel(0, 100); await expect(layer(page)).toHaveAttribute("data-mode", "free"); await page.mouse.up();
@@ -124,7 +124,7 @@ test("image marker strokes track image resizing, persist and display read-only",
   await open(page, "light", `<figure data-notify-image="" data-width="60"><img src="${pixel}" alt="Marker target"></figure><p></p>`);
   const frame = page.locator('.document-editor .image-block-frame');
   await expect(page.locator('.document-editor .note-image')).toBeVisible();
-  await page.getByRole("button", { name: "Highlighter pen", exact: true }).click(); const rect = await frame.boundingBox();
+  await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click(); const rect = await frame.boundingBox();
   await page.mouse.move(rect!.x + rect!.width * .2, rect!.y + rect!.height * .25); await page.mouse.down();
   await page.mouse.move(rect!.x + rect!.width * .75, rect!.y + rect!.height * .3, { steps: 10 }); await page.mouse.up();
   await expect(strokes(page)).toHaveCount(1); const width = await strokes(page).evaluate(el => (el as SVGGraphicsElement).getBBox().width);
@@ -137,8 +137,8 @@ test("image marker strokes track image resizing, persist and display read-only",
 });
 for (const theme of ["light", "dark"] as const) test(`${theme} narrow/reduced-motion highlighter and options fit the window`, async ({ page }) => {
   await page.setViewportSize({ width: 850, height: 600 }); await page.emulateMedia({ reducedMotion: "reduce" }); await open(page, theme);
-  await page.getByRole("button", { name: "Reference", exact: true }).click(); await page.getByRole("button", { name: "Toggle sidebar", exact: true }).click();
-  await page.getByRole("button", { name: "Highlighter pen", exact: true }).click(); await gesture(page); await expect(strokes(page)).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Reference", exact: true })).toHaveAttribute("aria-pressed", "false"); await page.getByRole("button", { name: "Toggle sidebar", exact: true }).click();
+  await page.getByRole("button", { name: /^(Start|Stop) highlighting$/ }).click(); await gesture(page); await expect(strokes(page)).toHaveCount(1);
   await page.getByRole("button", { name: "Highlighter options", exact: true }).click();
   const popup = page.getByRole("dialog", { name: "Highlighter options", exact: true }), bounds = await popup.boundingBox();
   expect(bounds!.x).toBeGreaterThanOrEqual(9); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(841); expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(591);

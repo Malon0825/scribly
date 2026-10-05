@@ -12,7 +12,7 @@ for (const theme of ['light', 'dark'] as const) for (const large of [false, true
     const group = page.getByRole('group', { name: 'Create in current folder' });
     const note = group.getByRole('button', { name: 'New note', exact: true }), board = group.getByRole('button', { name: 'New board', exact: true });
     await expect(note).toBeVisible(); await expect(board).toBeVisible();
-    const a = (await note.boundingBox())!, b = (await board.boundingBox())!, search = (await page.locator('.search').boundingBox())!;
+    const a = (await note.locator('..').boundingBox())!, b = (await board.boundingBox())!, search = (await page.locator('.search').boundingBox())!;
     expect(b.y).toBeGreaterThan(a.y + a.height);
     expect(search.y).toBeGreaterThan(b.y + b.height);
     expect(b.x).toBeCloseTo(a.x); expect(b.width).toBeCloseTo(a.width); expect(b.height).toBeCloseTo(a.height);
@@ -25,7 +25,10 @@ for (const theme of ['light', 'dark'] as const) for (const large of [false, true
       await page.screenshot({ path: `release/sidebar-create-${theme}.png`, clip: { x: sidebar.x, y: sidebar.y, width: sidebar.width, height: b.y + b.height - sidebar.y + 12 } });
     }
     await note.focus(); await expect(note).toBeFocused();
+    const options = group.getByRole('button', { name: 'New note options', exact: true });
+    await page.keyboard.press('Tab'); await expect(options).toBeFocused();
     await page.keyboard.press('Tab'); await expect(board).toBeFocused();
+    await page.keyboard.press('Shift+Tab'); await expect(options).toBeFocused();
     await page.keyboard.press('Shift+Tab'); await expect(note).toBeFocused();
     await page.keyboard.press('Space');
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('still-notes-browser-v1')!).document.notes.length)).toBe(2);

@@ -30,6 +30,6 @@ test("desktop exports use binary IPC, preserve Unicode names, and surface cancel
   const chunks = result.calls.filter(call => call.command === "append_source_chunk");
   expect(chunks.length).toBe(21); expect(Math.max(...chunks.map(call => call.size!))).toBeLessThanOrEqual(1024 * 1024);
   expect(result.calls.at(-2)?.command).toBe("export_source"); expect(result.calls.at(-1)?.command).toBe("remove_source");
-  expect(result.calls[0]).toEqual({ command: "export_binary_file", binary: true, name: "日本語 😀.png", bytes: [0, 255, 137, 80, 78, 71] });
-  expect(result.calls[3]).toEqual({ command: "export_file", binary: false, name: "diagram.mmd", bytes: [] });
+  expect(result.calls.find(call => call.command === "export_binary_file")).toEqual({ command: "export_binary_file", binary: true, name: "日本語 😀.png", bytes: [0, 255, 137, 80, 78, 71] });
+  expect(result.calls.find(call => call.command === "export_file")).toEqual({ command: "export_file", binary: false, name: "diagram.mmd", bytes: [] });
 });

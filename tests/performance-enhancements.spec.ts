@@ -93,7 +93,7 @@ test("image migration uses raw bytes, deduplicated references and portable backu
     const backup = JSON.parse(await a.portableBackup(compact));
     fail = true; let rejected = false; try { await a.compactImages(original); } catch { rejected = true; }
     const originalPreserved = original.notes[0].content.includes(pixel);
-    a.configureAttachments("C:/Notify", {}); let missingRejected = false; try { validateWorkspace(compact); } catch { missingRejected = true; }
+    a.configureAttachments("C:/Notify", {}); let missingRejected = false; try { workspaceBytes(compact); } catch { missingRejected = true; }
     w.isTauri = false;
     return { schema: compact.schemaVersion, html: compact.notes[0].content, portable: backup.notes[0].content, portableVersion: backup.schemaVersion, uploads, originalPreserved, rejected, missingRejected, budget, portableBudget: new TextEncoder().encode(JSON.stringify(backup)).length };
   });

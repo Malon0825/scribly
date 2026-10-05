@@ -87,6 +87,8 @@ test("dark minimum-size board retains canvas across panel changes, exposes styli
   const canvas = page.locator(".board-canvas canvas").last(); const original = await canvas.elementHandle();
   await page.getByRole("button", { name: "Toggle sidebar" }).click();
   expect(await original!.evaluate((el) => el.isConnected)).toBe(true);
+  // Reference overlays the editor at minimum width; dismiss it before editing.
+  await page.getByRole("button", { name: "Reference", exact: true }).click();
   await page.locator('label:has([data-testid="toolbar-rectangle"])').click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.getByText("Stroke width", { exact: true })).toBeVisible();
@@ -136,6 +138,7 @@ test("drawing edits survive immediate note switch, reload and backup", async ({ 
 test("new board, folder creation, duplicate, archive/restore and reference isolation", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-10-02T12:00:00"));
   await open(page);
+  await page.getByRole("button", { name: "Reference", exact: true }).click();
   await expect(page.getByRole("button", { name: "Copy to current note" })).toBeDisabled();
   await page.getByRole("button", { name: "New board", exact: true }).click();
   await expect(page.getByLabel("Board title")).toHaveValue("Work · Oct 2, 2026");

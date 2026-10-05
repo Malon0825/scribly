@@ -62,7 +62,7 @@ test("unsupported recovery cannot overwrite the saved notebook on blur", async (
 
 test("browser stale-save conflict retains both the saved copy and unsaved draft", async ({ page, context }) => {
   await seed(page); await expect(page.getByRole("textbox", { name: "Note content", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Saved in browser", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Saved in browser. Save now", exact: true })).toBeVisible();
   const baselineRevision = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).revision, key);
   const other = await context.newPage(); await other.goto("/");
   await expect(other.getByRole("textbox", { name: "Note content", exact: true })).toBeVisible();

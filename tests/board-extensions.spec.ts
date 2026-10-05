@@ -140,7 +140,10 @@ test("board Reference stays read-only beside writing and persists selection", as
   const editor = page.getByRole("textbox", { name: "Note content", exact: true }); await editor.click(); await page.keyboard.press("End"); await page.keyboard.type(" More writing.");
   await reference.getByRole("button", { name: "Zoom in preview" }).click(); await expect(reference.locator(".board-preview-image")).toHaveAttribute("style", /150%/);
   await expect.poll(async () => (await saved(page)).notes[0].content).toContain("More writing.");
-  await page.reload(); await expect(reference.locator(".board-preview-image svg")).toBeVisible({ timeout: 30000 });
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Reference", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Reference", exact: true }).click();
+  await expect(reference.locator(".board-preview-image svg")).toBeVisible({ timeout: 30000 });
   expect((await saved(page)).referenceId).toBe(referenceId); await expect(editor).toContainText("More writing.");
   await page.screenshot({ path: "release/boards-reference-light-1.1.1.png" });
 });

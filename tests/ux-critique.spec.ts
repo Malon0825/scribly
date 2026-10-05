@@ -15,7 +15,7 @@ const fixture: Workspace = { theme: 'light', activeId: 'note', referenceId: null
 async function open(page: Page, doc = fixture) {
   await page.addInitScript(document => {
     if (localStorage.getItem('still-notes-browser-v1')) return;
-    localStorage.setItem('still-notes-browser-v1', JSON.stringify({ revision: 1, document, dataPath: 'UX critique test' }));
+    localStorage.setItem('still-notes-browser-v1', JSON.stringify({ revision: 1, document, dataPath: 'Browser preview storage' }));
   }, doc);
   await page.goto('/');
   await expect(page.getByRole('textbox', { name: 'Note title', exact: true })).toBeVisible();
@@ -85,17 +85,18 @@ test('Export labels formats; backup tracking records requests only after success
   await page.getByRole('button', { name: 'Export note', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Export formats' })).toContainText('Plain text (.txt)');
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Notebook backup (.json)' }).click();
+  await page.getByRole('button', { name: 'Full notebook backup', exact: true }).click();
   expect((await downloadPromise).suggestedFilename()).toMatch(/Scribly-backup.*json/);
   await expect(page.getByRole('button', { name: 'Back up notebook', exact: true })).toHaveAttribute('title', /Backup download requested: today/);
-  const before = await page.evaluate(() => localStorage.getItem('scribly-backup:UX critique test'));
+  const before = await page.evaluate(() => localStorage.getItem('scribly-backup:Browser preview storage'));
+  expect(before).toBeTruthy();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('tab', { name: 'Backup & restore', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('does not confirm the file was saved');
+  await expect(page.getByRole('dialog')).toContainText('Check Downloads to confirm the file was saved');
   await page.evaluate(() => { HTMLAnchorElement.prototype.click = () => { throw Error('Export blocked'); }; });
   await page.getByRole('button', { name: 'Export notebook backup', exact: true }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Export failed: Error: Export blocked' })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('scribly-backup:UX critique test'))).toBe(before);
+  await expect(page.getByRole('status').filter({ hasText: 'Backup failed: Error: Export blocked' })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('scribly-backup:Browser preview storage'))).toBe(before);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Back up notebook', exact: true })).toHaveAttribute('title', /Backup download requested: today/);
 });
@@ -126,7 +127,7 @@ for (const theme of ['light', 'dark'] as const) test(`${theme} readability, one-
       return ['--panel', '--sidebar', '--chrome', '--active'].map(surface => ratio('--muted', surface)).concat(ratio('--accent', '--on-accent'));
     });
     for (const ratio of contrast) expect(ratio).toBeGreaterThanOrEqual(4.5);
-    await page.getByRole('button', { name: 'Draw pen', exact: true }).click();
+    await page.getByRole('button', { name: /^(Start|Stop) drawing$/ }).click();
     await expect(page.locator('.pen-mode-status')).toContainText('Drawing · Freehand');
     await page.getByRole('button', { name: 'Return to writing Esc', exact: true }).click();
     await page.getByRole('button', { name: 'Reference', exact: true }).click();

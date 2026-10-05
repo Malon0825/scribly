@@ -15,7 +15,7 @@ async function open(page: Page, dark = false, workspace = fixture) {
   await page.goto('/'); await expect(page.getByRole('textbox', { name: 'Note content', exact: true })).toBeVisible();
 }
 const pending = (page: Page) => page.evaluate(() => (window as any).iconFrames.pending.size);
-const pose = (page: Page, selector: string) => page.locator(selector).evaluate(el => [el, ...el.querySelectorAll('svg, svg *')].map(node => {
+const pose = (page: Page, selector: string) => page.locator(selector).evaluate(el => [el, ...el.querySelectorAll('*')].map(node => {
   const style = getComputedStyle(node);
   return [style.transform, style.opacity, style.strokeDashoffset, style.strokeWidth, node.getAttribute('d')].join(':');
 }).join('|'));
@@ -63,12 +63,14 @@ test('keyboard icon animation keeps editor selection, instance and command seman
 });
 
 async function hoverAnimation(page: Page, owner: Locator, kind?: string) {
-  await page.mouse.move(700, 550);
+  const viewport = page.viewportSize()!;
+  const leave = () => page.mouse.move(viewport.width - 5, viewport.height - 5);
+  await leave();
   const icon = owner.locator(kind ? `.animated-icon[data-icon="${kind}"]` : '.animated-icon').first();
   await expect(icon).toBeVisible();
-  const read = () => icon.evaluate(el => [el, ...el.querySelectorAll('svg, svg *')].map(node => {
+  const read = () => icon.evaluate(el => [el, ...el.querySelectorAll('*')].map(node => {
     const style = getComputedStyle(node);
-    return [style.transform, style.opacity, style.strokeDashoffset, style.strokeWidth].join(':');
+    return [style.transform, style.opacity, style.strokeDashoffset, style.strokeWidth, node.getAttribute('d'), node.getAttribute('transform')].join(':');
   }).join('|'));
   const drawingCanvas = await page.locator('.board-canvas .excalidraw').count();
   // Excalidraw owns an independent frame loop while its canvas is mounted.
@@ -76,7 +78,7 @@ async function hoverAnimation(page: Page, owner: Locator, kind?: string) {
   const initial = await read();
   await owner.hover();
   await expect.poll(read, { intervals: [16, 32, 50] }).not.toBe(initial);
-  await page.mouse.move(700, 550);
+  await leave();
   if (!drawingCanvas) await expect.poll(() => pending(page)).toBe(0);
   await expect.poll(read).toBe(initial);
 }
@@ -93,7 +95,7 @@ for (const dark of [false, true]) test(`remaining ${dark ? 'dark' : 'light'} sid
   await hoverAnimation(page, page.getByRole('button', { name: 'New note in Work', exact: true }));
   await hoverAnimation(page, page.getByRole('button', { name: 'Options for Work', exact: true }));
   await hoverAnimation(page, page.getByRole('button', { name: 'Archive', exact: true }));
-  for (const name of ['Bold', 'Italic', 'Code block', 'Bullet list', 'Checklist', 'Add images', 'Highlighter pen', 'Draw pen', 'Highlighter options', 'Drawing options']) {
+  for (const name of ['Bold', 'Italic', 'Code block', 'Bullet list', 'Checklist', 'Add images', 'Start highlighting', 'Start drawing', 'Highlighter options', 'Drawing options']) {
     await hoverAnimation(page, page.getByRole('button', { name, exact: true }));
   }
   await hoverAnimation(page, page.getByRole('combobox', { name: 'Text style', exact: true }));
@@ -110,7 +112,7 @@ test('disabled controls stay static; formatting, Undo/Redo and palette hover pre
   await expect(undo).toBeDisabled(); await undo.hover(); await idle(page);
   expect(await pose(page, '.editor-toolbar [data-icon="undo"]')).toBe(initial);
   await editor.evaluate(el => { el.focus(); const range = document.createRange(); range.selectNodeContents(el.querySelector('p')!); window.getSelection()!.removeAllRanges(); window.getSelection()!.addRange(range); });
-  await hoverAnimation(page, page.getByRole('button', { name: 'Selection colors', exact: true }));
+  await hoverAnimation(page, page.getByRole('button', { name: 'Text and background color options', exact: true }));
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('Preserve this selection.');
   await page.getByRole('button', { name: 'Bold', exact: true }).click();
   await expect(editor.locator('strong')).toHaveText('Preserve this selection.');
@@ -119,7 +121,7 @@ test('disabled controls stay static; formatting, Undo/Redo and palette hover pre
   const redo = page.getByRole('button', { name: 'Redo', exact: true });
   await hoverAnimation(page, redo); await redo.click();
   await expect(editor.locator('strong')).toHaveText('Preserve this selection.');
-  await page.getByRole('button', { name: 'Selection colors', exact: true }).click();
+  await page.getByRole('button', { name: 'Text and background color options', exact: true }).click();
   const colors = page.getByRole('dialog', { name: 'Selection colors', exact: true });
   await hoverAnimation(page, colors.getByRole('button', { name: 'Default text', exact: true }));
   await hoverAnimation(page, colors.getByRole('button', { name: 'More colors', exact: true }));
@@ -128,6 +130,7 @@ test('disabled controls stay static; formatting, Undo/Redo and palette hover pre
 
 test('menu, Reference, Settings and board command icons animate without running commands', async ({ page }) => {
   await open(page);
+  await page.getByRole('button', { name: 'Reference', exact: true }).click();
   await hoverAnimation(page, page.getByRole('button', { name: 'Copy to current note', exact: true }));
   await hoverAnimation(page, page.getByRole('button', { name: 'Open note', exact: true }));
   await page.getByRole('button', { name: 'Note options', exact: true }).click();

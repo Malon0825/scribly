@@ -30,6 +30,19 @@ Read the relevant implementation before changing it:
 
 These describe the inspected baseline, not a guarantee that future code stays identical. Recheck the relevant files. Motion/Framer Motion is not currently installed; do not assume its APIs are available or add a dependency solely to animate a simple button.
 
+## Focused implementation, testing, and repository hygiene
+
+Keep work proportional to the requested fix or feature. Minimize token use, execution time, and maintenance overhead by reading relevant files, making the smallest coherent change, and validating its actual impact.
+
+- Add or run tests only for critical behavior affected by the change or its direct dependencies. Critical behavior includes writing/editing, saving and recovery, data integrity, import/export, destructive actions, and essential navigation or accessibility. Do not exercise all of these for every task; select only the affected paths.
+- Prefer existing focused tests and runner filters. Add a regression test when it catches a meaningful failure introduced or fixed by the task. Do not add tests for trivial styling, implementation details, copied constants, tests of tests, or redundant checks already covered by the compiler or an existing test.
+- Do not run unrelated suites, full regression passes, coverage sweeps, benchmarks, or repeated checks by default. Broaden validation only when a changed shared dependency, observed failure, or concrete integration risk justifies it, or the user requests it. Once relevant checks pass, stop unless subsequent edits affect their result.
+- For frontend code changes, run `npm run build` once after the final relevant edit. For Rust changes, use the applicable Cargo check and targeted tests. Documentation-only changes need a content/diff review. Do not run app builds or tests for documentation edits.
+- Keep the repository root free of ad hoc test/check/protection scripts, result files, logs, screenshots, and generated reports. Use existing test directories for durable tests and an ignored output directory or the system temporary directory for disposable artifacts. Remove only temporary artifacts created by the current task; preserve others' work.
+- Reuse the existing test framework and project tooling. Add a helper, dependency, validation layer, or permanent report only when it has a concrete benefit to the affected app behavior. Avoid speculative protection layers, duplicate validation, and scaffolding for hypothetical future needs; preserve checks that protect real input and persistence boundaries.
+- Follow idiomatic practices for the language and framework in use. In TypeScript/React, use precise types, explicit state ownership, correct hook dependencies, and effect cleanup; avoid unnecessary `any`, assertions, and derived state. In Rust, use ownership/borrowing, `Result`/`Option`, and explicit error handling; avoid unnecessary clones and panics on recoverable errors. Prefer standard APIs, existing conventions, and configured formatters/linters over new abstractions or tooling.
+- Report validation briefly: what relevant check ran, its outcome, and any material unverified behavior. Do not create a separate audit, checklist, or results document unless requested or required by an existing project workflow.
+
 ## Preserve the current design language
 
 - Keep the three-panel hierarchy: writing is primary, navigation supports it, Reference is secondary. Focus mode removes supporting panels without changing the note.
@@ -156,9 +169,9 @@ Identify solid/translucent surfaces, scrim decisions, theme-aware borders/shadow
 - Use one animation controller per property, live values on interruption, and cleanup on unmount.
 - If a custom gesture is required, implement capture, grab offset, hysteresis, velocity sampling/projection, cancellation, bounds, and keyboard alternatives.
 - Support runtime reduced motion in JavaScript, CSS motion preferences, and material fallbacks.
-- Validate rapid toggling, dismissal/reopening, keyboard focus restoration, text selection, scrolling, light/dark/System themes, narrow/wide windows, and maximized geometry.
-- For frontend code changes run `npm run build`; inspect available tests before invoking `npm test` because a script alone does not prove relevant tests exist. Add behavioral checks when warranted, not tests that merely copy CSS constants.
-- Test browser behavior and the Tauri webview when available; label any untested native behavior. Documentation-only changes need a content review, not an app build.
+- Validate only the interactions and configurations affected by the change: rapid toggling, dismissal/reopening, keyboard focus restoration, text selection, scrolling, themes, window sizes, or maximized geometry as applicable.
+- Follow the focused testing policy above. Inspect available tests and select relevant files or cases before invoking a test runner; a script alone does not prove relevant tests exist.
+- Check affected browser behavior and the Tauri webview when available; label any relevant untested native behavior. Documentation-only changes need a content review, not an app build.
 
 ### F. Screen-specific do / don't
 

@@ -94,7 +94,7 @@ test("imports all recoverable tabs to chosen folder, preserves whitespace and pe
 
 test("selection controls import a subset and Settings can create Notepad Imports", async ({ page }) => {
   await mockRecovery(page); await open(page, { ...fixture, folders: fixture.folders.filter((f) => f.id !== "imports") });
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   await page.getByRole("button", { name: "Import from Windows Notepad…", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Import from Windows Notepad", exact: true });
   await expect(dialog.getByRole("combobox")).toHaveText(/Create Notepad Imports folder/);
@@ -153,7 +153,7 @@ test("save failure retains imported drafts, avoids a success toast and supports 
   await expect(page.locator(".toast")).toContainText("saving failed");
   expect((await saved(page)).notes.length).toBe(2);
   await page.evaluate(() => (window as any).restoreStorage());
-  await page.locator(".storage-error").getByRole("button", { name: "Retry" }).click();
+  await page.keyboard.press("Control+s");
   await expect.poll(async () => (await saved(page)).notes.length).toBe(4);
   await page.reload();
   await expect(page.getByRole("textbox", { name: "Note title", exact: true })).toHaveValue("Daily tasks");
@@ -206,7 +206,7 @@ test("Notepad++ imports a subset into an existing folder and skips repeated text
 test("Notepad++ portable folder selection survives cancellation and rescan, and creates its own import folder", async ({ page }) => {
   await mockRecovery(page, { ...scan, tabs: [], skipped: [], found: false, sourceDirectory: "C:\\Default\\backup" }, "scan_notepad_plus_tabs");
   await open(page);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click(); await page.getByRole("tab", { name: "Backup & restore", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notepad++…", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Import from Notepad++", exact: true });
   await expect(dialog.getByRole("combobox")).toHaveText(/Create Notepad\+\+ Imports folder/);
