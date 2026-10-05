@@ -1,5 +1,13 @@
 # Verification history
 
+## Scribly 1.4.0 release published, 2026-10-05
+
+Publication-only scope on `ca15e09`: published the existing `v1.4.0` tag (installer source revision `5a1872f`) as the latest stable GitHub release, using `docs/releases/v1.4.0.md`. No app code or installer was rebuilt.
+
+- Local `Get-FileHash -Algorithm SHA256` matched `release/SHA256SUMS-release.txt`. Uploaded installer, checksum and LICENSE were checked against GitHub asset sizes and SHA-256 digests before publication. Installer: 66,681,941 bytes; SHA-256 `3c20433785695af628a03551111a8d7995351b339e878f5586d30ea94c7f22ee`.
+- `gh release edit v1.4.0 --repo Malon0825/scribly --draft=false --latest` succeeded. GitHub's latest-release API returned `v1.4.0`, with `draft: false`, `prerelease: false`, and all three uploaded assets. Release: https://github.com/Malon0825/scribly/releases/tag/v1.4.0.
+- Reused the existing 1.4.0 packaging and focused browser evidence recorded in the release notes. No additional build, app tests, installer launch, clean-install or upgrade checks performed; the supplied installed-app screenshot shows version 1.4.0.
+
 ## README screenshots and repository cleanup, 2026-10-05
 
 Working-tree scope based on `5a1872f`: commits the pending removal of obsolete audit reports, legacy branding/generators and unused workspace-size helpers; updates their maintained documentation/test references. README now describes current 1.4.0 source features and includes five demo-only WebP images reused from the verified promo captures (Light, Dark, Notebook, Mermaid-created board, offline dictionary). Corrected stale installer/source-version wording; the latest published release was verified as v1.3.12 through GitHub's release API.
