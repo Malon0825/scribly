@@ -1,5 +1,13 @@
 # Verification history
 
+## Scribly 1.3.18 installer, 2026-10-05
+
+Editor changes and synchronized npm/Tauri/Cargo version metadata committed as `3ecb38b`. Build input is that revision plus the pre-existing, uncommitted cleanup (including removal of unused attachment-size helpers and generated logo reporting); cleanup was preserved and excluded from the editor commit.
+
+- `npm.cmd run package`: passed. Runs the frontend TypeScript/Vite build, optimized native release compilation and NSIS x64 packaging through `scripts/build.ps1`. Existing Vite large-chunk advisory remains.
+- Installer: `release/Scribly_1.3.18_x64-setup.exe`, 61,061,845 bytes. SHA-256: `05A140B8CAA9213A9AD5E9FA32FA1F03023C1EF94681EC2021AA8EF8639A1F55`.
+- Staged diff check passed. No tests, installer launch or installation performed, per the user's manual-validation preference. Installer is local; not published or pushed.
+
 ## Easier pen shortcuts, 2026-10-05
 
 Working tree based on `98f5285`, scoped to `src/NoteEditor.tsx` and `src/HighlighterTools.tsx`: replaces Ctrl+Alt+P/H with Ctrl+D for pen and Ctrl+G for highlighter. Tooltips and aria-keyshortcuts match. Other modifiers are excluded; the existing editable-note scope, toggle behavior, focus preservation and dismissal of open options remain.
