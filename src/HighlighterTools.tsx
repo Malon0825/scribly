@@ -1,101 +1,112 @@
 import { AnimatedIcon } from "./AnimatedIcon";
-import { useEffect, useRef, useState } from "react";
-import { Check, LineSegment, Scribble } from "@phosphor-icons/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CaretDown, LineSegment, Trash } from "@phosphor-icons/react";
 import { ActionPopover } from "./ActionPopover";
 import type { PenSettings } from "./InkLayer";
 import { drawingColors, inkColors, readInk } from "./inkData";
 import type { Editor } from "@tiptap/react";
 import { closeHistory } from "@tiptap/pm/history";
-import { canColorSelection } from "./SelectionColors";
 
 type Tool = PenSettings["tool"];
 type Choice = Pick<PenSettings, "mode" | "color" | "width" | "smooth">;
+type Choices = Record<Tool, Choice>;
+const preferenceKey = 'scribly-pen-choices-v1';
+const defaults: Choices = {
+  highlight: { mode: "guided", color: "yellow", width: 16, smooth: true },
+  draw: { mode: "free", color: "default", width: 3, smooth: true },
+};
+function readChoice(value: unknown, tool: Tool): Choice {
+  if (!value || typeof value !== 'object') return defaults[tool];
+  const colors = tool === 'draw' ? drawingColors : inkColors;
+  const widths = tool === 'draw' ? [1, 3, 6] : [8, 16, 24];
+  return {
+    mode: 'mode' in value && (value.mode === 'guided' || value.mode === 'free') ? value.mode : defaults[tool].mode,
+    color: 'color' in value ? colors.find(color => color === value.color) ?? defaults[tool].color : defaults[tool].color,
+    width: 'width' in value && typeof value.width === 'number' && widths.includes(value.width) ? value.width : defaults[tool].width,
+    smooth: true,
+  };
+}
+function readChoices(): Choices {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(preferenceKey) || 'null');
+    if (value && typeof value === 'object') return {
+      highlight: readChoice('highlight' in value ? value.highlight : null, 'highlight'),
+      draw: readChoice('draw' in value ? value.draw : null, 'draw'),
+    };
+  } catch { /* Keep the controls usable when preferences cannot be read. */ }
+  return defaults;
+}
+
+// The editor owns preferences, so toolbar collapse cannot reset either tool.
+export function usePenSettings() {
+  const [state, setState] = useState(() => ({ tool: 'highlight' as Tool, active: false, choices: readChoices() }));
+  const change = useCallback((next: Partial<PenSettings>) => setState(current => {
+    const tool = next.tool ?? current.tool;
+    const previous = current.choices[tool];
+    const choice: Choice = { mode: next.mode ?? previous.mode, color: next.color ?? previous.color, width: next.width ?? previous.width, smooth: true };
+    return { tool, active: next.active ?? current.active, choices: { ...current.choices, [tool]: choice } };
+  }), []);
+  useEffect(() => {
+    try { localStorage.setItem(preferenceKey, JSON.stringify(state.choices)); }
+    catch { /* Session choices remain available when storage is unavailable. */ }
+  }, [state.choices]);
+  const settings: PenSettings = { ...state.choices[state.tool], tool: state.tool, active: state.active };
+  return [settings, change] as const;
+}
+
 export function HighlighterTools({ editor, settings, change }: { editor: Editor; settings: PenSettings; change: (next: Partial<PenSettings>) => void }) {
   const [open, setOpen] = useState<Tool | null>(null);
-  const markerTrigger = useRef<HTMLButtonElement>(null), drawTrigger = useRef<HTMLButtonElement>(null);
-  const penButton = useRef<HTMLButtonElement>(null), drawButton = useRef<HTMLButtonElement>(null), lastWheel = useRef(0);
-  const current = useRef(settings); current.current = settings;
-  const choices = useRef<Record<Tool, Choice>>({ highlight: { mode: "guided", color: "yellow", width: 16, smooth: true }, draw: { mode: "free", color: "default", width: 3, smooth: true } });
-  choices.current[settings.tool] = { mode: settings.mode, color: settings.color, width: settings.width, smooth: settings.smooth };
-  const choose = (tool: Tool, active = settings.active && settings.tool === tool) => change({ tool, active, ...choices.current[tool] });
-  useEffect(() => {
-    const buttons = [penButton.current, drawButton.current].filter((button): button is HTMLButtonElement => !!button);
-    let held: { pointer: number; button: HTMLButtonElement } | null = null;
-    const down = (event: PointerEvent) => { if (event.button === 0 && event.isPrimary) held = { pointer: event.pointerId, button: event.currentTarget as HTMLButtonElement }; };
-    const up = (event: PointerEvent) => { if (event.pointerId === held?.pointer) held = null; };
-    const cancel = () => { held = null; };
-    const key = (event: KeyboardEvent) => { if (event.key === "Escape") cancel(); };
-    const wheel = (event: WheelEvent) => {
-      // Chromium wheel events can report buttons=0 even while a pointer is held.
-      if (!held || held.button !== event.currentTarget || event.ctrlKey) return;
-      event.preventDefault(); event.stopPropagation();
-      if (performance.now() - lastWheel.current < 120) return;
-      lastWheel.current = performance.now();
-      const tool: Tool = held.button === drawButton.current ? "draw" : "highlight", choice = choices.current[tool];
-      change({ tool, active: current.current.active && current.current.tool === tool, ...choice, mode: choice.mode === "guided" ? "free" : "guided" });
-    };
-    for (const button of buttons) { button.addEventListener("pointerdown", down); button.addEventListener("wheel", wheel, { passive: false }); }
-    window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
-    window.addEventListener("blur", cancel); window.addEventListener("keydown", key);
-    return () => {
-      for (const button of buttons) { button.removeEventListener("pointerdown", down); button.removeEventListener("wheel", wheel); }
-      window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
-      window.removeEventListener("blur", cancel); window.removeEventListener("keydown", key);
-    };
-  }, [change]);
-  const drawing = settings.tool === "draw", label = drawing ? "Drawing" : "Highlighter";
+  const drawButton = useRef<HTMLButtonElement>(null), highlightButton = useRef<HTMLButtonElement>(null);
+  const choose = (tool: Tool) => {
+    const active = !(settings.active && settings.tool === tool);
+    change({ tool, active }); setOpen(null);
+  };
+  const openOptions = (tool: Tool) => {
+    change({ tool }); setOpen(current => current === tool ? null : tool);
+  };
+  const tool = open ?? settings.tool;
+  const drawing = tool === 'draw';
+  const label = drawing ? 'Pen' : 'Highlighter';
   const colors = drawing ? drawingColors : inkColors;
-  const toggle = () => change({ mode: settings.mode === "guided" ? "free" : "guided" });
-  const modeControl = <button className="highlighter-mode" aria-label={`${label} mode: ${settings.mode === "guided" ? "Guided" : "Free"}`}
-    title={`Switch to ${settings.mode === "guided" ? "freehand" : "guided"} ${drawing ? "drawing" : "highlighting"} · wheel while drawing also switches modes`} onClick={toggle}>
-    <span aria-live="polite">{settings.mode === "guided" ? "Guided" : "Free"}</span></button>;
-  const options = (tool: Tool) => { choose(tool); setOpen(value => value === tool ? null : tool); };
-  return <div className="highlighter-tools">
-    <div className={`pen-tool-group${settings.active && !drawing ? " active" : ""}`} role="group" aria-label="Highlight tool">
-    <button ref={penButton} className="checklist-button" aria-label={settings.active && !drawing ? "Stop highlighting" : "Start highlighting"} aria-pressed={settings.active && !drawing}
-      title={`${settings.active && !drawing ? "Stop highlighting" : "Start highlighting"} · drag over the note · Esc returns to writing`}
-      onClick={() => choose("highlight", !(settings.active && !drawing))}><AnimatedIcon kind="highlight" size={23} /><span>Highlight</span></button>
-    {settings.active && !drawing && modeControl}
-    <button ref={markerTrigger} aria-label="Highlighter options" aria-haspopup="dialog" aria-expanded={open === "highlight"} title="Open highlighter options: mode, color and size" onClick={() => options("highlight")}><AnimatedIcon kind="down" size={14} /></button>
+  const sizes = drawing ? [1, 3, 6] : [8, 16, 24];
+  function clear() {
+    const transaction = closeHistory(editor.state.tr);
+    editor.state.doc.descendants((node, pos) => {
+      const ink = readInk(node.attrs.ink), keep = ink.filter(stroke => drawing ? stroke.kind !== 'draw' : stroke.kind === 'draw');
+      if (keep.length !== ink.length) transaction.setNodeMarkup(pos, undefined, { ...node.attrs, ink: keep.length ? keep : null });
+    });
+    if (transaction.docChanged) {
+      editor.view.dispatch(transaction);
+      editor.view.dispatch(closeHistory(editor.state.tr));
+    }
+    setOpen(null); change({ active: false }); editor.view.dom.focus({ preventScroll: true });
+  }
+  return <div className="highlighter-tools" role="group" aria-label="Drawing tools">
+    <div className="pen-split-control">
+      <button aria-label={settings.active && settings.tool === 'draw' ? 'Stop drawing' : 'Start drawing'} aria-pressed={settings.active && settings.tool === 'draw'}
+        aria-keyshortcuts="Control+D" title="Pen (Ctrl+D) · Esc returns to writing · Ctrl+Z undoes a stroke" onClick={() => choose('draw')}><AnimatedIcon kind="draw" size={20} /></button>
+      <button ref={drawButton} className="pen-options-trigger" aria-label="Pen options" title="Pen options" aria-haspopup="dialog" aria-expanded={open === 'draw'} onClick={() => openOptions('draw')}><CaretDown size={12} /></button>
     </div>
-    <div className={`pen-tool-group${settings.active && drawing ? " active" : ""}`} role="group" aria-label="Draw tool">
-    <button ref={drawButton} className="checklist-button" aria-label={settings.active && drawing ? "Stop drawing" : "Start drawing"} aria-pressed={settings.active && drawing}
-      title={`${settings.active && drawing ? "Stop drawing" : "Start drawing"} · drag on the note · Esc returns to writing`}
-      onClick={() => choose("draw", !(settings.active && drawing))}><AnimatedIcon kind="draw" size={23} /><span>Draw</span></button>
-    {settings.active && drawing && modeControl}
-    <button ref={drawTrigger} aria-label="Drawing options" aria-haspopup="dialog" aria-expanded={open === "draw"} title="Open drawing options: mode, color and size" onClick={() => options("draw")}><AnimatedIcon kind="down" size={14} /></button>
+    <div className="pen-split-control">
+      <button aria-label={settings.active && settings.tool === 'highlight' ? 'Stop highlighting' : 'Start highlighting'} aria-pressed={settings.active && settings.tool === 'highlight'}
+        aria-keyshortcuts="Control+G" title="Highlighter (Ctrl+G) · Esc returns to writing · Ctrl+Z undoes a stroke" onClick={() => choose('highlight')}><AnimatedIcon kind="highlight" size={20} /></button>
+      <button ref={highlightButton} className="pen-options-trigger" aria-label="Highlighter options" title="Highlighter options" aria-haspopup="dialog" aria-expanded={open === 'highlight'} onClick={() => openOptions('highlight')}><CaretDown size={12} /></button>
     </div>
-    {open && <ActionPopover anchor={open === "draw" ? drawTrigger.current : markerTrigger.current} label={`${label} options`} className="highlighter-options" onClose={() => setOpen(null)}>
-      <div className="color-section-heading">Stroke mode</div>
-      <button aria-pressed={settings.mode === "guided"} onClick={() => change({ mode: "guided" })}><LineSegment size={18} /><span>Guided<small>Straight line at any angle</small></span>{settings.mode === "guided" && <Check size={16} />}</button>
-      <button aria-pressed={settings.mode === "free"} onClick={() => change({ mode: "free" })}><Scribble size={18} /><span>Free<small>Follow your hand</small></span>{settings.mode === "free" && <Check size={16} />}</button>
-      {drawing && <><div className="color-section-heading">Freehand assistance</div>
-      <button aria-label="Auto assist" aria-pressed={settings.smooth} onClick={() => change({ smooth: !settings.smooth })}>
-        <span>Auto assist<small>Soften wobbles and corners</small></span>{settings.smooth && <Check size={16} />}</button></>}
-      <div className="color-section-heading">Stroke size</div>
-      <div className="stroke-sizes" role="group" aria-label={`${label} stroke size`}>
-        {(drawing ? [1, 3, 6] : [8, 16, 24]).map((width, index) => <button key={width}
-          aria-label={`${["Small", "Medium", "Large"][index]} ${width}px stroke`} aria-pressed={settings.width === width}
-          onClick={() => change({ width })}><span>{["Small", "Medium", "Large"][index]}</span><small>{width}px</small></button>)}
+    {open && <ActionPopover anchor={drawing ? drawButton.current : highlightButton.current} label={`${label} options`} className="highlighter-options compact-pen-options" onClose={() => setOpen(null)}>
+      <div className="pen-options-label">Size</div>
+      <div className="pen-options-row" role="group" aria-label={`${label} size`}>
+        {sizes.map((width, index) => <button key={width} aria-label={`${['Small', 'Medium', 'Large'][index]} ${label.toLowerCase()} stroke`} title={['Small', 'Medium', 'Large'][index]} aria-pressed={settings.width === width} onClick={() => change({ tool, width })}>
+          <span className="pen-size-dot" style={{ width: [5, 10, 16][index], height: [5, 10, 16][index] }} />
+        </button>)}
+        <button aria-label="Straight line" title="Straight line (Space to toggle)" aria-pressed={settings.mode === 'guided'} onClick={() => change({ tool, mode: settings.mode === 'guided' ? 'free' : 'guided' })}><LineSegment size={20} /></button>
       </div>
-      <div className="color-section-heading">{drawing ? "Pen color" : "Marker color"}</div>
-      <div className="color-options" role="group" aria-label={drawing ? "Pen colors" : "Marker colors"}>{colors.map(color => <button key={color} aria-label={`${color} ${drawing ? "pen" : "marker"}`} aria-pressed={settings.color === color}
-        onClick={() => change({ color })}><span className="color-swatch" style={{ background: color === "default" ? "var(--fg)" : color === "accent" ? "var(--accent)" : color === "red" ? "var(--danger)" : `var(--ink-${color})` }} />{settings.color === color && <Check size={12} className="color-check" />}</button>)}</div>
-      <div className="highlighter-help">Wheel while drawing switches modes. Escape returns to writing. Undo removes a stroke.</div>
-      {!drawing && <button disabled={!canColorSelection(editor)} onClick={() => {
-        const { from, to } = editor.state.selection;
-        editor.view.dispatch(closeHistory(editor.state.tr.addMark(from, to, editor.schema.marks.noteBackgroundColor.create({ tone: settings.color }))));
-        setOpen(null); change({ active: false }); editor.view.dom.focus({ preventScroll: true });
-      }}>Highlight selected text</button>}
-      <button onClick={() => {
-        const tr = closeHistory(editor.state.tr);
-        editor.state.doc.descendants((node, pos) => {
-          const ink = readInk(node.attrs.ink), keep = ink.filter(stroke => drawing ? stroke.kind !== "draw" : stroke.kind === "draw");
-          if (keep.length !== ink.length) tr.setNodeMarkup(pos, undefined, { ...node.attrs, ink: keep.length ? keep : null });
-        });
-        if (tr.docChanged) editor.view.dispatch(tr);
-        setOpen(null); change({ active: false }); editor.view.dom.focus({ preventScroll: true });
-      }}>{drawing ? "Clear drawing strokes" : "Clear marker strokes"}</button>
+      <div className="pen-options-label pen-options-divider">Color</div>
+      <div className="pen-options-row" role="group" aria-label={`${label} color`}>
+        {colors.map(color => <button key={color} aria-label={`${color} ${label.toLowerCase()}`} title={color === 'default' ? 'Text color' : color === 'accent' ? 'Theme accent' : color} aria-pressed={settings.color === color} onClick={() => change({ tool, color })}>
+          <span className="pen-color-dot" style={{ background: color === 'default' ? 'var(--fg)' : color === 'accent' ? 'var(--accent)' : color === 'red' ? 'var(--danger)' : `var(--ink-${color})` }} />
+        </button>)}
+        <button className="pen-clear" aria-label={`Clear ${drawing ? 'drawing' : 'marker'} strokes`} title="Clear strokes · Ctrl+Z to undo" onClick={clear}><Trash size={18} /></button>
+      </div>
     </ActionPopover>}
   </div>;
 }

@@ -11,7 +11,7 @@ import { NoteTextColor, NoteBackgroundColor } from "./textColors";
 import { SelectionColors, canColorSelection } from "./SelectionColors";
 import { NoteInk } from "./NoteInk";
 import { InkLayer, type PenSettings } from "./InkLayer";
-import { HighlighterTools } from "./HighlighterTools";
+import { HighlighterTools, usePenSettings } from "./HighlighterTools";
 import { reportEditorReady } from "./startupTiming";
 import { NotifyImage } from "./ImageBlock";
 import { NotifySourceFile } from "./SourceFileBlock";
@@ -24,7 +24,8 @@ import { Plugin } from "@tiptap/pm/state";
 import { NoteSearch } from "./textSearch";
 import { NoteFind, type FindRequest } from "./NoteFind";
 import { ItemLink } from "./ItemLink";
-import { Link as LinkIcon } from "@phosphor-icons/react";
+import { NoteControls } from "./NoteControls";
+import { Link as LinkIcon, DotsThree } from "@phosphor-icons/react";
 import type { Note } from "./types";
 export function NoteEditor({
   content,
@@ -56,10 +57,9 @@ export function NoteEditor({
   const pendingLink = useRef<(() => void) | null>(null);
   const linkReady = useRef(onLinkReady); linkReady.current = onLinkReady;
   const surface = useRef<HTMLDivElement>(null);
-  const [pen, setPen] = useState<PenSettings>({ active: false, tool: "highlight", mode: "guided", color: "yellow", width: 16, smooth: true });
-  const changePen = useCallback((next: Partial<PenSettings>) => setPen(current => ({ ...current, ...next })), []);
-  const togglePenMode = useCallback(() => setPen(current => ({ ...current, mode: current.mode === "guided" ? "free" : "guided" })), []);
-  const exitPen = useCallback(() => setPen(current => ({ ...current, active: false })), []);
+  const [pen, changePen] = usePenSettings();
+  const togglePenMode = useCallback(() => changePen({ mode: pen.mode === "guided" ? "free" : "guided" }), [changePen, pen.mode]);
+  const exitPen = useCallback(() => changePen({ active: false }), [changePen]);
   const requestImage = useCallback(() => imageInput.current?.click(), []);
   const openColors = useRef<() => void>(() => {});
   const requestColors = useCallback(() => openColors.current(), []);
@@ -71,14 +71,15 @@ export function NoteEditor({
   const [imageStatus, setImageStatus] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
   const [find, setFind] = useState<FindRequest | null>(null);
+  const [findVisible, setFindVisible] = useState(false);
   const findOpen = useRef(onFindOpen); findOpen.current = onFindOpen;
   useEffect(() => {
-    if (!find) return;
+    if (!findVisible) return;
     const reveal = () => findOpen.current?.();
     reveal(); window.addEventListener("resize", reveal);
     return () => window.removeEventListener("resize", reveal);
-  }, [!!find]);
-  useEffect(() => { if (findRequest) setFind(findRequest); }, [findRequest]);
+  }, [findVisible]);
+
   const editor = useEditor({
     shouldRerenderOnTransaction: false,
     extensions: [
@@ -153,6 +154,37 @@ export function NoteEditor({
     },
   });
   useEffect(() => { editor?.setEditable(!readOnly,false); }, [editor,readOnly]);
+  useEffect(() => {
+    if (!editor || readOnly) return;
+    const key = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.isComposing || !event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return;
+      const pressed = event.key.toLowerCase();
+      if (pressed !== 'd' && pressed !== 'g') return;
+      const target = event.target;
+      const panel = surface.current?.closest('.document-panel');
+      if (!(target instanceof HTMLElement) || !panel?.contains(target) || target.closest('input, textarea, select, [role="dialog"]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const tool = pressed === 'd' ? 'draw' : 'highlight';
+      changePen({ tool, active: !(pen.active && pen.tool === tool) });
+      document.dispatchEvent(new CustomEvent('notify:action-open', { detail: editor.view.dom }));
+      editor.view.dom.focus({ preventScroll: true });
+    };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, [editor, readOnly, changePen, pen.active, pen.tool]);
+  const openFind = () => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    setFind({ serial: Date.now(), query: editor.state.doc.textBetween(from, to, " "), replace: false });
+    setFindVisible(true);
+  };
+  useEffect(() => {
+    if (!findRequest || !editor) return;
+    const { from, to } = editor.state.selection;
+    setFind({ ...findRequest, query: findRequest.query ?? editor.state.doc.textBetween(from, to, " ") });
+    setFindVisible(true);
+  }, [findRequest, editor]);
   function requestItemLink() {
     if (!editor || !editor.isEditable || !linkHandlers.current.onLinkRequest) return;
     pendingLink.current?.();
@@ -235,15 +267,11 @@ export function NoteEditor({
   if (!editor) return null;
   return (
     <>
-      {!readOnly && (
-        <EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} onFindRequest={() => setFind({ serial: Date.now(), replace: false })} onLinkRequest={onLinkRequest ? requestItemLink : undefined} pen={pen} changePen={changePen} />
-      )}
-      {find && <NoteFind editor={editor} request={find} readOnly={readOnly} onClose={() => setFind(null)} />}
+      {(!readOnly || findVisible) && <NoteControls>
+      {!readOnly && <EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} onFindRequest={openFind} onLinkRequest={onLinkRequest ? requestItemLink : undefined} pen={pen} changePen={changePen} />}
+      {find && <NoteFind editor={editor} request={find} open={findVisible} readOnly={readOnly} onClose={() => setFindVisible(false)} />}
+      </NoteControls>}
       {!readOnly && <>
-        {pen.active && <div className="pen-mode-status" role="status">
-          {pen.tool === 'draw' ? 'Drawing' : 'Highlighting'} · {pen.mode === 'guided' ? 'Guided' : 'Freehand'}
-          <button onClick={() => { exitPen(); editor.commands.focus(); }}>Return to writing <kbd>Esc</kbd></button>
-        </div>}
         <input ref={imageInput} type="file" accept={IMAGE_ACCEPT} multiple hidden aria-label="Image files" onChange={(event) => {
           const files = Array.from(event.currentTarget.files || []); event.currentTarget.value = ""; insertImagesRef.current(files);
         }} />
@@ -268,24 +296,78 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
   editor: Editor; imageLoading: boolean; onImageRequest: () => void; onColorsRequest: () => void; onFindRequest: () => void; pen: PenSettings; changePen: (next: Partial<PenSettings>) => void;
   onLinkRequest?: () => void;
 }) {
+  const toolbar = useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = useState(false);
+  const [more, setMore] = useState(false);
+  const moreButton = useRef<HTMLButtonElement>(null);
+  const extra = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = toolbar.current;
+    if (!element) return;
+    const tools = extra.current;
+    if (!tools) return;
+    const measure = () => {
+      const gap = parseFloat(getComputedStyle(element).gap) || 0;
+      const extraGap = parseFloat(getComputedStyle(tools).gap) || 0;
+      const primary = Array.from(element.children).filter(child => !child.matches('.toolbar-extra, .toolbar-spacer, .toolbar-more'));
+      const secondary = Array.from(tools.children);
+      const width = (items: Element[]) => items.reduce((total, child) => {
+        const style = getComputedStyle(child);
+        return total + child.getBoundingClientRect().width + (parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0);
+      }, 0);
+      const required = width(primary) + width(secondary) + Math.max(0, secondary.length - 1) * extraGap + primary.length * gap;
+      setCompact(element.clientWidth + 1 < required);
+    };
+    const resize = new ResizeObserver(measure);
+    resize.observe(element); resize.observe(tools);
+    for (const child of tools.children) resize.observe(child);
+    measure();
+    return () => resize.disconnect();
+  }, [compact, pen.active]);
   const state = useEditorState({ editor, selector: ({ editor }) => ({
     heading: editor.isActive("heading", { level: 1 }) ? "1"
       : editor.isActive("heading", { level: 2 }) ? "2"
       : editor.isActive("heading", { level: 3 }) ? "3" : "0",
     bold: editor.isActive("bold"), italic: editor.isActive("italic"),
     codeBlock: editor.isActive("codeBlock"), bulletList: editor.isActive("bulletList"),
-    taskList: editor.isActive("taskList"), undo: editor.can().undo(), redo: editor.can().redo(),
+    taskList: editor.isActive("taskList"),
     canColor: canColorSelection(editor),
   }) });
+  const extraTools = <div ref={extra} className="toolbar-extra">
+          <button className="checklist-button" aria-label="Code block" title="Code block (Ctrl+Alt+C)"
+            aria-pressed={state.codeBlock} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
+            <AnimatedIcon kind="code" size={20} /><span>Code</span>
+          </button>
+          <button
+            title="Bullet list (Ctrl+Shift+8)"
+            aria-label="Bullet list"
+            aria-pressed={state.bulletList}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+          >
+            <AnimatedIcon kind="list" size={20} />
+          </button>
+          <button
+            className="checklist-button"
+            aria-label="Checklist"
+            title="Checklist (Ctrl+Shift+9)"
+            aria-pressed={state.taskList}
+            onClick={() => editor.chain().focus().toggleTaskList().run()}
+          >
+            <AnimatedIcon kind="checklist" size={20} />
+            <span>Checklist</span>
+          </button>
+          <button className="checklist-button" aria-label="Add images" title="Add images (Enter to choose a file)" disabled={imageLoading}
+            onClick={onImageRequest}><AnimatedIcon kind="image" size={20} /><span>Image</span></button>
+          <HighlighterTools editor={editor} settings={pen} change={changePen} />
+          {onLinkRequest && <button aria-label="Link to item" title="Link to a note or board (Ctrl+L)" onClick={onLinkRequest}><LinkIcon size={20} /></button>}
+          <button aria-label="Text and background color options" title="Text and background color options (select text, then Shift+F10)" disabled={!state.canColor}
+            onClick={onColorsRequest}><AnimatedIcon kind="palette" size={20} /></button>
+  </div>;
   return (
-        <div className="editor-toolbar" id="note-formatting-controls" aria-label="Text formatting">
-          <button title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!state.undo}
-            onClick={() => editor.chain().focus().undo().run()}><AnimatedIcon kind="undo" size={20} /></button>
-          <button title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled={!state.redo}
-            onClick={() => editor.chain().focus().redo().run()}><AnimatedIcon kind="redo" size={20} /></button>
-          <span className="toolbar-divider" />
+      <>
+        <div ref={toolbar} className={`editor-toolbar${compact ? " is-compact" : ""}`} id="note-formatting-controls" aria-label="Text formatting">
           <AppSelect
-            label="Text style" className="text-style-picker"
+            label="Text style" title="Text style (Ctrl+Alt+1/2/3)" className="text-style-picker"
             value={state.heading}
             onChange={(value) => {
               const n = Number(value);
@@ -306,7 +388,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
             aria-pressed={state.bold}
             onClick={() => editor.chain().focus().toggleBold().run()}
           >
-            <AnimatedIcon kind="bold" size={23} />
+            <AnimatedIcon kind="bold" size={20} />
           </button>
           <button
             title="Italic (Ctrl+I)"
@@ -314,39 +396,14 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
             aria-pressed={state.italic}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           >
-            <AnimatedIcon kind="italic" size={23} />
+            <AnimatedIcon kind="italic" size={20} />
           </button>
-          <span className="toolbar-divider" />
-          <button className="checklist-button" aria-label="Code block" title="Code block (Ctrl+Alt+C)"
-            aria-pressed={state.codeBlock} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
-            <AnimatedIcon kind="code" size={23} /><span>Code</span>
-          </button>
-          <button
-            title="Bullet list (Ctrl+Shift+8)"
-            aria-label="Bullet list"
-            aria-pressed={state.bulletList}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-          >
-            <AnimatedIcon kind="list" size={24} />
-          </button>
-          <button
-            className="checklist-button"
-            aria-label="Checklist"
-            title="Checklist (Ctrl+Shift+9)"
-            aria-pressed={state.taskList}
-            onClick={() => editor.chain().focus().toggleTaskList().run()}
-          >
-            <AnimatedIcon kind="checklist" size={23} />
-            <span>Checklist</span>
-          </button>
-          <button className="checklist-button" aria-label="Add images" title="Add images" disabled={imageLoading}
-            onClick={onImageRequest}><AnimatedIcon kind="image" size={23} /><span>Image</span></button>
-          <HighlighterTools editor={editor} settings={pen} change={changePen} />
-          {onLinkRequest && <button aria-label="Link to item" title="Link to a note or board (Ctrl+L)" onClick={onLinkRequest}><LinkIcon size={20} /></button>}
-          <button aria-label="Text and background color options" title="Text and background color options (select text, then Shift+F10)" disabled={!state.canColor}
-            onClick={onColorsRequest}><AnimatedIcon kind="palette" size={23} /></button>
+          {!compact && extraTools}
+          {compact && <button ref={moreButton} className="toolbar-more" title="More formatting tools (Enter to expand)" aria-label="More formatting tools" aria-expanded={more} aria-controls="extra-formatting-tools" onClick={() => setMore(value => !value)}><DotsThree size={20} /></button>}
           <div className="toolbar-spacer" />
           <button aria-label="Find in note" title="Find in note (Ctrl+F)" onClick={onFindRequest}><AnimatedIcon kind="search" size={20} /></button>
         </div>
+        {compact && <div className={`quiet-disclosure${more ? ' is-open' : ''}`} inert={!more} aria-hidden={!more} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setMore(false); moreButton.current?.focus(); } }}><div><div id="extra-formatting-tools" className="toolbar-more-row">{extraTools}</div></div></div>}
+      </>
   );
 });

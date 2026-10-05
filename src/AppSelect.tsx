@@ -5,14 +5,15 @@ import { CaretDown, CaretUp, Check } from "@phosphor-icons/react";
 export type SelectOption = { value: string; label: string; group?: string };
 // Radix owns focus, typeahead, keyboard navigation and collision placement.
 // Every picker uses the same application surface instead of an OS popup.
-export function AppSelect({ value, options, onChange, label, id, describedBy, className = "", onCloseFocus, disabled = false }: {
+export function AppSelect({ value, options, onChange, label, title, id, describedBy, className = "", onCloseFocus, disabled = false }: {
   value: string; options: SelectOption[]; onChange: (value: string) => void;
   label: string; id?: string; describedBy?: string; className?: string; onCloseFocus?: () => void;
   disabled?: boolean;
+  title?: string;
 }) {
   const groups = [...new Set(options.map((option) => option.group || ""))];
   return <Select.Root disabled={disabled} value={`option:${value}`} onValueChange={(next) => { if (next.startsWith("option:")) onChange(next.slice(7)); }}>
-    <Select.Trigger id={id} aria-label={label} aria-describedby={describedBy} className={`app-select ${className}`}>
+    <Select.Trigger id={id} title={title} aria-label={label} aria-describedby={describedBy} className={`app-select ${className}`}>
       <Select.Value /><Select.Icon className="select-caret"><AnimatedIcon kind="down" size={16} /></Select.Icon>
     </Select.Trigger>
     <Select.Portal>

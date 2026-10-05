@@ -80,8 +80,8 @@ test("Find counts across marks/code, navigates with keys, and Escape preserves c
 
 test("Replace all uses case/Unicode word options, preserves surrounding formatting and Reference, and Undo/Redo is one step", async ({ page }) => {
   await seed(page); await openFind(page, "alpha", true);
-  await page.getByLabel("Whole word", { exact: true }).check(); await expect(find(page).getByRole("status").first()).toHaveText(/of 5$/);
-  await page.getByLabel("Match case", { exact: true }).check(); await expect(find(page).getByRole("status").first()).toHaveText(/of 3$/);
+  await page.getByRole("button", { name: "Whole word", exact: true }).click(); await expect(find(page).getByRole("status").first()).toHaveText(/of 5$/);
+  await page.getByRole("button", { name: "Match case", exact: true }).click(); await expect(find(page).getByRole("status").first()).toHaveText(/of 3$/);
   await page.getByRole("textbox", { name: "Replace with", exact: true }).fill("Z"); await page.getByRole("button", { name: "Replace all", exact: true }).click();
   await expect(editor(page)).toContainText("Alpha Z alphanumeric ALPHA 日本語"); await expect(editor(page)).toContainText("alpha_beta Z Z");
   await expect(page.locator(".reference-editor")).toContainText("Reference alpha stays unchanged");
@@ -96,7 +96,7 @@ test("single replacement advances, supports deletion, and empty/literal queries 
   await openFind(page, "[a].", true); await expect(find(page).getByRole("status").first()).toHaveText(/of 3$/);
   await page.getByRole("button", { name: "Replace next", exact: true }).click(); await expect(find(page).getByRole("status").first()).toHaveText(/of 2$/);
   await expect(editor(page)).toHaveText(" [a]. [a].");
-  await page.getByRole("textbox", { name: "Find text", exact: true }).fill(""); await expect(find(page).getByRole("status").first()).toHaveText("Enter text");
+  await page.getByRole("textbox", { name: "Find text", exact: true }).fill(""); await expect(find(page).locator(".find-count")).toHaveText("");
   await expect(page.getByRole("button", { name: "Replace all", exact: true })).toBeDisabled();
 });
 
@@ -144,10 +144,10 @@ test("pins/recent persist without changing folder order, timestamps, body or edi
   expect((await documentState(page)).recentIds).not.toContain("a");
 });
 
-test("large-note match counting/navigation stays complete with bounded highlighting and responsive typing", async ({ page }) => {
+test("large-note match counting/navigation stays complete with complete highlighting and responsive typing", async ({ page }) => {
   await seed(page, { ...fixture, referenceId: null, notes: [note("a", "Large draft", `<p>${"needle other ".repeat(1800)}</p>`)] });
   await openFind(page, "needle"); await expect(find(page).getByRole("status").first()).toHaveText(/of 1800$/);
-  expect(await page.locator(".find-match").count()).toBeLessThanOrEqual(1000);
+  await expect(page.locator(".find-match")).toHaveCount(1800);
   await page.getByRole("button", { name: "Previous match", exact: true }).click(); await expect(find(page).getByRole("status").first()).toHaveText("1800 of 1800");
   await page.getByRole("button", { name: "Close find", exact: true }).click(); await editor(page).focus(); await page.keyboard.press("Control+End");
   await page.keyboard.type("typed immediately"); await expect(editor(page)).toContainText("typed immediately");

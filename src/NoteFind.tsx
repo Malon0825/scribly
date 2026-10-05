@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { TextSelection, type SelectionBookmark, type Transaction } from "@tiptap/pm/state";
 import { closeHistory } from "@tiptap/pm/history";
-import { CaretUp, CaretDown, X } from "@phosphor-icons/react";
+import { CaretUp, CaretDown, X, ArrowCounterClockwise } from "@phosphor-icons/react";
 import { emptySearch, searchKey } from "./textSearch";
 
 export type FindRequest = { serial: number; query?: string; replace: boolean };
-export function NoteFind({ editor, request, readOnly, onClose }: { editor: Editor; request: FindRequest; readOnly: boolean; onClose: () => void }) {
+export function NoteFind({ editor, request, open, readOnly, onClose }: { editor: Editor; request: FindRequest; open: boolean; readOnly: boolean; onClose: () => void }) {
   const [query, setQuery] = useState(request.query || ""), [replacement, setReplacement] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false), [wholeWord, setWholeWord] = useState(false);
   const [replace, setReplace] = useState(request.replace && !readOnly);
@@ -14,33 +14,53 @@ export function NoteFind({ editor, request, readOnly, onClose }: { editor: Edito
   const field = useRef<HTMLInputElement>(null), bookmark = useRef<SelectionBookmark>(editor.state.selection.getBookmark());
   const scroll = useRef(editor.view.dom.closest<HTMLElement>(".document-scroll"));
   const scrollTop = useRef(scroll.current?.scrollTop || 0);
-  const [message, setMessage] = useState("");
+  const wasOpen = useRef(false);
+  const [replaced, setReplaced] = useState<number | null>(null);
   const hasOriginal = useMemo(() => { let found = false; editor.state.doc.descendants(node => { if (node.type.name === "sourceFile") found = true; }); return found; }, [editor.state.doc]);
   useEffect(() => {
     const transaction = ({ transaction }: { transaction: Transaction }) => {
       bookmark.current = bookmark.current.map(transaction.mapping);
+      if (transaction.docChanged) setReplaced(null);
       setState(searchKey.getState(editor.state)!);
     };
     editor.on("transaction", transaction);
     return () => { editor.off("transaction", transaction); if (!editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta(searchKey, emptySearch)); };
   }, [editor]);
   useEffect(() => {
+    if (!open) { wasOpen.current = false; editor.view.dispatch(editor.state.tr.setMeta(searchKey, emptySearch)); return; }
+    if (!wasOpen.current) {
+      bookmark.current = editor.state.selection.getBookmark();
+      scrollTop.current = scroll.current?.scrollTop || 0;
+    }
+    wasOpen.current = true;
+    setReplaced(null);
     setReplace(request.replace && !readOnly);
     if (request.query !== undefined) setQuery(request.query);
     field.current?.focus({ preventScroll: true }); field.current?.select();
-  }, [request.serial, readOnly]);
+  }, [request.serial, readOnly, open, editor]);
   useEffect(() => {
+    if (!open) return;
     const timer = setTimeout(() => {
       editor.view.dispatch(editor.state.tr.setMeta(searchKey, { query, caseSensitive, wholeWord, near: editor.state.selection.from }));
       if (request.query !== undefined) navigate(0);
     }, 100);
     return () => clearTimeout(timer);
-  }, [editor, query, caseSensitive, wholeWord]);
+  }, [editor, query, caseSensitive, wholeWord, open]);
   function navigate(delta: number) {
     const current = searchKey.getState(editor.state)!;
     if (!current.matches.length) return;
     const index = (current.index + delta + current.matches.length) % current.matches.length, match = current.matches[index];
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, match.from, match.to)).setMeta(searchKey, { index }).scrollIntoView());
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, match.from, match.to)).setMeta(searchKey, { index }));
+    const container = scroll.current;
+    if (container) {
+      const bounds = container.getBoundingClientRect();
+      const strip = container.querySelector('.note-controls');
+      const top = Math.max(bounds.top, strip?.getBoundingClientRect().bottom || bounds.top) + 12;
+      const bottom = bounds.bottom - 12;
+      const start = editor.view.coordsAtPos(match.from), end = editor.view.coordsAtPos(match.to);
+      if (start.top < top) container.scrollTop += start.top - top;
+      else if (end.bottom > bottom) container.scrollTop += end.bottom - bottom;
+    }
   }
   function dismiss() {
     editor.view.dispatch(editor.state.tr.setSelection(bookmark.current.resolve(editor.state.doc)).setMeta(searchKey, emptySearch));
@@ -63,32 +83,32 @@ export function NoteFind({ editor, request, readOnly, onClose }: { editor: Edito
     editor.view.dispatch(transaction);
     // Isolate each replace operation from both earlier typing and the next edit.
     editor.view.dispatch(closeHistory(editor.state.tr));
-    setMessage(`${targets.length} ${targets.length === 1 ? "match" : "matches"} replaced.`);
+    setReplaced(targets.length);
   }
   const pending = state.query !== query || state.caseSensitive !== caseSensitive || state.wholeWord !== wholeWord;
-  return <section className="note-find" aria-label="Find in note" onKeyDown={event => {
+  return <div className={`quiet-disclosure find-disclosure${open ? " is-open" : ""}`} inert={!open} aria-hidden={!open} onTransitionEnd={event => { if (open && event.target === event.currentTarget && event.propertyName === 'grid-template-rows') navigate(0); }}><div><section className="note-find" aria-label="Find in note" onKeyDown={event => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); dismiss(); }
     if (event.key === "Enter" && event.target === field.current) { event.preventDefault(); navigate(event.shiftKey ? -1 : 1); }
   }}>
     <div className="find-row">
-      <input ref={field} aria-label="Find text" placeholder="Find in note" value={query} onChange={event => { setQuery(event.target.value); setMessage(""); }} />
-      <span className="find-count" role="status">{pending ? "Searching…" : !query ? "Enter text" : state.matches.length ? `${state.index + 1} of ${state.matches.length}` : "No matches"}</span>
+      <input ref={field} aria-label="Find text" placeholder="Find in note" value={query} onChange={event => { setQuery(event.target.value); setReplaced(null); }} />
+      <span className={`find-count${query && !pending && !state.matches.length ? ' no-results' : ''}`} role="status">{!query ? '' : pending ? 'Searching…' : state.matches.length ? `${state.index + 1} of ${state.matches.length}` : 'No results'}</span>
       <button aria-label="Previous match" title="Previous match (Shift+Enter)" disabled={pending || !state.matches.length} onClick={() => navigate(-1)}><CaretUp size={18} /></button>
       <button aria-label="Next match" title="Next match (Enter)" disabled={pending || !state.matches.length} onClick={() => navigate(1)}><CaretDown size={18} /></button>
       <button aria-label="Close find" title="Close find (Escape)" onClick={dismiss}><X size={18} /></button>
     </div>
     <div className="find-options">
-      <label><input type="checkbox" checked={caseSensitive} onChange={event => setCaseSensitive(event.target.checked)} />Match case</label>
-      <label><input type="checkbox" checked={wholeWord} onChange={event => setWholeWord(event.target.checked)} />Whole word</label>
-      {!readOnly && <button aria-expanded={replace} onClick={() => setReplace(value => !value)}>Replace</button>}
+      <button className="find-option" aria-label="Match case" title="Match case (Space to toggle)" aria-pressed={caseSensitive} onClick={() => setCaseSensitive(value => !value)}>Aa</button>
+      <button className="find-option whole-word" aria-label="Whole word" title="Whole word (Space to toggle)" aria-pressed={wholeWord} onClick={() => setWholeWord(value => !value)}>ab</button>
+      {!readOnly && <button className="replace-toggle" aria-expanded={replace} aria-controls="note-replace-controls" onClick={() => setReplace(value => !value)}>Replace <CaretDown size={16} className={replace ? "is-open" : ""} /></button>}
       {readOnly && <span>Read-only note</span>}
     </div>
-    {replace && !readOnly && <div className="find-row replace-row">
+    {!readOnly && <div className={`quiet-disclosure${replace ? " is-open" : ""}`} inert={!replace}><div><div id="note-replace-controls" className="find-row replace-row">
       <input aria-label="Replace with" placeholder="Replace with" value={replacement} onChange={event => setReplacement(event.target.value)} />
-      <button disabled={pending || !state.matches.length} onClick={() => replaceMatches(false)}>Replace next</button>
+      <button disabled={pending || !state.matches.length} aria-label="Replace next" onClick={() => replaceMatches(false)}>Replace</button>
       <button disabled={pending || !state.matches.length} onClick={() => replaceMatches(true)}>Replace all</button>
-    </div>}
+    </div></div></div>}
     {hasOriginal && <p className="find-hint">Original file contents are excluded. Find searches this note’s text and annotations.</p>}
-    {message && <p className="find-hint" role="status">{message}</p>}
-  </section>;
+    {replaced !== null && <p className="find-hint replacement-status" role="status">Replaced {replaced} · <button onClick={() => { editor.commands.undo(); setReplaced(null); }}> <ArrowCounterClockwise size={14} />Undo</button></p>}
+  </section></div></div>;
 }

@@ -55,10 +55,8 @@ export const NoteSearch = Extension.create({
             if (index < 0 && matches.length) index = 0;
           }
           index = matches.length ? Math.max(0, Math.min(index, matches.length - 1)) : -1;
-          // Bound painting independently of match counting/navigation in very large notes.
-          const start = Math.max(0, index - 500);
-          const decorations = DecorationSet.create(transaction.doc, matches.slice(start, start + 1000).map((match, i) =>
-            Decoration.inline(match.from, match.to, { class: start + i === index ? "find-match find-current" : "find-match" })));
+          const decorations = DecorationSet.create(transaction.doc, matches.map((match, i) =>
+            Decoration.inline(match.from, match.to, { class: i === index ? "find-match find-current" : "find-match" })));
           return { ...options, matches, index, decorations };
         },
       },

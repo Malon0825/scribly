@@ -19,6 +19,7 @@ export function InkLayer({ editor, surface, settings, toggleMode, exit, onStatus
   useEffect(() => {
     const svg = layer.current, wrapper = surface.current;
     if (!svg || !wrapper) return;
+    const scroll = wrapper.closest<HTMLElement>('.document-scroll');
     const saved = document.createElementNS(svgNS, "g"), preview = document.createElementNS(svgNS, "path");
     preview.classList.add("ink-stroke"); preview.setAttribute("fill", "none"); svg.replaceChildren(saved, preview);
     let session: Stroke | null = null, frame = 0, wheel = 0, lastWheel = 0;
@@ -36,7 +37,7 @@ export function InkLayer({ editor, surface, settings, toggleMode, exit, onStatus
     }
     function draw() {
       frame = 0;
-      const bounds = wrapper!.getBoundingClientRect();
+      const bounds = svg!.getBoundingClientRect();
       svg!.setAttribute("viewBox", `0 0 ${bounds.width} ${bounds.height}`);
       if (session) path(selectedPoints().map(p => ({ x: p.x - bounds.left, y: p.y - bounds.top })), live.current.color, preview, live.current.tool === "draw", live.current.width, live.current.tool === "draw" && live.current.mode === "free" && live.current.smooth);
     }
@@ -44,7 +45,15 @@ export function InkLayer({ editor, surface, settings, toggleMode, exit, onStatus
     redraw.current = schedule;
     function refresh() {
       saved.replaceChildren();
-      const bounds = wrapper!.getBoundingClientRect(), font = parseFloat(getComputedStyle(editor.view.dom).fontSize) || 17;
+      const surfaceBounds = wrapper!.getBoundingClientRect();
+      const scrollBounds = scroll?.getBoundingClientRect();
+      const elementScale = parseFloat(getComputedStyle(wrapper!).getPropertyValue('--element-scale')) || 1;
+      // Leave paper margins for annotations without changing the text measure.
+      const margin = scrollBounds ? Math.max(0, Math.min(32 * elementScale,
+        surfaceBounds.left - scrollBounds.left - 8,
+        scrollBounds.right - surfaceBounds.right - 8)) : 0;
+      svg!.style.setProperty('--ink-margin', `${margin}px`);
+      const bounds = svg!.getBoundingClientRect(), font = parseFloat(getComputedStyle(editor.view.dom).fontSize) || 17;
       const targets = new Set<HTMLElement>();
       let inkBottom = 0;
       const scale = parseFloat(getComputedStyle(editor.view.dom).getPropertyValue("--text-scale")) || 1;
@@ -143,6 +152,7 @@ export function InkLayer({ editor, surface, settings, toggleMode, exit, onStatus
     window.addEventListener("blur", cancel); document.addEventListener("keydown", key); document.addEventListener("scroll", scrolled, true);
     editor.on("transaction", edited);
     const observer = new ResizeObserver(() => { if (session) cancel(); refresh(); }); observer.observe(wrapper); observer.observe(editor.view.dom);
+    if (scroll) observer.observe(scroll);
     refresh();
     return () => { redraw.current = () => {}; cancel(); cancelAnimationFrame(frame); observer.disconnect(); editor.off("transaction", edited);
       svg.removeEventListener("pointerdown", down); svg.removeEventListener("pointermove", move); svg.removeEventListener("pointerup", up);

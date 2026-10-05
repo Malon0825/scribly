@@ -1573,7 +1573,7 @@ export default function App() {
                       append.current = fn;
                     }}
                   />}
-                  <details className="item-backlinks"><summary>Backlinks ({backlinks(workspace.notes,active.id).length})</summary><div aria-label="Backlinks">{backlinks(workspace.notes,active.id).map(note => <div key={note.id}><button onClick={() => openLinkedItem(note.id)}>{note.title || "Untitled"}{note.archived ? " · Archived" : ""}</button><button disabled={!isLiveItem(note)} aria-label={`Open ${note.title} in Reference`} onClick={() => openLinkedItem(note.id,true)}><BookOpen size={17} /></button></div>)}{!backlinks(workspace.notes,active.id).length && <p>No other notes or boards link here yet.</p>}</div></details>
+                  {backlinks(workspace.notes,active.id).length > 0 && <details className="item-backlinks"><summary>Backlinks ({backlinks(workspace.notes,active.id).length})</summary><div aria-label="Backlinks">{backlinks(workspace.notes,active.id).map(note => <div key={note.id}><button onClick={() => openLinkedItem(note.id)}>{note.title || "Untitled"}{note.archived ? " · Archived" : ""}</button><button disabled={!isLiveItem(note)} aria-label={`Open ${note.title} in Reference`} onClick={() => openLinkedItem(note.id,true)}><BookOpen size={17} /></button></div>)}{!backlinks(workspace.notes,active.id).length && <p>No other notes or boards link here yet.</p>}</div></details>}
                   {checkedCount > 0 && !active.deletedAt && !active.archived && (
                     <div className="weekly-bar">
                       <span>
