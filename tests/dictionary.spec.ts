@@ -10,7 +10,7 @@ const fixture: Workspace = {
   ],
 };
 const entry = (word: string) => [{ word, phonetic: "/test/", meanings: [{ partOfSpeech: "adjective", synonyms: ["radiant"], antonyms: ["dim"], definitions: [{ definition: `Definition of ${word}.`, example: `A ${word} morning.`, synonyms: [], antonyms: [] }] }], sourceUrls: [`https://en.wiktionary.org/wiki/${word}`], license: { name: "CC BY-SA 3.0", url: "https://creativecommons.org/licenses/by-sa/3.0/" } }];
-async function open(page: Page, theme: "light" | "dark" = "light", bundled = false) {
+async function open(page: Page, theme: "light" | "dark" | "notebook" = "light", bundled = false) {
   // Exercise the online fallback separately from the real bundled dataset.
   if (!bundled) await page.route(/\/dictionary\/[a-z_]{2}\.json$/, route => route.fulfill({ json: {} }));
   await page.addInitScript(workspace => localStorage.setItem("still-notes-browser-v1", JSON.stringify({ revision: 1, document: workspace, dataPath: "Test" })), { ...fixture, theme });
@@ -27,7 +27,7 @@ async function select(page: Page, word: "Bright" | "calm") {
 }
 const panel = (page: Page) => page.getByRole("complementary", { name: "Dictionary panel", exact: true });
 
-for (const theme of ["light", "dark"] as const) test(`word selection preserves writing and Reference in ${theme}`, async ({ page }) => {
+for (const theme of ["light", "dark", "notebook"] as const) test(`word selection preserves writing and Reference in ${theme}`, async ({ page }) => {
   await page.route("https://api.dictionaryapi.dev/**", route => route.fulfill({ json: entry(route.request().url().split("/").pop()!) }));
   await open(page, theme);
   if (theme === "dark") {

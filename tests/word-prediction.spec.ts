@@ -4,7 +4,7 @@ const stamp = "2026-10-05T00:00:00Z";
 const fixture: Workspace = { theme: "light", activeId: "first", referenceId: "first", folders: [], notes: [{ id: "first", title: "Predictions", folderId: null, archived: false, content: "<p>We drink</p>", createdAt: stamp, updatedAt: stamp }] };
 const editor = (page: Page) => page.getByRole("textbox", { name: "Note content", exact: true });
 const ghost = (page: Page) => page.locator(".document-editor .prediction-ghost-text");
-async function open(page: Page, content = "<p>We drink</p>", theme: "light" | "dark" = "light") {
+async function open(page: Page, content = "<p>We drink</p>", theme: "light" | "dark" | "notebook" = "light") {
   await page.addInitScript(workspace => { if (!localStorage.getItem("still-notes-browser-v1")) localStorage.setItem("still-notes-browser-v1", JSON.stringify({ revision: 1, document: workspace, dataPath: "Test" })); }, { ...fixture, theme, notes: [{ ...fixture.notes[0], content }] });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(editor(page)).toBeVisible();
@@ -14,7 +14,7 @@ async function saved(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem("still-notes-browser-v1")!).document.notes[0].content as string);
 }
 
-for (const theme of ["light", "dark"] as const) test(`inline suggestion stays out of saving; Tab inserts once and Undo restores in ${theme}`, async ({ page }) => {
+for (const theme of ["light", "dark", "notebook"] as const) test(`inline suggestion stays out of saving; Tab inserts once and Undo restores in ${theme}`, async ({ page }) => {
   const requests: URL[] = [];
   await page.route("https://api.datamuse.com/**", route => { requests.push(new URL(route.request().url())); return route.fulfill({ json: [{ word: "water", score: 900 }, { word: "wine", score: 800 }] }); });
   await open(page, undefined, theme); await page.keyboard.type(" ");
