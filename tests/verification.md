@@ -1,5 +1,12 @@
 # Verification history
 
+## Scribly 1.4.1 release published, 2026-10-06
+
+Publication scope: user authorized publishing the combined installer built from `1106d1e`. Created `v1.4.1` at that source revision and published as the latest stable release with updated `docs/releases/v1.4.1.md` notes. No rebuild or tests run.
+
+- GitHub asset sizes and SHA-256 digests matched the local installer, checksum file and LICENSE before publication. Installer: 66,691,389 bytes; SHA-256 `d7db8faa3778ca9f78a38cb91bfdbea6b47a629d374d158f9ca4244b3ffa9201`.
+- `gh release edit v1.4.1 --repo Malon0825/scribly --draft=false --latest` succeeded. Latest-release API confirmed tag `v1.4.1`, draft false, prerelease false and all three assets. Release: https://github.com/Malon0825/scribly/releases/tag/v1.4.1. Existing runtime/installer verification limits remain as recorded below.
+
 ## Combined 1.4.1 installer, 2026-10-06
 
 Source revision `1106d1e` on `main`, including the dictionary, clipboard and recoverable Trash changes. Committed and pushed to `origin/main` at the user's request.
