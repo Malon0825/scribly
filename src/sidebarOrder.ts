@@ -1,7 +1,9 @@
 import { isTemplate, type Workspace } from "./types";
+import { trashFolder, trashItem } from "./trash";
 
 export type SidebarItem = { kind: "folder" | "note"; id: string };
 export type SidebarDrop =
+  | { kind: "trash"; id: null }
   | { kind: "folder-order" | "note-order"; id: string; after: boolean }
   | { kind: "folder"; id: string | null };
 
@@ -11,9 +13,10 @@ export function applySidebarDrop(
   item: SidebarItem,
   target: SidebarDrop,
 ): Workspace {
+  if (target.kind === "trash") return item.kind === "folder" ? trashFolder(workspace, item.id) : trashItem(workspace, item.id);
   if (item.kind === "folder") {
     if (target.kind !== "folder-order" || item.id === target.id) return workspace;
-    const folder = workspace.folders.find((f) => f.id === item.id);
+    const folder = workspace.folders.find((f) => f.id === item.id && !f.deletedAt);
     const folders = workspace.folders.filter((f) => f.id !== item.id);
     const index = folders.findIndex((f) => f.id === target.id);
     if (!folder || index < 0) return workspace;
@@ -31,7 +34,7 @@ export function applySidebarDrop(
       (target.kind === "note-order" && (!anchor || isTemplate(anchor) || anchor.archived || anchor.deletedAt || anchor.id === note.id)))
     return workspace;
   const folderId = target.kind === "folder" ? target.id : anchor!.folderId;
-  if (folderId !== null && !workspace.folders.some((f) => f.id === folderId))
+  if (folderId !== null && !workspace.folders.some((f) => f.id === folderId && !f.deletedAt))
     return workspace;
 
   const notes = workspace.notes.filter((n) => n.id !== item.id);

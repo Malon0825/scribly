@@ -1,5 +1,44 @@
 # Verification history
 
+## Recoverable Trash replaces Archive, 2026-10-06
+
+Working-tree scope based on `0ec512a`, alongside the existing unpublished dictionary/clipboard changes: replaced Archive and Earlier deletions with Trash, migrated archived items on load/import, retained deleted folder metadata and contents, added folder/item restoration and confirmed Clear Trash, and accepted native sidebar note/folder drops with an interruptible, critically damped lid animation and runtime reduced-motion support. Capture/import/new-item destinations exclude trashed folders; portable backups retain folder deletion state. Updated the user guide.
+
+- Final `npm run build`: passed after fixing a nullable folder ID captured by a state updater; existing Vite large-chunk advisory remains. `git diff --check`: passed. Reviewed source/diffs for folder restoration, purge references, backup metadata and destination filtering.
+- No tests added or run, per the user's request. Drag/drop, persistence/recovery, restoration, permanent clearing, keyboard interaction, animation, themes and native WebView2 behavior remain untested for this change. No installer rebuilt or release published.
+- Follow-up in the same working-tree scope: `App.tsx` opens the Trash lid for the entire note/folder drag, with the existing hover highlight indicating the drop target. Final `npm run build` passed (existing chunk-size advisory); `git diff --check` passed. Production preview rebuilt. No tests or runtime interaction checks run, as requested.
+
+## Plain-text section breaks retained, 2026-10-06
+
+Working-tree scope based on `0ec512a`, extending the unpublished dictionary/list-marker changes: `src/clipboardText.ts` now separates different top-level sections with a single blank line. Headings stay attached to following lists; items within each list stay consecutive. Existing blank paragraphs or boundary line breaks supply the gap without an added separator. Original numbering, checkbox states, nesting, partial selections and rich HTML remain.
+
+- `PLAYWRIGHT_PORT=1427 npm test -- tests/clipboard.spec.ts --workers=1 --timeout=60000`: 3 passed against revised exact expected text, covering section breaks, compact/nested/numbered/task lists, explicit blank lines, hard breaks, code indentation, partial selection, Reference copy, rich HTML, cut/Undo and saved reload. No unrelated suites run. Native clipboard and external-app paste were not directly tested. Publication remains on hold.
+- Final `npm run build` and `git diff --check`: passed; existing Vite large-chunk advisory remains. Production preview updated; no native installer rebuilt.
+
+## Plain-text list markers retained, 2026-10-05
+
+Working-tree scope based on `0ec512a`, extending the unpublished compact-clipboard fix: `src/clipboardText.ts` reads selected text blocks at their original document positions to include bullet markers, ordered-list start/index values, task checkbox states and nested indentation without recursive block spacing. Fully selected list paragraphs get markers; partial text selections do not. `NoteEditor.tsx` uses this serializer for both writing and Reference; rich HTML remains unchanged.
+
+- `PLAYWRIGHT_PORT=1427 npm test -- tests/clipboard.spec.ts --workers=1 --timeout=60000`: 3 passed for compact marked-up lists, blank lines/code/hard breaks, rich HTML, Reference, cut/Undo and saved reload. Added a non-default numbered-list start plus assertions for copying a later numbered item and a partial word; focused `--grep "copy keeps lists"` rerun passed. Earlier Reference/cut evidence reused after the fixture-only changes. Native OS clipboard and Discord/Notepad paste were not directly tested. Release remains on hold.
+- Final `npm run build`: passed; existing Vite large-chunk advisory remains. `git diff --check` passed. Updated production frontend is available on the existing port 1426 preview; refresh to load it. No native installer rebuilt or release published.
+
+## Compact plain-text clipboard, 2026-10-05
+
+Working-tree scope based on `0ec512a`, alongside the unpublished dictionary fix: `NoteEditor.tsx` now uses ProseMirror's fragment text serializer with one newline between text blocks rather than Tiptap's recursive separators for every list container/item/paragraph. Rich HTML serialization stays unchanged; explicit blank paragraphs, hard breaks and code indentation remain.
+
+- Added `tests/clipboard.spec.ts` with heading/bullet/nested/ordered/task-list, hard-break, blank-paragraph and multiline-code fixtures. `PLAYWRIGHT_PORT=1427 npm test -- tests/clipboard.spec.ts --workers=1 --timeout=60000`: Reference copy and cut/Undo/save/reload passed after correcting the test to target the actual editor surface and allowing its selection observer to run. Copy case initially compared transient node-view DOM attributes; switched to content comparison. Focused `--grep "copy keeps lists"` rerun passed, including exact compact output and partial selection/rich HTML. Three distinct cases passed across final runs; prior failures were harness/fixture expectations, including the editor's automatic trailing paragraph after code.
+- Exercised browser copy/cut handlers with ClipboardEvent/DataTransfer. Native OS clipboard, Discord and Notepad paste were not directly exercised. No release published, per the user's hold instruction.
+- Final `npm run build`: passed after the clipboard edit; existing Vite large-chunk advisory remains. `git diff --check` passed. Combined source/frontend is ready for review; no combined native installer was rebuilt after the clipboard addition.
+
+## Online dictionary provider fix, 2026-10-05
+
+Working-tree scope based on `0ec512a`: replaces the failing `api.dictionaryapi.dev` online fallback with `freedictionaryapi.com`, maps its English senses/subsenses and pronunciation data, preserves source/license attribution and local WordNet behavior, updates Tauri's exact network allowlist, and replaces the misleading connection-error text. Version metadata synchronized to 1.4.1.
+
+- Live HTTP probes: previous provider returned HTTP 522 for `awd` and `hello`; replacement returned HTTP 200 (empty entries for `awd`, definitions for `hello`) with CORS allowing `http://tauri.localhost`.
+- `PLAYWRIGHT_PORT=1424 npm test -- tests/dictionary.spec.ts --workers=2`: 4 passed, 3 initial failures (two Undo/save checks hit the 30-second development-preview limit; the new attribution check missed automatic selection). Focused rerun of the two existing Light/Dark cases with `--workers=1 --timeout=60000`: both passed. New attribution test changed to explicit form lookup and applies the configured desktop CSP; `PLAYWRIGHT_PORT=1425 npm test -- tests/dictionary.spec.ts --grep "online senses" --workers=1 --timeout=60000`: passed after replacing an unsupported test-runner JSON import. Seven distinct cases passed across these runs, including replacement/Undo/save in all themes, formatting, offline WordNet, cancellation, retry/cache, 404 and empty-result handling. No unrelated suites run.
+- Playwright CLI against the production frontend at port 1426: actual HTTP 200 online responses rendered missing-word state for `awd` and definitions/pronunciation/examples/Wiktionary/license/provider attribution for an online-only word. CSP behavior covered by the focused mocked case; live CORS covered by HTTP probe. No native WebView2 runtime or install/upgrade checks performed.
+- `npm run package` passed for the dictionary-only revision (TypeScript/Vite, optimized Rust, NSIS). User added the clipboard fix and requested no publication during that build. Its intermediate installer is retained in ignored `release/build-1.4.1-dictionary-only/`; it does not contain the subsequent clipboard change and is not a combined release candidate. GitHub remains at 1.4.0. The temporary live-browser folder was retained because automatic approval review blocked recursive cleanup; it is outside the repository.
+
 ## Scribly 1.4.0 release published, 2026-10-05
 
 Publication-only scope on `ca15e09`: published the existing `v1.4.0` tag (installer source revision `5a1872f`) as the latest stable GitHub release, using `docs/releases/v1.4.0.md`. No app code or installer was rebuilt.

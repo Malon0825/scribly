@@ -22,7 +22,7 @@ Write a Mermaid flowchart, preview it, and create an editable Excalidraw board. 
 
 ## Find your words
 
-Select an English word or open **Dictionary** to explore definitions, synonyms, and antonyms beside your note. WordNet 3.1 provides on-device lookup; unlisted words can use the Free Dictionary API online. Click a synonym or antonym to replace the selected word, and undo it normally.
+Select an English word or open **Dictionary** to explore definitions, synonyms, and antonyms beside your note. WordNet 3.1 provides on-device lookup; unlisted words can use [FreeDictionaryAPI.com](https://freedictionaryapi.com/) online, with [Wiktionary](https://en.wiktionary.org/) content under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Click a synonym or antonym to replace the selected word, and undo it normally.
 
 ![Scribly's built-in WordNet dictionary showing an offline definition of imagination](docs/images/dictionary.webp)
 
@@ -52,6 +52,8 @@ To update, export a backup in Settings, close Scribly, and run the newer install
 - Autosave locally and export/import portable notebook backups.
 
 See the [user guide](docs/user-guide.md) for shortcuts and feature limits, and [version 1.4.0 notes](docs/releases/v1.4.0.md) for the dictionary, suggestions, and Notebook theme. New notebooks start with an Introduction folder and a getting-started note. Existing notebooks are preserved.
+
+[Version 1.4.1](docs/releases/v1.4.1.md) fixes online dictionary lookup when the previous provider is unavailable.
 
 ## Your data
 

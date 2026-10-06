@@ -13,6 +13,7 @@ import { drainCaptureForShutdown, openNativeCapture, subscribeCaptureOpen } from
 import { AppSelect } from "./AppSelect";
 import { ActionPopover } from "./ActionPopover";
 import { AnimatedIcon } from "./AnimatedIcon";
+import { TrashIcon } from "./TrashIcon";
 import { normalizeAppearance, elementSizes, noteFonts } from "./appearance";
 import { useWorkspace } from "./useWorkspace";
 import { useAppIcon } from "./useAppIcon";
@@ -38,7 +39,7 @@ import { emptyBoard, portableBoard, validateBoard, type BoardData } from "./boar
 import { BoardBoundary } from "./BoardBoundary";
 import { NotepadImportDialog } from "./NotepadImportDialog";
 import { mergeNotepadTabs, notepadSourceName, type NotepadSource, type NotepadTab } from "./notepadImport";
-import { trashItem, restoreTrashItem, purgeTrash } from "./trash";
+import { trashItem, trashFolder, restoreTrashItem, restoreTrashFolder, purgeTrash } from "./trash";
 import { checkpointHistory, historyRestoration } from "./history";
 import { HistoryDialog } from "./HistoryDialog";
 import { BackupSettings } from "./BackupSettings";
@@ -59,7 +60,6 @@ type Modal =
   | { kind: "folder"; id?: string }
   | { kind: "delete"; id: string }
   | { kind: "emptyTrash" }
-  | { kind: "removeFolder"; id: string }
   | { kind: "importResults"; imported: number; failures: string[] }
   | null;
 function ShortcutList() {
@@ -146,7 +146,7 @@ export default function App() {
     new Set(["work", "data"]),
   );
   const [query, setQuery] = useState(""),
-    [view, setView] = useState<"notes" | "unfiled" | "archive" | "trash">("notes");
+    [view, setView] = useState<"notes" | "unfiled" | "trash">("notes");
   const [modal, setModal] = useState<Modal>(null),
     [folderName, setFolderName] = useState("");
   const [menu, setMenu] = useState(false),
@@ -172,6 +172,7 @@ export default function App() {
   const sidebarDrag = useSidebarDrag({
     workspace,
     update,
+    reorderNotes: notebookView.sort === 'manual' && notebookView.filter === 'all',
     reveal: (folderId) => {
       if (folderId) setExpanded((s) => new Set([...s, folderId]));
       setView(folderId === null ? "unfiled" : "notes");
@@ -212,9 +213,9 @@ export default function App() {
     setBoardSearch(current => current?.id === active?.id ? current : null);
   }, [active?.id]);
   const insertImages = useRef<(files: File[], point?: { left: number; top: number }) => void>(() => {});
-  const fileDrop = useFileDrop(view === "archive" ? null : active?.folderId || null,
+  const fileDrop = useFileDrop(view === "trash" ? null : active?.folderId || null,
     (files, folder) => { void importFiles(files, folder); },
-    active && !isBoard(active) ? (files, point) => insertImages.current(files, point) : undefined);
+    active && isLiveItem(active) && !isBoard(active) ? (files, point) => insertImages.current(files, point) : undefined);
   const referenceNote = workspace?.notes.find(
     (n) => n.id === workspace.referenceId && isLiveItem(n),
   );
@@ -229,7 +230,6 @@ export default function App() {
     if (workspace && !initialViewSet.current) {
       initialViewSet.current = true;
       if (active?.deletedAt) setView("trash");
-      else if (active?.archived) setView("archive");
       if (active?.folderId) setExpanded(s => new Set([...s, active.folderId!]));
     }
   }, [workspace, active?.archived, active?.deletedAt]);
@@ -351,7 +351,7 @@ export default function App() {
               added = parsed.backup.notes.length;
               next = { ...next, activeId: w.activeId };
             } else {
-              if (folder && !w.folders.some((f) => f.id === folder)) throw Error("The destination folder was removed. Choose a folder again.");
+              if (folder && !w.folders.some((f) => f.id === folder && !f.deletedAt)) throw Error("The destination folder was removed. Choose a folder again.");
               const time = new Date().toISOString();
               nextId = crypto.randomUUID();
               const item = { id: nextId, title: parsed.title, content: parsed.kind === "board" ? "" : parsed.content,
@@ -515,6 +515,7 @@ export default function App() {
     const id = crypto.randomUUID();
     newNoteFocus.current = id;
     if (!update((w) => {
+      if (folderId && !w.folders.some(folder => folder.id === folderId && !folder.deletedAt)) folderId = null;
       const naming = title === undefined ? defaultNoteTitle(w, folderId, created) : { title };
       const templateId = templateChoice?.id || (title === undefined && content === undefined ? w.folders.find(folder => folder.id === folderId)?.templateId : undefined);
       const template = templateId ? w.notes.find(note => note.id === templateId && isTemplate(note)) : undefined;
@@ -532,7 +533,8 @@ export default function App() {
     setView("notes");
     setQuery("");
     if (notebookView.filter === 'boards') changeNotebookView({ filter: 'all' });
-    if (folderId) setExpanded((s) => new Set([...s, folderId]));
+    const createdFolder = folderId;
+    if (createdFolder) setExpanded((s) => new Set([...s, createdFolder]));
   }
   function patchNote(id: string, patch: Partial<Note>) {
     return update((w) => ({
@@ -549,6 +551,7 @@ export default function App() {
     const created = new Date();
     const now = created.toISOString(), id = crypto.randomUUID();
     if (!update((w) => {
+      if (folderId && !w.folders.some(folder => folder.id === folderId && !folder.deletedAt)) folderId = null;
       const naming = title === undefined ? defaultNoteTitle(w, folderId, created) : { title };
       return { ...w, schemaVersion: w.schemaVersion || 2, notes: [...w.notes, { id, folderId, kind: "board", board, ...naming, content: "", createdAt: now, updatedAt: now, archived: false }], activeId: id };
     })) {
@@ -557,7 +560,8 @@ export default function App() {
     }
     setView("notes"); setQuery(""); setFolderMenu(null); setMenu(false); setNoteMenuId(null);
     if (notebookView.filter === 'notes') changeNotebookView({ filter: 'all' });
-    if (folderId) setExpanded((s) => new Set([...s, folderId]));
+    const createdFolder = folderId;
+    if (createdFolder) setExpanded((s) => new Set([...s, createdFolder]));
   }
   function duplicateItem(item: Note) {
     if (!isBoard(item)) { createNote(item.folderId, `${item.title} (copy)`, item.content,item.id); return; }
@@ -566,7 +570,7 @@ export default function App() {
     catch (e) { notify(`Board could not be duplicated: ${String(e)}`); return; }
     if (!isBoard(current)) return;
     const copy: Note = { ...current, id: crypto.randomUUID(), title: `${current.title} (copy)`, archived: false, pinned: false, deletedAt: undefined, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), board: JSON.parse(JSON.stringify(current.board)) };
-    update((w) => ({ ...w, notes: [...w.notes, remapItemLinks(copy,new Map([[item.id,copy.id]]))], activeId: copy.id }));
+    update((w) => ({ ...w, notes: [...w.notes, remapItemLinks({ ...copy, folderId: w.folders.some(folder => folder.id === copy.folderId && !folder.deletedAt) ? copy.folderId : null },new Map([[item.id,copy.id]]))], activeId: copy.id }));
   }
   function requestLink(insert: (note: Note) => void, cancel: () => void) {
     setMenu(false); setFolderMenu(null); setNoteMenuId(null); setLinkPicker({ insert,cancel });
@@ -608,7 +612,7 @@ export default function App() {
     if (!update((w) => recordOpened({ ...w, activeId: n.id }))) return;
     setSidebarMenu(null);
     if (n.folderId) setExpanded((s) => new Set([...s, n.folderId!]));
-    setView(n.deletedAt ? "trash" : n.archived ? "archive" : "notes");
+    setView(n.deletedAt ? "trash" : "notes");
     if (!matchesNote(n, '', notebookView.filter)) changeNotebookView({ filter: 'all' });
     setMenu(false);
     setNoteMenuId(null);
@@ -713,49 +717,20 @@ export default function App() {
       setMenu(false); setNoteMenuId(null); setFolderMenu(null);
     } catch (reason) { notify(`Export could not be opened: ${String(reason)}`); }
   }
-  function archiveNote(note: Note) {
-    if (note.deletedAt) { restoreFromTrash(note); return; }
-    if (!update((w) => {
-      const remaining = w.notes.filter((n) =>
-        n.id !== note.id && !n.archived && !n.deletedAt && matches(n) &&
-        (view !== "unfiled" || n.folderId === null),
-      );
-      return {
-        ...w,
-        notes: w.notes.map((n) =>
-          n.id === note.id
-            ? {
-                ...n,
-                archived: !note.archived,
-                updatedAt: new Date().toISOString(),
-              }
-            : n,
-        ),
-        activeId: note.archived ? note.id : w.activeId !== note.id ? w.activeId :
-          remaining.find((n) => n.folderId === note.folderId)?.id || remaining[0]?.id || "",
-        referenceId:
-          !note.archived && w.referenceId === note.id ? null : w.referenceId,
-      };
-    })) return;
-    if (note.archived) {
-      setView(note.folderId ? "notes" : "unfiled");
-      setQuery("");
-      if (note.folderId) setExpanded((s) => new Set([...s, note.folderId!]));
-    }
-    setMenu(false);
-    setNoteMenuId(null);
-    notify(
-      note.archived
-        ? `${isBoard(note) ? "Board" : "Note"} restored.`
-        : `${isBoard(note) ? "Board" : "Note"} archived. You can restore it from Archive.`,
-    );
+  function moveToTrash(note: Note) {
+    if (!update(w => trashItem(w, note.id))) return;
+    setMenu(false); setNoteMenuId(null);
+    notify("Moved to Trash. You can restore it anytime.");
   }
-  function openArchive() {
-    if (!update((w) => ({ ...w, activeId: w.notes.find((n) => n.archived && !n.deletedAt)?.id || "" }))) return;
-    setView("archive");
-    setQuery("");
-    setMenu(false);
-    setNoteMenuId(null);
+  function moveFolderToTrash(id: string) {
+    if (!update(w => trashFolder(w, id))) return;
+    setFolderMenu(null);
+    notify("Folder and its contents moved to Trash.");
+  }
+  function restoreFolder(id: string) {
+    if (!update(w => restoreTrashFolder(w, id))) return;
+    setView("notes"); setQuery(""); setExpanded(values => new Set([...values, id]));
+    notify("Folder restored.");
   }
   function confirmDelete(note: Note) {
     setModal({ kind: "delete", id: note.id });
@@ -768,7 +743,7 @@ export default function App() {
       const next = restoreTrashItem(w,note.id);
       return previousReference === note.id && !note.archived ? { ...next, referenceId: note.id } : next;
     })) return;
-    setView(note.archived ? "archive" : note.folderId ? "notes" : "unfiled"); setQuery("");
+    setView(note.folderId ? "notes" : "unfiled"); setQuery("");
     if (note.folderId) setExpanded(values => new Set([...values,note.folderId!]));
     setMenu(false); setNoteMenuId(null); notify("Item restored.");
   }
@@ -886,8 +861,8 @@ export default function App() {
     >
       <button
         className="note-select"
-        {...sidebarDrag.dragProps({ kind: "note", id: n.id }, !n.archived && !n.deletedAt && notebookView.sort === 'manual' && notebookView.filter === 'all')}
-        title={`${n.title || 'Untitled'}${isLiveItem(n) ? ' · Alt+click to show as reference. Use manual order with All items to drag or reorder.' : ''}`}
+        {...sidebarDrag.dragProps({ kind: "note", id: n.id }, !n.archived && !n.deletedAt)}
+        title={`${n.title || 'Untitled'}${isLiveItem(n) ? ' · Alt+click to show as reference. Drag to a folder or Trash. Use manual order with All items to reorder.' : ''}`}
         aria-current={active?.id === n.id ? "page" : undefined}
         aria-label={n.title || 'Untitled'}
         onMouseDown={event => { if (event.altKey) preserveDocumentFocus(event); }}
@@ -927,14 +902,7 @@ export default function App() {
         <ActionPopover anchor={actionAnchor.current} label="Note actions" className="sidebar-note-dropdown" onClose={() => setNoteMenuId(null)}>
           {!n.archived && !n.deletedAt && <button onClick={() => togglePin(n)}><PushPin size={18} />{n.pinned ? "Unpin item" : "Pin item"}</button>}
           {!isBoard(n) && <button onClick={() => { selectNote(n); openFind(n); }}>Find in note</button>}
-          <button onClick={() => archiveNote(n)}>
-            {n.archived ? (
-              <AnimatedIcon kind="undo" size={18} />
-            ) : (
-              <AnimatedIcon kind="archive" size={18} />
-            )}
-            {n.deletedAt ? "Restore item" : n.archived ? `Restore ${isBoard(n) ? "board" : "note"}` : `Archive ${isBoard(n) ? "board" : "note"}`}
-          </button>
+          {n.deletedAt && <button onClick={() => restoreFromTrash(n)}><AnimatedIcon kind="undo" size={18} />Restore item</button>}
           {!n.archived && !n.deletedAt && (
             <button
               onClick={() => showReference(n)}
@@ -944,9 +912,9 @@ export default function App() {
             </button>
           )}
           {!n.deletedAt && <button onClick={() => void openHistory(n)}>Version history</button>}
-          <button className="danger-text" onClick={() => confirmDelete(n)}>
+          <button className="danger-text" onClick={() => n.deletedAt ? confirmDelete(n) : moveToTrash(n)}>
             <Trash size={18} />
-            Delete permanently
+            {n.deletedAt ? "Delete permanently" : "Move to Trash"}
           </button>
         </ActionPopover>
       )}
@@ -1202,7 +1170,7 @@ export default function App() {
             </div>
             {(notebookView.sort !== 'manual' || notebookView.filter !== 'all') && <p className="navigation-hint">Use All items and Manual order to reorder notes.</p>}
             <p id="sidebar-drag-help" className="sr-only">
-              Drag folders to reorder. Drag notes between notes or onto a folder to move them.
+              Drag folders to reorder. Drag notes between notes or onto a folder to move them. Drop a note or folder on Trash to keep it there until restored or cleared.
               Use Alt plus Up or Down to reorder; on notes, Alt plus Shift plus Up or Down changes folder.
             </p>
             <div className="sr-only" role="status" aria-live="polite">{sidebarAnnouncement}</div>
@@ -1212,14 +1180,13 @@ export default function App() {
             >
               <div className="section-label">
                 <span>
-                  {view === "trash" ? "Earlier deletions" : view === "archive"
-                    ? "Archived items"
+                  {view === "trash" ? "Trash"
                     : query
                       ? "Search results"
                       : "Folders"}
                 </span>
                 <div className="section-actions">
-                {view !== "archive" && view !== "trash" && (
+                {view !== "trash" && (
                   <button
                     className="icon-button"
                     aria-label="New folder"
@@ -1239,7 +1206,7 @@ export default function App() {
                   if (note) selectNote(note, false);
                   setView("unfiled");
                 }}><FileText size={18} /><span>Unfiled notes</span>{count(null) > 0 && <span className="nav-count">{count(null)}</span>}</button>
-                {workspace.notes.some(note => note.deletedAt) && <button className={view === "trash" ? "nav-active" : ""} onClick={openTrash}><AnimatedIcon kind="undo" size={18} /><span>Earlier deletions</span><span className="nav-count">{workspace.notes.filter(note => note.deletedAt).length}</span></button>}
+
                 <button className="shortcut-heading" aria-expanded={pinsExpanded} onClick={() => setPinsExpanded(value => !value)}><PushPin size={18} /><span>Pinned</span><CaretDown size={14} className={pinsExpanded ? "" : "collapsed-caret"} /></button>
                 {pinsExpanded && <div className="notebook-shortcuts" aria-label="Pinned items">
                   {workspace.notes.some(note => note.pinned && isLiveItem(note)) ? workspace.notes.filter(note => note.pinned && isLiveItem(note)).map(note => <button key={note.id} className="shortcut-select" aria-current={active?.id === note.id ? "page" : undefined} onClick={() => { setQuery(""); selectNote(note, false); }}>{isBoard(note) ? <AnimatedIcon kind="board" size={18} /> : <FileText size={18} />}<span>{note.title || "Untitled"}</span></button>) : <p className="shortcut-empty">Pin items from their options menu.</p>}
@@ -1250,26 +1217,17 @@ export default function App() {
                   {!(workspace.recentIds || []).some(id => workspace.notes.some(note => note.id === id && isLiveItem(note))) && <p className="shortcut-empty">Open a note to find it here.</p>}
                 </div>}
               </ActionPopover>}
-              {(view === "unfiled" || view === "trash") && <div className="sidebar-location"><span>{view === "unfiled" ? "Unfiled notes" : "Earlier deletions"}</span><button onClick={() => { setView("notes"); setQuery(""); }}>All folders</button></div>}
-              {view === "trash" ? <div className="loose-notes">
-                <p className="empty-search">These items were retained by an earlier version. Restore them or delete them permanently.</p>
-                <p className="empty-search">{workspace.notes.filter(note => note.deletedAt).length} items · {(new Blob([JSON.stringify(workspace.notes.filter(note => note.deletedAt))]).size / 1024 / 1024).toFixed(2)} MiB of note/board data, plus saved originals and attachment files.</p>
-                <button className="danger-text" disabled={!workspace.notes.some(note => note.deletedAt)} onClick={() => setModal({ kind: "emptyTrash" })}>Delete all permanently…</button>
-                {workspace.notes.filter(note => note.deletedAt && matches(note)).map(renderNote)}
-                {!workspace.notes.some(note => note.deletedAt && matches(note)) && <p className="empty-search">{query ? "No earlier deletions match your search." : "No earlier deletions."}</p>}
-              </div> : view === "archive" ? (
+              {(view === "unfiled" || view === "trash") && <div className="sidebar-location"><span>{view === "unfiled" ? "Unfiled notes" : "Trash"}</span><button onClick={() => { setView("notes"); setQuery(""); }}>All folders</button></div>}
+              {view === "trash" ? (
                 <div className="loose-notes">
-                  {orderNotes(workspace.notes
-                    .filter((n) => n.archived && !n.deletedAt && matches(n))
-                    , notebookView.sort)
-                    .map(renderNote)}
-                  {!workspace.notes.some((n) => n.archived && !n.deletedAt && matches(n)) && (
-                    <p className="empty-search">
-                      {query
-                        ? "No archived notes match your search."
-                        : "No archived notes yet."}
-                    </p>
-                  )}
+                  <p className="empty-search">Restore items anytime, or clear Trash to delete them permanently.</p>
+                  <button className="danger-text" disabled={!workspace.notes.some(note => note.deletedAt) && !workspace.folders.some(folder => folder.deletedAt)} onClick={() => setModal({ kind: "emptyTrash" })}>Clear Trash…</button>
+                  {workspace.folders.filter(folder => folder.deletedAt).map(folder => <div className="trash-folder" key={folder.id}>
+                    <div className="trash-folder-heading"><AnimatedIcon kind="folder" size={20} /><span>{folder.name}</span><button onClick={() => restoreFolder(folder.id)}>Restore folder</button></div>
+                    {workspace.notes.filter(note => note.folderId === folder.id && note.deletedAt && matches(note)).map(renderNote)}
+                  </div>)}
+                  {workspace.notes.filter(note => note.deletedAt && !workspace.folders.some(folder => folder.id === note.folderId && folder.deletedAt) && matches(note)).map(renderNote)}
+                  {!workspace.notes.some(note => note.deletedAt && matches(note)) && !workspace.folders.some(folder => folder.deletedAt) && <p className="empty-search">{query ? "No Trash items match your search." : "Trash is empty."}</p>}
                 </div>
               ) : query ? (
                 <div className="search-results">
@@ -1279,7 +1237,7 @@ export default function App() {
                   )}
                 </div>
               ) : (
-                workspace.folders.map((folder) => (
+                workspace.folders.filter(folder => !folder.deletedAt).map((folder) => (
                   <div
                     data-file-folder={folder.id}
                     className={`folder-group${sidebarDrag.dropClass("folder-order", folder.id)}${sidebarDrag.dropClass("folder", folder.id)}${!fileDrop.target?.note && fileDrop.target?.folder === folder.id ? " drop-folder" : ""}`}
@@ -1360,7 +1318,7 @@ export default function App() {
                               className="folder-copy-option"
                               aria-pressed={!!folder.copyLastNote}
                               aria-label="Copy last note"
-                              title="New notes copy the most recently created non-archived note in this folder, including formatting and checklist states."
+                              title="New notes copy the most recently created active note in this folder, including formatting and checklist states."
                               onClick={() => {
                                 update((w) => ({
                                   ...w,
@@ -1378,18 +1336,7 @@ export default function App() {
                                 <small>Start new notes with its content</small>
                               </span>
                             </button>
-                            <button
-                              className="danger-text"
-                              onClick={() => {
-                                setModal({
-                                  kind: "removeFolder",
-                                  id: folder.id,
-                                });
-                                setFolderMenu(null);
-                              }}
-                            >
-                              Remove folder
-                            </button>
+                            <button className="danger-text" onClick={() => moveFolderToTrash(folder.id)}><Trash size={18} />Move folder to Trash</button>
                           </ActionPopover>
                         )}
                       </div>
@@ -1413,7 +1360,7 @@ export default function App() {
                   </div>
                 ))
               )}
-              {view !== 'archive' && !query.trim() && notebookView.filter !== 'all' && !workspace.notes.some(visible) &&
+              {view !== 'trash' && !query.trim() && notebookView.filter !== 'all' && !workspace.notes.some(visible) &&
                 <p className="empty-search">No {notebookView.filter} yet. Choose All items to see your notebook.</p>}
               {view === "unfiled" && !query && (
                 <div className="loose-notes">
@@ -1432,20 +1379,16 @@ export default function App() {
             </div>}
             <nav className="sidebar-bottom">
               <button
-                className={view === "archive" ? "nav-active" : ""}
-                onClick={openArchive}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  openArchive();
-                }}
+                className={`trash-target${view === "trash" ? " nav-active" : ""}${sidebarDrag.dropClass("trash", null)}`}
+                {...sidebarDrag.dropProps({ kind: "trash", id: null })}
+                onClick={openTrash}
+                title={sidebarDrag.dragging ? "Drop to move to Trash" : "Trash"}
+                aria-label="Trash"
+                onContextMenu={e => { e.preventDefault(); openTrash(); }}
               >
-                <AnimatedIcon kind="archive" size={25} />
-                <span>Archive</span>
-                {workspace.notes.some((n) => n.archived && !n.deletedAt) && (
-                  <span className="nav-count">
-                    {workspace.notes.filter((n) => n.archived && !n.deletedAt).length}
-                  </span>
-                )}
+                <TrashIcon open={sidebarDrag.dragging !== null} />
+                <span>{sidebarDrag.trashHovered ? "Drop into Trash" : "Trash"}</span>
+                {(workspace.notes.filter(note => note.deletedAt).length + workspace.folders.filter(folder => folder.deletedAt).length) > 0 && <span className="nav-count">{workspace.notes.filter(note => note.deletedAt).length + workspace.folders.filter(folder => folder.deletedAt).length}</span>}
               </button>
               <button aria-label="Settings" onClick={() => setModal({ kind: "settings" })}>
                 <AnimatedIcon kind="settings" size={26} />
@@ -1531,7 +1474,7 @@ export default function App() {
                                 setMenu(false);
                               }}
                               onCloseFocus={() => (document.querySelector<HTMLElement>('.move-folder-picker') || actionAnchor.current)?.focus({ preventScroll: true })}
-                              options={[{ value: "", label: "Unfiled notes" }, ...workspace.folders.map((folder) => ({ value: folder.id, label: folder.name }))]} /></>}
+                              options={[{ value: "", label: "Unfiled notes" }, ...workspace.folders.filter(folder => !folder.deletedAt).map((folder) => ({ value: folder.id, label: folder.name }))]} /></>}
                             <button
                               onClick={() => {
                                 duplicateItem(active);
@@ -1554,33 +1497,18 @@ export default function App() {
                               <AnimatedIcon kind="download" size={18} />
                               Export {isBoard(active) ? "drawing" : "as text"}
                             </button>
-                            <button onClick={() => archiveNote(active)}>
-                              {active.archived ? (
-                                <AnimatedIcon kind="undo" size={18} />
-                              ) : (
-                                <AnimatedIcon kind="archive" size={18} />
-                              )}{" "}
-                              {active.deletedAt ? "Restore item" : active.archived
-                                ? `Restore ${isBoard(active) ? "board" : "note"}`
-                                : `Archive ${isBoard(active) ? "board" : "note"}`}
-                            </button>
-                            <button
-                              className="danger-text"
-                              onClick={() => confirmDelete(active)}
-                            >
-                              <Trash size={18} />
-                              Delete permanently
-                            </button>
+                            {active.deletedAt && <button onClick={() => restoreFromTrash(active)}><AnimatedIcon kind="undo" size={18} />Restore item</button>}
+                            <button className="danger-text" onClick={() => active.deletedAt ? confirmDelete(active) : moveToTrash(active)}><Trash size={18} />{active.deletedAt ? "Delete permanently" : "Move to Trash"}</button>
                             {!active.deletedAt && <button onClick={() => void openHistory(active)}>Version history</button>}
                           </ActionPopover>
                       )}
                     </div>
                   </div>
                   {(active.archived || active.deletedAt) && (
-                    <div className="archive-banner">
-                      <AnimatedIcon kind="archive" size={18} />
-                      <span>This {isBoard(active) ? "board" : "note"} is {active.deletedAt ? "previously deleted" : "archived"}.</span>
-                      <button onClick={() => archiveNote(active)}>
+                    <div className="trash-banner">
+                      <Trash size={18} />
+                      <span>This {isBoard(active) ? "board" : "note"} is in Trash.</span>
+                      <button onClick={() => restoreFromTrash(active)}>
                         <AnimatedIcon kind="undo" size={16} />
                         {active.deletedAt ? "Restore item" : `Restore ${isBoard(active) ? "board" : "note"}`}
                       </button>
@@ -1610,7 +1538,7 @@ export default function App() {
                       append.current = fn;
                     }}
                   />}
-                  {backlinks(workspace.notes,active.id).length > 0 && <details className="item-backlinks"><summary>Backlinks ({backlinks(workspace.notes,active.id).length})</summary><div aria-label="Backlinks">{backlinks(workspace.notes,active.id).map(note => <div key={note.id}><button onClick={() => openLinkedItem(note.id)}>{note.title || "Untitled"}{note.archived ? " · Archived" : ""}</button><button disabled={!isLiveItem(note)} aria-label={`Open ${note.title} in Reference`} onClick={() => openLinkedItem(note.id,true)}><BookOpen size={17} /></button></div>)}{!backlinks(workspace.notes,active.id).length && <p>No other notes or boards link here yet.</p>}</div></details>}
+                  {backlinks(workspace.notes,active.id).length > 0 && <details className="item-backlinks"><summary>Backlinks ({backlinks(workspace.notes,active.id).length})</summary><div aria-label="Backlinks">{backlinks(workspace.notes,active.id).map(note => <div key={note.id}><button onClick={() => openLinkedItem(note.id)}>{note.title || "Untitled"}{note.deletedAt ? " · In Trash" : ""}</button><button disabled={!isLiveItem(note)} aria-label={`Open ${note.title} in Reference`} onClick={() => openLinkedItem(note.id,true)}><BookOpen size={17} /></button></div>)}{!backlinks(workspace.notes,active.id).length && <p>No other notes or boards link here yet.</p>}</div></details>}
                   {checkedCount > 0 && !active.deletedAt && !active.archived && (
                     <div className="weekly-bar">
                       <span>
@@ -1657,13 +1585,13 @@ export default function App() {
               <div className="empty-document">
                 <FileText size={46} />
                 <h1>
-                  {view === "archive"
-                    ? "Your archive is empty."
+                  {view === "trash"
+                    ? "Your Trash is empty."
                     : "A little space to think."}
                 </h1>
                 <p>
-                  {view === "archive"
-                    ? "Archived notes appear here. Restore them anytime or delete them permanently."
+                  {view === "trash"
+                    ? "Items in Trash can be restored anytime until you clear it."
                     : "Create a note and make it your own."}
                 </p>
                 <button className="primary" onClick={() => createNote(null)}>
@@ -1784,7 +1712,7 @@ export default function App() {
         }} />}
         {restorePreview && <BackupRestoreDialog backup={restorePreview} onClose={() => { restoreGeneration.current++; setRestorePreview(null); }} onRestore={restoreNotebook} />}
         {linkPicker && <ItemLinkPicker notes={workspace.notes} onClose={closeLinkPicker} onInsert={note => { const pending = linkPicker; setLinkPicker(null); pending.insert(note); }} onOpen={(id,reference) => { closeLinkPicker(); openLinkedItem(id,reference); }} />}
-        {linkAction && (() => { const target = workspace.notes.find(note => note.id === linkAction.id && !isTemplate(note)); const close = () => { const restore = linkAction.restore; setLinkAction(null); restore(); }; return <ActionPopover anchor={linkAction.anchor} label="Item link options" className="note-dropdown" onClose={close}><span className="menu-label">{target?.title || "Missing item"}{target?.deletedAt ? " · Previously deleted" : target?.archived ? " · Archived" : ""}</span><button disabled={!target} onClick={() => { const id = linkAction.id; setLinkAction(null); openLinkedItem(id); }}>Open</button><button disabled={!target || !isLiveItem(target)} onClick={() => { const id = linkAction.id; close(); openLinkedItem(id,true); }}>Open in Reference</button>{(!target || !isLiveItem(target)) && <span className="menu-label">{target ? "Restore before opening in Reference." : "Target unavailable. The link is retained."}</span>}</ActionPopover>; })()}
+        {linkAction && (() => { const target = workspace.notes.find(note => note.id === linkAction.id && !isTemplate(note)); const close = () => { const restore = linkAction.restore; setLinkAction(null); restore(); }; return <ActionPopover anchor={linkAction.anchor} label="Item link options" className="note-dropdown" onClose={close}><span className="menu-label">{target?.title || "Missing item"}{target?.deletedAt ? " · In Trash" : ""}</span><button disabled={!target} onClick={() => { const id = linkAction.id; setLinkAction(null); openLinkedItem(id); }}>Open</button><button disabled={!target || !isLiveItem(target)} onClick={() => { const id = linkAction.id; close(); openLinkedItem(id,true); }}>Open in Reference</button>{(!target || !isLiveItem(target)) && <span className="menu-label">{target ? "Restore before opening in Reference." : "Target unavailable. The link is retained."}</span>}</ActionPopover>; })()}
         {templatesDialog && <TemplateDialog mode={templatesDialog.mode} source={templatesDialog.source} notes={workspace.notes} onClose={() => setTemplatesDialog(null)} onSave={saveTemplate} onDelete={id => { update(w => removeTemplate(w,id)); notify("Template deleted. Existing notes are unchanged."); }} onCreate={(id,title,reset) => { createNote(templatesDialog.folderId,undefined,undefined,undefined,{ id,title,reset }); setTemplatesDialog(null); }} />}
         {formattedExport && <Suspense fallback={<div role="status" className="toast">Opening export…</div>}><ExportDialog notes={formattedExport.notes} scope={formattedExport.scope} returnFocus={() => formattedExport.returnTo} onClose={() => setFormattedExport(null)} onNotice={notify} /></Suspense>}
         {captureOpen && <Dialog title="Quick capture" className="workflow-dialog quick-capture-dialog" returnFocus={() => captureReturnTo.current}
@@ -1803,9 +1731,7 @@ export default function App() {
                     : "New folder"
                   : modal.kind === "importResults"
                     ? "Import results"
-                  : modal.kind === "removeFolder"
-                    ? "Remove folder?"
-                    : modal.kind === "emptyTrash" ? "Delete earlier items permanently?"
+                  : modal.kind === "emptyTrash" ? "Clear Trash permanently?"
                     : `Delete this ${isBoard(workspace.notes.find(note => note.id === modal.id)) ? "board" : "note"} permanently?`
             }
             className={modal.kind === 'settings' ? 'settings-dialog' : undefined}
@@ -1879,9 +1805,7 @@ export default function App() {
             ) : (
               <>
                 <p className="modal-subtitle">
-                  {modal.kind === "removeFolder"
-                    ? "Notes in this folder will move to Unfiled notes."
-                    : modal.kind === "emptyTrash" ? "All earlier deleted items and their retained version history will be permanently removed. Recovery files and attachments are reclaimed conservatively. Existing portable backups remain available. This cannot be undone."
+                  {modal.kind === "emptyTrash" ? "All items and folders in Trash and their retained version history will be permanently removed. Recovery files and attachments are reclaimed conservatively. Existing portable backups remain available. This cannot be undone."
                     : `“${workspace.notes.find((n) => n.id === modal.id)?.title || "Untitled"}” will be permanently removed. This cannot be undone. You can export a backup first in Settings.`}
                 </p>
                 <div className="dialog-actions">
@@ -1889,25 +1813,14 @@ export default function App() {
                   <button
                     className="danger-button"
                     onClick={() => {
-                      if (modal.kind === "removeFolder") {
-                        if (!update((w) => ({
-                          ...w,
-                          folders: w.folders.filter((f) => f.id !== modal.id),
-                          notes: w.notes.map((n) =>
-                            n.folderId === modal.id
-                              ? { ...n, folderId: null }
-                              : n,
-                          ),
-                        }))) return;
-                        notify("Folder removed. Notes moved to Unfiled.");
-                      } else if (modal.kind === "delete" || modal.kind === "emptyTrash") {
+                      if (modal.kind === "delete" || modal.kind === "emptyTrash") {
                         if (!update(w => {
-                          if (modal.kind === "emptyTrash") return purgeTrash(w);
+                          if (modal.kind === "emptyTrash") return { ...purgeTrash(w), activeId: view === "trash" ? "" : w.activeId };
                           const item = w.notes.find(note => note.id === modal.id);
                           if (!item) return w;
                           const next = purgeTrash(trashItem(w, item.id), item.id);
                           if (w.activeId !== item.id) return next;
-                          const eligible = next.notes.filter(note => matches(note) && (view === "trash" ? !!note.deletedAt : view === "archive" ? note.archived && !note.deletedAt : isLiveItem(note) && (view !== "unfiled" || note.folderId === null)));
+                          const eligible = next.notes.filter(note => matches(note) && (view === "trash" ? !!note.deletedAt : isLiveItem(note) && (view !== "unfiled" || note.folderId === null)));
                           return { ...next, activeId: eligible.find(note => note.folderId === item.folderId)?.id || eligible[0]?.id || "" };
                         })) return;
                         notify("Permanently deleted. Saving…");
@@ -1915,9 +1828,7 @@ export default function App() {
                       setModal(null);
                     }}
                   >
-                    {modal.kind === "removeFolder"
-                      ? "Remove folder"
-                      : modal.kind === "emptyTrash" ? "Delete all permanently"
+                    {modal.kind === "emptyTrash" ? "Clear Trash"
                       : "Delete permanently"}
                   </button>
                 </div>

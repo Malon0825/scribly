@@ -59,7 +59,7 @@ export async function compactImages<T extends { notes: Workspace["notes"] }>(doc
   return changed ? { ...document, notes, schemaVersion: (document as { schemaVersion?: number }).schemaVersion === 5 ? 5 : (document as { schemaVersion?: number }).schemaVersion === 4 ? 4 : 3 } : document;
 }
 export function attachmentSchema(document: Workspace): Workspace {
-  if (document.schemaVersion === 5 || document.notes.some(n => n.deletedAt)) return document.schemaVersion === 5 ? document : { ...document, schemaVersion: 5 };
+  if (document.schemaVersion === 5 || document.notes.some(n => n.deletedAt) || document.folders.some(folder => folder.deletedAt)) return document.schemaVersion === 5 ? document : { ...document, schemaVersion: 5 };
   if (document.notes.some(n => n.content.includes("data-notify-source"))) return document.schemaVersion === 4 ? document : { ...document, schemaVersion: 4 };
   if (document.schemaVersion === 4) return document;
   return document.schemaVersion !== 3 && document.notes.some(n => attachmentIds(n.content).length > 0)

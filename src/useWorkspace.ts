@@ -8,6 +8,7 @@ import { RecoveryStorage } from "./recoveryStorage";
 import { validateWorkspace } from "./workspaceValidation";
 import { attachmentSchema, compactImages, pruneAttachments } from "./attachments";
 import { normalizeNavigation, recordOpened } from "./itemNavigation";
+import { migrateArchiveToTrash } from "./trash";
 export function useWorkspace() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [status, setStatus] = useState<
@@ -158,7 +159,7 @@ export function useWorkspace() {
       } catch {
         warn("A damaged draft is kept in recovery storage. The latest database copy is open.");
       }
-      const restored = recordOpened(attachmentSchema(await compactImages(doc || initialWorkspace())));
+      const restored = recordOpened(migrateArchiveToTrash(attachmentSchema(await compactImages(doc || initialWorkspace()))));
       validateWorkspace(restored);
       if (!mounted.current || generation !== loadGeneration.current) return;
       latest.current = restored;
@@ -182,7 +183,7 @@ export function useWorkspace() {
   const update = useCallback((updater: (w: Workspace) => Workspace) => {
     const current = checkpoint();
     if (!current) return;
-    let next = normalizeNavigation(attachmentSchema(updater(current)));
+    let next = normalizeNavigation(migrateArchiveToTrash(attachmentSchema(updater(current))));
     if (next.activeId !== current.activeId || !current.notes.some(note => note.id === next.activeId && !note.archived && !note.deletedAt)) next = recordOpened(next);
     if (next === latest.current) return;
     try {

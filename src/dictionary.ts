@@ -60,35 +60,43 @@ export async function lookupWord(word: string, signal: AbortSignal): Promise<Dic
     cache.set(normalized, local);
     return local;
   }
-  const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(normalized)}`, { signal, credentials: "omit", referrerPolicy: "no-referrer" });
+  const response = await fetch(`https://freedictionaryapi.com/api/v1/entries/en/${encodeURIComponent(normalized)}`, { signal, credentials: "omit", referrerPolicy: "no-referrer" });
   if (response.status === 404) return [];
   if (!response.ok) throw new Error("Dictionary unavailable");
-  const data: unknown = await response.json();
-  if (!Array.isArray(data)) throw new Error("Invalid dictionary response");
-  const entries: DictionaryEntry[] = data.map(value => {
-    const item = record(value), license = record(item.license);
-    const phonetic = typeof item.phonetic === "string" ? item.phonetic : array(item.phonetics).map(value => record(value).text).find(value => typeof value === "string");
-    return {
-      provider: "Wiktionary" as const,
-      word: typeof item.word === "string" ? item.word : normalized,
-      phonetic: typeof phonetic === "string" ? phonetic : "",
-      source: strings(item.sourceUrls).map(httpsUrl).find(Boolean) || `https://en.wiktionary.org/wiki/${encodeURIComponent(normalized)}`,
-      license: typeof license.name === "string" && httpsUrl(license.url) ? { name: license.name, url: httpsUrl(license.url)! } : undefined,
-      meanings: array(item.meanings).map(value => {
-        const meaning = record(value);
-        return {
-          partOfSpeech: typeof meaning.partOfSpeech === "string" ? meaning.partOfSpeech : "Meaning",
-          synonyms: strings(meaning.synonyms), antonyms: strings(meaning.antonyms),
-          definitions: array(meaning.definitions).map(value => {
-            const definition = record(value);
-            return { definition: typeof definition.definition === "string" ? definition.definition : "", example: typeof definition.example === "string" ? definition.example : undefined, synonyms: strings(definition.synonyms), antonyms: strings(definition.antonyms) };
-          }).filter(value => value.definition),
-        };
-      }).filter(value => value.definitions.length),
-    };
-  }).filter(value => value.meanings.length);
-  if (!entries.length) throw new Error("Invalid dictionary response");
+  const data = record(await response.json());
+  if (!Array.isArray(data.entries)) throw new Error("Invalid dictionary response");
+  // This provider returns a successful response with no entries for an unlisted word.
+  if (!data.entries.length) return [];
+  const source = record(data.source), license = record(source.license);
+  const lexicalEntries = data.entries.map(record).filter(item => record(item.language).code === "en");
+  const meanings: DictionaryMeaning[] = lexicalEntries.map(item => ({
+    partOfSpeech: typeof item.partOfSpeech === "string" ? item.partOfSpeech : "Meaning",
+    synonyms: strings(item.synonyms), antonyms: strings(item.antonyms),
+    definitions: dictionarySenses(item.senses),
+  })).filter(meaning => meaning.definitions.length);
+  if (!meanings.length) throw new Error("Invalid dictionary response");
+  const phonetic = lexicalEntries.flatMap(item => array(item.pronunciations).map(record))
+    .find(pronunciation => pronunciation.type === "ipa" && typeof pronunciation.text === "string");
+  const entries: DictionaryEntry[] = [{
+    provider: "Wiktionary",
+    word: typeof data.word === "string" ? data.word : normalized,
+    phonetic: typeof phonetic?.text === "string" ? phonetic.text : "",
+    source: httpsUrl(source.url) || `https://en.wiktionary.org/wiki/${encodeURIComponent(normalized)}`,
+    license: typeof license.name === "string" && httpsUrl(license.url) ? { name: license.name, url: httpsUrl(license.url)! } : undefined,
+    meanings,
+  }];
   if (cache.size >= 100) cache.delete(cache.keys().next().value!);
   cache.set(normalized, entries);
   return entries;
+}
+
+function dictionarySenses(value: unknown): DictionaryMeaning["definitions"] {
+  return array(value).flatMap(value => {
+    const sense = record(value);
+    const definitions = typeof sense.definition === "string" && sense.definition ? [{
+      definition: sense.definition, example: strings(sense.examples).join(" · ") || undefined,
+      synonyms: strings(sense.synonyms), antonyms: strings(sense.antonyms),
+    }] : [];
+    return [...definitions, ...dictionarySenses(sense.subsenses)];
+  });
 }

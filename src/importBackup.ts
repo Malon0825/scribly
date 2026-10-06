@@ -112,11 +112,13 @@ export function parseBackup(
       typeof f.name !== "string" ||
       (f.copyLastNote !== undefined && typeof f.copyLastNote !== "boolean") ||
       (f.templateId !== undefined && typeof f.templateId !== "string") ||
+      (f.deletedAt !== undefined && (v.schemaVersion !== 5 || typeof f.deletedAt !== "string" || !Number.isFinite(Date.parse(f.deletedAt)))) ||
       folderIds.has(f.id)
     )
       throw Error("Invalid folder in backup.");
     folderIds.add(f.id);
     return { id: f.id, name: f.name,
+      ...(f.deletedAt !== undefined ? { deletedAt: f.deletedAt } : {}),
       ...(f.copyLastNote !== undefined ? { copyLastNote: f.copyLastNote } : {}),
       ...(f.templateId !== undefined ? { templateId:f.templateId } : {}),
     };
@@ -168,7 +170,7 @@ export function mergeBackup(
   const folderMap = new Map<string, string>(), itemMap = new Map(backup.notes.map(note => [note.id,crypto.randomUUID()])),
     folders = [...current.folders];
   for (const f of backup.folders) {
-    const existing = folders.find((e) => e.name === f.name);
+    const existing = folders.find((e) => !e.deletedAt && !f.deletedAt && e.name === f.name);
     const id = existing?.id || crypto.randomUUID();
     folderMap.set(f.id, id);
     if (!existing) folders.push({ ...f, id, ...(f.templateId ? { templateId:itemMap.get(f.templateId) } : {}) });

@@ -37,7 +37,7 @@ export function DictionaryPanel({ word, onWord, onRelatedWord, onExternalLink }:
       <div className="dictionary-heading"><span className="dictionary-eyebrow">ENGLISH DICTIONARY</span><h2>{word}</h2>{current.entries[0]?.phonetic && <p>{current.entries[0].phonetic}</p>}</div>
       {current.status === "loading" && <p role="status" className="dictionary-muted">Looking up “{word}”…</p>}
       {current.status === "missing" && <div role="status"><h3>No entry found</h3><p className="dictionary-muted">Try the base form or check the spelling. Names and technical terms may not be listed.</p></div>}
-      {current.status === "error" && <div role="alert"><h3>Couldn’t reach the dictionary</h3><p className="dictionary-muted">Check your connection and try again.</p><button className="dictionary-retry" onClick={() => setRetry(value => value + 1)}><ArrowClockwise size={17} />Try again</button></div>}
+      {current.status === "error" && <div role="alert"><h3>Dictionary lookup unavailable</h3><p className="dictionary-muted">The service may be unavailable or the request timed out. Try again shortly.</p><button className="dictionary-retry" onClick={() => setRetry(value => value + 1)}><ArrowClockwise size={17} />Try again</button></div>}
       {current.status === "ready" && current.entries.map((entry, entryIndex) => <div key={entryIndex}>
         {entry.meanings.map((meaning, index) => <section className="dictionary-meaning" key={index}>
           <h3>{meaning.partOfSpeech}</h3>
@@ -51,6 +51,6 @@ export function DictionaryPanel({ word, onWord, onRelatedWord, onExternalLink }:
         <div className="dictionary-attribution"><button onClick={() => onExternalLink(entry.source)}>{entry.provider} ↗</button>{entry.license && <button onClick={() => onExternalLink(entry.license!.url)}>{entry.license.name} ↗</button>}</div>
       </div>)}
     </>}
-    <p className="dictionary-footnote">Select another word to continue exploring.<br />{current.entries[0]?.provider === "WordNet" ? "WordNet 3.1 · On-device lookup" : "WordNet offline · Online fallback for unlisted words"}<br />{(!word || current.entries[0]?.provider !== "WordNet") && <span>Online lookup sends only the word.<br /><button onClick={() => onExternalLink("https://dictionaryapi.dev/")}>Free Dictionary API ↗</button></span>}</p>
+    <p className="dictionary-footnote">Select another word to continue exploring.<br />{current.entries[0]?.provider === "WordNet" ? "WordNet 3.1 · On-device lookup" : "WordNet offline · Online fallback for unlisted words"}<br />{(!word || current.entries[0]?.provider !== "WordNet") && <span>Online lookup sends only the word.<br /><button onClick={() => onExternalLink("https://freedictionaryapi.com/")}>FreeDictionaryAPI.com ↗</button></span>}</p>
   </div>;
 }

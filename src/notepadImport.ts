@@ -21,7 +21,7 @@ export function existingNotepadTexts(workspace: Workspace, folderId: string | nu
 }
 export function notepadDuplicateIds(workspace: Workspace, tabs: NotepadTab[], destination: string, source: NotepadSource = "notepad") {
   const folder = destination === NEW_NOTEPAD_FOLDER
-    ? workspace.folders.find((f) => f.name === notepadFolderName(source))?.id ?? null : destination || null;
+    ? workspace.folders.find((f) => !f.deletedAt && f.name === notepadFolderName(source))?.id ?? null : destination || null;
   const existing = destination === NEW_NOTEPAD_FOLDER && !folder ? new Set<string>() : existingNotepadTexts(workspace, folder);
   return new Set(tabs.filter((tab) => existing.has(comparable(tab.text))).map((tab) => tab.id));
 }
@@ -29,9 +29,9 @@ export function mergeNotepadTabs(workspace: Workspace, tabs: NotepadTab[], desti
   let folderId = destination || null;
   let folders = workspace.folders;
   if (destination === NEW_NOTEPAD_FOLDER) {
-    folderId = folders.find((f) => f.name === notepadFolderName(source))?.id ?? crypto.randomUUID();
+    folderId = folders.find((f) => !f.deletedAt && f.name === notepadFolderName(source))?.id ?? crypto.randomUUID();
     if (!folders.some((f) => f.id === folderId)) folders = [...folders, { id: folderId, name: notepadFolderName(source) }];
-  } else if (folderId && !folders.some((f) => f.id === folderId)) {
+  } else if (folderId && !folders.some((f) => f.id === folderId && !f.deletedAt)) {
     throw Error("The destination folder was removed. Choose another folder.");
   }
   const existing = existingNotepadTexts(workspace, folderId);

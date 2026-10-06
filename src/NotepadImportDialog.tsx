@@ -15,7 +15,7 @@ export function NotepadImportDialog({ workspace, folderId, source = "notepad", o
   returnFocus: () => HTMLElement | null;
 }) {
   const name = notepadSourceName(source), folderName = notepadFolderName(source), plus = source === "notepadPlus";
-  const [destination, setDestination] = useState(folderId ?? workspace.folders.find((f) => f.name === folderName)?.id ?? NEW_NOTEPAD_FOLDER);
+  const [destination, setDestination] = useState(folderId ?? workspace.folders.find((f) => !f.deletedAt && f.name === folderName)?.id ?? NEW_NOTEPAD_FOLDER);
   const [scan, setScan] = useState<NotepadScan | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState("");
@@ -54,8 +54,8 @@ export function NotepadImportDialog({ workspace, folderId, source = "notepad", o
     </> : <>
       <label className="field-label" htmlFor="notepad-import-destination">Import into</label>
       <AppSelect id="notepad-import-destination" label="Notepad import destination" disabled={busy} value={destination} onChange={setDestination} options={[
-        ...(!workspace.folders.some((folder) => folder.name === folderName) ? [{ value: NEW_NOTEPAD_FOLDER, label: `Create ${folderName} folder` }] : []),
-        ...workspace.folders.map((folder) => ({ value: folder.id, label: folder.name })),
+        ...(!workspace.folders.some((folder) => !folder.deletedAt && folder.name === folderName) ? [{ value: NEW_NOTEPAD_FOLDER, label: `Create ${folderName} folder` }] : []),
+        ...workspace.folders.filter(folder => !folder.deletedAt).map((folder) => ({ value: folder.id, label: folder.name })),
         { value: "", label: "Unfiled notes" },
       ]} />
       <div className="notepad-scan-heading">

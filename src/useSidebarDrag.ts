@@ -6,12 +6,13 @@ const MIME = "application/x-still-notes-sidebar";
 const sameDrop = (a: SidebarDrop | null, b: SidebarDrop | null) =>
   JSON.stringify(a) === JSON.stringify(b);
 
-export function useSidebarDrag({ workspace, update, reveal, announce, begin }: {
+export function useSidebarDrag({ workspace, update, reveal, announce, begin, reorderNotes = true }: {
   workspace: Workspace | null;
   update: (updater: (w: Workspace) => Workspace) => void | boolean;
   reveal: (folderId: string | null) => void;
   announce: (message: string) => void;
   begin: () => void;
+  reorderNotes?: boolean;
 }) {
   const [dragging, setDragging] = useState<SidebarItem | null>(null);
   const [target, setTarget] = useState<SidebarDrop | null>(null);
@@ -49,7 +50,9 @@ export function useSidebarDrag({ workspace, update, reveal, announce, begin }: {
       announce("Move could not be applied. Resolve the notebook save error and retry.");
       return;
     }
-    if (item.kind === "note") {
+    if (destination.kind === "trash") {
+      announce(`${item.kind === "folder" ? "Folder and its contents" : "Item"} moved to Trash. Restore it from Trash anytime.`);
+    } else if (item.kind === "note") {
       const note = next.notes.find((n) => n.id === item.id)!;
       reveal(note.folderId);
       const folder = next.folders.find((f) => f.id === note.folderId)?.name || "Unfiled notes";
@@ -71,12 +74,13 @@ export function useSidebarDrag({ workspace, update, reveal, announce, begin }: {
     const note = workspace.notes.find((n) => n.id === item.id);
     if (item.kind === "note" && (!note || note.archived || note.deletedAt)) return;
     if (event.shiftKey && item.kind === "note") {
-      const folders = [...workspace.folders.map((f) => f.id), null];
+      const folders = [...workspace.folders.filter(f => !f.deletedAt).map((f) => f.id), null];
       const index = folders.indexOf(note!.folderId) + direction;
       if (index >= 0 && index < folders.length)
         commit(item, { kind: "folder", id: folders[index] }, true);
     } else {
-      const siblings = item.kind === "folder" ? workspace.folders
+      if (item.kind === "note" && !reorderNotes) return;
+      const siblings = item.kind === "folder" ? workspace.folders.filter(f => !f.deletedAt)
         : workspace.notes.filter((n) => isLiveItem(n) && n.folderId === note!.folderId);
       const neighbor = siblings[siblings.findIndex((s) => s.id === item.id) + direction];
       if (neighbor) commit(item, {
@@ -114,6 +118,8 @@ export function useSidebarDrag({ workspace, update, reveal, announce, begin }: {
   function destination(event: DragEvent<HTMLElement>, base: SidebarDrop): SidebarDrop | null {
     const item = source.current;
     if (!item || !event.dataTransfer.types.includes(MIME)) return null;
+    if (base.kind === "trash") return base;
+    if (base.kind === "note-order" && !reorderNotes) return null;
     if ((item.kind === "folder") !== (base.kind === "folder-order")) return null;
     if (base.kind !== "folder" && item.id === base.id) return null;
     if (base.kind === "folder") return base;
@@ -150,7 +156,7 @@ export function useSidebarDrag({ workspace, update, reveal, announce, begin }: {
 
   function dropClass(kind: SidebarDrop["kind"], id: string | null) {
     if (!target || target.kind !== kind || target.id !== id) return "";
-    return target.kind === "folder" ? " drop-folder" : target.after ? " drop-after" : " drop-before";
+    return target.kind === "trash" ? " drop-trash" : target.kind === "folder" ? " drop-folder" : target.after ? " drop-after" : " drop-before";
   }
 
   function scrollOnDrag(event: DragEvent<HTMLElement>) {
@@ -181,5 +187,5 @@ export function useSidebarDrag({ workspace, update, reveal, announce, begin }: {
     }
   }
 
-  return { dragging, dragProps, dropProps, dropClass, scrollOnDrag, leaveScroll };
+  return { dragging, trashHovered: target?.kind === "trash", dragProps, dropProps, dropClass, scrollOnDrag, leaveScroll };
 }

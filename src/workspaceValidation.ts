@@ -14,6 +14,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     if (!object(f) || typeof f.id !== "string" || !f.id || folders.has(f.id) || typeof f.name !== "string"
       || (f.copyLastNote !== undefined && typeof f.copyLastNote !== "boolean")) throw Error("Invalid or duplicate notebook folder.");
     folders.add(f.id);
+    if (f.deletedAt !== undefined && (value.schemaVersion !== 5 || typeof f.deletedAt !== "string" || !Number.isFinite(Date.parse(f.deletedAt)))) throw Error("Invalid Trash folder or notebook format.");
   }
   for (const n of value.notes) {
     if (!object(n) || typeof n.id !== "string" || !n.id || notes.has(n.id)

@@ -1,4 +1,5 @@
 import { AnimatedIcon } from "./AnimatedIcon";
+import { noteClipboardText } from "./clipboardText";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -140,6 +141,9 @@ export function NoteEditor({
     parseOptions: { preserveWhitespace: "full" },
     editable: !readOnly,
     editorProps: {
+      // Separate text blocks once; list containers must not add extra blank lines.
+      // HTML serialization stays unchanged for rich-text paste destinations.
+      clipboardTextSerializer: noteClipboardText,
       handlePaste: (view, event) => {
         if (readOnly) return false;
         const files = Array.from(event.clipboardData?.files || []).filter(isImageFile);

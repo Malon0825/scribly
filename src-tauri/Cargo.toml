@@ -1,6 +1,6 @@
 [package]
 name = "scribly"
-version = "1.4.0"
+version = "1.4.1"
 description = "A calm, local-first notebook"
 authors = ["Scribly"]
 edition = "2021"

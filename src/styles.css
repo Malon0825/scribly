@@ -1415,7 +1415,7 @@ kbd {
 .danger-text {
   color: var(--danger) !important;
 }
-.archive-banner {
+.trash-banner {
   display: flex;
   align-items: center;
   gap: calc(10px * var(--element-scale));
@@ -1427,10 +1427,10 @@ kbd {
   margin-bottom: calc(14px * var(--element-scale));
   flex-wrap: wrap;
 }
-.archive-banner span {
+.trash-banner span {
   flex: 1;
 }
-.archive-banner button {
+.trash-banner button {
   color: var(--accent);
   padding: calc(7px * var(--element-scale));
   border-radius: calc(6px * var(--element-scale));
@@ -2439,7 +2439,7 @@ button:active { transition-duration: 0s; }
 .focus-mode .weekly-bar,
 .focus-mode .document-footer .word-count,
 .focus-mode .document-footer .export-shortcut,
-.focus-mode .archive-banner .danger-text { display: none; }
+.focus-mode .trash-banner .danger-text { display: none; }
 .focus-mode .breadcrumb { justify-content: flex-start; }
 .focus-mode .breadcrumb > span:not(:last-child) { display: none; }
 .focus-mode .breadcrumb > span:last-child { max-width: 100%; }
@@ -2800,3 +2800,11 @@ button:active { transition-duration: 0s; }
 .prediction-toggle { font-family: "Segoe UI", system-ui, sans-serif; }
 .prediction-toggle-mark { color: var(--muted); margin-left: 2px; }
 .prediction-announcement { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Native sidebar drag target; the lid is controlled by its interruptible spring. */
+.trash-icon { flex-shrink: 0; overflow: visible; }
+.sidebar-bottom .trash-target.drop-trash { background: var(--active); color: var(--accent); outline: 1px solid var(--accent); outline-offset: -1px; }
+.trash-folder { margin-top: 16px; }
+.trash-folder-heading { display: flex; align-items: center; gap: 8px; padding: 8px; color: var(--muted); }
+.trash-folder-heading span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.trash-folder-heading button { font-size: 12px; color: var(--accent); }
