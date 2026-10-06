@@ -1,5 +1,12 @@
 # Verification history
 
+## Combined 1.4.1 installer, 2026-10-06
+
+Source revision `1106d1e` on `main`, including the dictionary, clipboard and recoverable Trash changes. Committed and pushed to `origin/main` at the user's request.
+
+- `npm run package`: passed, including production TypeScript/Vite, optimized Rust compilation and NSIS bundling. Existing Vite chunk-size advisory remains. Output: ignored `release/Scribly_1.4.1_x64-setup.exe` (63.60 MiB), with a per-installer SHA-256 sidecar. Source/diff review only; no tests added or run for this request. Prior dictionary/clipboard evidence above is historical; Trash runtime, installer launch and upgrade behavior remain unverified.
+- Installer built from `1106d1e`; subsequent release-note/history changes are documentation only. No GitHub release or tag published. Earlier installer artifacts preserved.
+
 ## Recoverable Trash replaces Archive, 2026-10-06
 
 Working-tree scope based on `0ec512a`, alongside the existing unpublished dictionary/clipboard changes: replaced Archive and Earlier deletions with Trash, migrated archived items on load/import, retained deleted folder metadata and contents, added folder/item restoration and confirmed Clear Trash, and accepted native sidebar note/folder drops with an interruptible, critically damped lid animation and runtime reduced-motion support. Capture/import/new-item destinations exclude trashed folders; portable backups retain folder deletion state. Updated the user guide.
