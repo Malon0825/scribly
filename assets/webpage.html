@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="notebook">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scribly: a free Windows notebook that stays on your desk</title>
+<meta name="description" content="Scribly is a free, open-source Windows notebook for writing, keeping a second note in view, and sketching architecture boards. Your notes stay on your computer. No account, no cloud.">
+<meta name="theme-color" content="#ede3ce">
+<meta property="og:title" content="Scribly: a notebook that stays on your desk">
+<meta property="og:description" content="Free Windows notebook for writing, a read-only Reference pane, and architecture boards. Local-first, open source, MIT licensed.">
+<meta property="og:type" content="website">
+<link id="themeFavicon" rel="icon" type="image/png" href="../public/scribly-icon-dark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Caveat:wght@500;700&family=Gaegu:wght@400;700&family=Gochi+Hand&family=Itim&family=Lato:wght@400;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function(){try{var t=localStorage.getItem('scribly-theme');if(['light','dark','notebook'].indexOf(t)===-1){t='notebook'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+<style>
+:root{
+  /* Scribly Light tokens from src/styles.css; aliases retain the page's layout. */
+  --bg:#e7eef8;--panel:#ffffff;--chrome:#f0f5fb;--sidebar:#e8eff8;
+  --fg:#111827;--text:#3f506e;--muted:#4d5c73;--line:#d8e2f0;
+  --accent:#086dde;--on-accent:#ffffff;--active:#d4e7ff;--hover:#dfe9f6;
+  --green:#09965b;--danger:#c43a47;--shadow:0 8px 28px #2949700c;
+  --desk:var(--bg);--on-desk:var(--fg);--dim:var(--muted);
+  --paper:var(--panel);--paper-2:var(--chrome);--ink:var(--fg);--ink-dim:var(--text);--rule:var(--line);
+  --blue:var(--accent);--edge:var(--line);--grid-a:#3f506e08;--grid-b:#3f506e12;
+  --yellow:#ffd93d;--pink:#ff7eb6;--mint:#3ddc97;--red:var(--danger);--amber:#ffb020;
+  --font-ui:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-hand:"Caveat","Segoe Script","Comic Sans MS",cursive;
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  /* Scribly Dark is warm charcoal, with a tan action accent. */
+  --bg:#1b1916;--panel:#2c2925;--chrome:#35312c;--sidebar:#211f1b;
+  --fg:#f2f0eb;--text:#e4ddd3;--muted:#c1b8aa;--line:#47423a;
+  --accent:#e6c495;--on-accent:#29231b;--active:#40392f;--hover:#373229;
+  --green:#91c783;--danger:#f19c96;--shadow:0 8px 28px #00000035;
+  --grid-a:#e4ddd308;--grid-b:#e4ddd312;
+  color-scheme:dark;
+}
+[data-theme="notebook"]{
+  /* Scribly Notebook tokens from src/notebook.css. */
+  --bg:#ede3ce;--panel:#f6f0e2;--chrome:#eee6d4;--sidebar:#eee3c6;
+  --fg:#10233e;--text:#294565;--muted:#526176;--line:#cfbc91;
+  --accent:#971f29;--on-accent:#fff8eb;--active:#ebcbb9;--hover:#e9ddc4;
+  --green:#147344;--danger:#a22630;--shadow:0 3px 12px #07182b24;
+  --notebook-cover:#20364e;--paper-rule:#56799b24;--paper-margin:#bd555b99;
+  --grid-a:transparent;--grid-b:transparent;
+  color-scheme:light;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:92px;-webkit-text-size-adjust:100%}
+/* Native scrollbars follow the page palette, including nested scroll areas. */
+*{scrollbar-color:var(--muted) var(--chrome)}
+@supports selector(::-webkit-scrollbar){
+  *{scrollbar-color:auto}
+  ::-webkit-scrollbar{width:12px;height:12px}
+  ::-webkit-scrollbar-track{background:var(--chrome)}
+  ::-webkit-scrollbar-thumb{
+    background:var(--muted);border:3px solid var(--chrome);border-radius:999px;
+  }
+  ::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+  ::-webkit-scrollbar-thumb:active{background:var(--accent)}
+  ::-webkit-scrollbar-corner{background:var(--chrome)}
+  ::-webkit-scrollbar-button{display:none}
+}
+@media(forced-colors:active){
+  *{scrollbar-color:auto}
+  ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:Canvas}
+  ::-webkit-scrollbar-thumb{background:ButtonText;border-color:Canvas}
+  ::-webkit-scrollbar-thumb:hover,::-webkit-scrollbar-thumb:active{background:Highlight}
+}
+body{
+  margin:0;min-height:100vh;
+  font-family:var(--font-ui);font-size:1.0625rem;line-height:1.55;
+  color:var(--on-desk);background-color:var(--desk);
+  background-image:
+    linear-gradient(var(--grid-b) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-b) 1px,transparent 1px),
+    linear-gradient(var(--grid-a) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-a) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px;
+  background-position:-1px -1px;
+  overflow-x:hidden;
+}
+html[data-theme="notebook"] body{
+  background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--paper-rule) 31px 32px);
+  background-size:auto;background-position:0 0;
+}
+html[data-theme="notebook"] body::before{
+  content:"";position:fixed;left:clamp(10px,4.5vw,64px);top:0;bottom:0;width:2px;
+  background:var(--paper-margin);pointer-events:none;z-index:0;
+}
+main,footer,header{position:relative;z-index:1}
+img,svg{max-width:100%}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+kbd{
+  font-family:var(--font-ui);font-weight:700;font-size:.78em;
+  display:inline-block;min-width:1.7em;text-align:center;padding:.12em .5em .2em;
+  border:1.5px solid currentColor;border-bottom-width:3px;border-radius:6px;line-height:1.2;
+}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+[data-theme="notebook"] :focus-visible{outline-color:var(--blue)}
+.skip{position:absolute;left:-999px;top:8px;background:var(--yellow);color:#1a1d29;padding:.6rem 1rem;border-radius:8px;z-index:100;font-weight:700}
+.skip:focus{left:8px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.wrap{width:min(1180px,calc(100% - 2.2rem));margin-inline:auto}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.55em;
+  padding:.8em 1.25em;border-radius:12px;text-decoration:none;font-weight:700;line-height:1.1;
+  background:var(--accent);color:var(--on-accent);border:2px solid var(--edge);box-shadow:4px 4px 0 var(--edge);
+  transition:transform .12s,box-shadow .12s;
+}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--edge)}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--edge)}
+.btn-sm{padding:.55em .95em;font-size:.92rem;box-shadow:3px 3px 0 var(--edge)}
+.btn-ghost{background:transparent;color:var(--on-desk);border-style:dashed;border-color:var(--on-desk);box-shadow:none}
+.btn-ghost:hover{box-shadow:none;transform:translateY(-2px);background:var(--hover)}
+.btn-ink{background:var(--ink);color:var(--paper);border-color:var(--ink);box-shadow:3px 3px 0 var(--yellow)}
+.btn-line{background:transparent;color:var(--ink);border:2px solid var(--ink);box-shadow:none;padding:.5em .9em;font-size:.9rem;border-radius:10px;font-weight:700}
+.btn-line:hover{background:var(--ink);color:var(--paper);transform:none;box-shadow:none}
+
+/* ---------- nav ---------- */
+.nav{
+  position:sticky;top:10px;z-index:50;width:min(1180px,calc(100% - 1.4rem));margin:10px auto 0;
+  display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:1rem;padding:.5rem .75rem;
+  background:var(--chrome);color:var(--ink);border:2px solid var(--edge);border-radius:16px;box-shadow:4px 4px 0 var(--edge);
+}
+[data-theme="notebook"] .nav{
+  background:var(--notebook-cover);color:#f3efdf;
+  --ink:#f3efdf;--ink-dim:#bdcbd6;--paper-2:#31495f;--rule:#b7c7d477;
+}
+.brand{display:flex;align-items:center;gap:.5rem;text-decoration:none;font-weight:800;font-size:1.25rem;letter-spacing:-.02em}
+.logo{width:30px;height:30px;flex:none}
+.brand-wordmark{
+  display:block;width:90px;height:35px;flex:none;object-fit:contain;
+  filter:url(#brandWordmarkColor);
+}
+.brand-filters{position:absolute;width:0;height:0;pointer-events:none}
+.brand-wordmark-tint{flood-color:var(--accent)}
+[data-theme="notebook"] .brand-wordmark-tint{flood-color:#e6c495}
+.nav-links{display:flex;justify-content:center;gap:.25rem}
+.nav-links a{padding:.35rem .65rem;border-radius:8px;text-decoration:none;font-weight:600;font-size:.95rem}
+.nav-links a:hover{background:var(--hover)}
+[data-theme="notebook"] .nav-links a:hover{background:#ffffff14}
+.nav-tools{justify-self:end;display:flex;align-items:center;gap:.5rem}
+.icon-btn{
+  display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .7rem;border-radius:10px;
+  background:var(--paper-2);border:1.5px solid var(--rule);font-size:.9rem;font-weight:600;color:var(--ink);
+}
+.icon-btn:hover{border-color:var(--ink)}
+.theme-dot{width:.95rem;height:.95rem;border-radius:50%;border:2px solid var(--ink);background:linear-gradient(90deg,var(--ink) 50%,transparent 50%)}
+@media (max-width:900px){.nav{grid-template-columns:minmax(0,1fr) auto}.nav-links{display:none}}
+@media (max-width:520px){.nav .btn-sm{padding:.5em .8em}}
+
+/* ---------- hero ---------- */
+.hero{padding:clamp(2.5rem,6vw,5rem) 0 clamp(3rem,6vw,5rem)}
+.hero-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(1.5rem,4vw,3.5rem);align-items:center}
+.hero h1{
+  font-size:clamp(2.9rem,6.4vw,5.6rem);line-height:.94;letter-spacing:-.04em;font-weight:800;margin:0 0 1.2rem;
+  font-variation-settings:"opsz" 96;
+}
+.hero-sub{font-size:1.2rem;max-width:34ch;color:var(--dim);margin:0 0 1.8rem}
+.hero-sub strong{color:var(--on-desk)}
+.cta-row{display:flex;flex-wrap:wrap;gap:.9rem 1.1rem;align-items:center}
+.dl-meta{margin:.9rem 0 0;font-size:.92rem;color:var(--dim)}
+.stickers{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.6rem}
+.sticker{
+  font-family:var(--font-hand);font-size:1.45rem;font-weight:700;line-height:1;padding:.25em .7em .3em;
+  background:var(--yellow);color:#1a1d29;border-radius:6px;box-shadow:2px 3px 0 rgba(0,0,0,.28);transform:rotate(-2.5deg);
+}
+.sticker:nth-child(2){background:var(--pink);transform:rotate(1.8deg)}
+.sticker:nth-child(3){background:var(--mint);transform:rotate(-1deg)}
+.hand{font-family:var(--font-hand);font-weight:700;font-size:1.7rem;line-height:1.05;color:var(--on-desk)}
+.hero-stage{position:relative;padding-top:2.6rem}
+.hero-hand{position:absolute;top:-.2rem;right:6%;display:flex;align-items:flex-end;gap:.4rem;transform:rotate(3deg);z-index:3;opacity:0;animation:pop .5s .2s forwards}
+.hero-hand svg{width:70px;height:62px;margin-bottom:-24px;flex:none}
+.hero-hand path{stroke:var(--on-desk)}
+@keyframes pop{from{opacity:0;transform:translateY(8px) rotate(3deg)}to{opacity:1;transform:rotate(3deg)}}
+@media (max-width:900px){.hero-grid{grid-template-columns:minmax(0,1fr)}.hero-sub{max-width:50ch}.hero-hand{right:2%}}
+
+/* ---------- real app screenshots ---------- */
+.app-shot{margin:0;min-width:0}
+.shot-link{display:block;border-radius:12px;box-shadow:var(--shadow);overflow:hidden;background:var(--sidebar)}
+.shot-link img{display:block;width:100%;height:auto}
+.app-shot figcaption{margin-top:.75rem;font-size:.82rem;line-height:1.5;color:var(--dim)}
+.app-shot figcaption span{display:inline-block}
+.hero-shot .shot-link{transform:rotate(-1.1deg)}
+.hero-shot figcaption{text-align:center}
+.app-shot .theme-shot{display:none}
+[data-theme="light"] .app-shot .theme-light,
+[data-theme="dark"] .app-shot .theme-dark,
+[data-theme="notebook"] .app-shot .theme-notebook{display:block}
+@media(max-width:760px){.hero-shot .shot-link{transform:none}}
+
+/* ---------- sections ---------- */
+.sec{padding:clamp(3.5rem,8vw,6.5rem) 0}
+.sec-grid{display:grid;grid-template-columns:minmax(0,4.6fr) minmax(0,7.4fr);gap:clamp(1.6rem,4vw,3.5rem);align-items:start}
+.sec-grid.flip{grid-template-columns:minmax(0,7.4fr) minmax(0,4.6fr)}
+.sec-grid.flip .sec-copy{order:2}
+.sec-grid>*,.hero-grid>*,.desk>*,.trio>*{min-width:0}
+.sec-copy{position:sticky;top:110px}
+.sec h2{font-size:clamp(2.1rem,4.3vw,3.5rem);line-height:.98;letter-spacing:-.035em;font-weight:800;margin:0 0 .9rem;font-variation-settings:"opsz" 80}
+.sec-copy p{color:var(--dim);max-width:44ch;margin:0 0 1rem}
+.sec-copy p strong{color:var(--on-desk)}
+.facts{list-style:none;margin:1.2rem 0 0;padding:0;display:grid;gap:.5rem}
+.facts li{display:flex;gap:.6rem;align-items:baseline;font-size:.98rem;color:var(--on-desk)}
+.facts li::before{content:"";flex:none;width:.7rem;height:.7rem;border-radius:2px;background:var(--yellow);transform:translateY(.06rem) rotate(8deg)}
+.facts li:nth-child(2)::before{background:var(--pink)}
+.facts li:nth-child(3)::before{background:var(--mint)}
+.facts li:nth-child(4)::before{background:#8da2ff}
+.facts kbd{margin-inline:.1rem}
+.margin-hand{margin-top:1.4rem;display:flex;gap:.5rem;align-items:center;transform:rotate(-2deg);max-width:22rem}
+.margin-hand svg{width:54px;height:40px;flex:none}
+.margin-hand path{stroke:var(--on-desk)}
+@media (max-width:900px){
+  .sec-grid,.sec-grid.flip{grid-template-columns:minmax(0,1fr)}
+  .sec-grid.flip .sec-copy{order:0}
+  .sec-copy{position:static}
+}
+
+/* paper + tape */
+.paper{background:var(--paper);color:var(--ink);box-shadow:var(--shadow);border-radius:4px;position:relative}
+.tape::before{
+  content:"";position:absolute;top:-13px;left:50%;width:112px;height:28px;margin-left:-56px;
+  transform:rotate(-2deg);background:var(--tape,rgba(255,217,61,.82));z-index:4;
+  clip-path:polygon(2% 0,98% 0,100% 18%,97% 36%,100% 54%,97% 72%,100% 90%,98% 100%,2% 100%,0 90%,3% 72%,0 54%,3% 36%,0 18%);
+}
+.tape.pink{--tape:rgba(255,126,182,.82)}
+.tape.mint{--tape:rgba(61,220,151,.82)}
+.tape.blue{--tape:rgba(141,162,255,.85)}
+
+.seg{display:inline-flex;border:2px solid var(--ink);border-radius:10px;overflow:hidden;background:var(--paper)}
+.seg button{border:0;background:transparent;color:var(--ink);padding:.3rem .7rem;font-weight:700;font-size:.85rem}
+.seg button+button{border-left:2px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.seg button:hover:not([aria-pressed="true"]){background:var(--paper-2)}
+.swatch{width:1.6rem;height:1.6rem;border-radius:50%;border:2px solid var(--ink);padding:0}
+.swatch[aria-pressed="true"]{box-shadow:0 0 0 3px var(--paper),0 0 0 5px var(--ink)}
+.ctl-row{display:flex;flex-wrap:wrap;gap:.6rem .9rem;align-items:center}
+.ctl-lab{font-size:.78rem;font-weight:700;color:var(--ink-dim);margin-right:-.3rem}
+.hint{font-size:.85rem;color:var(--ink-dim);margin:0}
+
+/* ---------- board feature tags ---------- */
+.tags{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1.2rem}
+.tag{font-size:.82rem;font-weight:700;padding:.2rem .65rem;border-radius:99px;border:1.5px solid var(--on-desk);color:var(--on-desk)}
+
+/* ---------- desk / trash ---------- */
+.desk{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:1.2rem;align-items:start}
+.desk-main{padding:1rem}
+.desk-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem;flex-wrap:wrap}
+.desk-head h3{margin:0;font-size:1.05rem}
+.cards{display:grid;gap:.55rem;min-height:130px;align-content:start}
+.ncard{display:flex;align-items:flex-start;gap:.6rem;background:var(--paper-2);border:2px solid var(--ink);border-radius:10px;padding:.55rem .7rem;user-select:none;-webkit-user-select:none;cursor:grab;transition:opacity .15s}
+.ncard.dragging{opacity:.3}
+.ncard.arrive{animation:arrive .35s ease-out}
+@keyframes arrive{from{transform:translateY(-10px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+.grip{touch-action:none;width:1.2rem;flex:none;color:var(--ink-dim);line-height:1;padding-top:.25rem;cursor:grab}
+.ncard h4{margin:0;font-size:1rem}
+.ncard p{margin:.1rem 0 0;font-size:.83rem;color:var(--ink-dim);line-height:1.35}
+.ncard .grow{flex:1;min-width:0}
+.mini{border:1.5px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:7px;padding:.15rem .5rem;font-size:.75rem;font-weight:700;white-space:nowrap}
+.mini:hover{border-color:var(--ink)}
+.drag-ghost{position:fixed;z-index:200;pointer-events:none;width:min(300px,70vw);transform:rotate(3deg);box-shadow:0 14px 28px rgba(0,0,0,.35);background:var(--paper-2);color:var(--ink);border-radius:10px}
+.trash-col{display:flex;flex-direction:column;align-items:stretch;gap:.6rem}
+.trash{
+  border:2px dashed var(--on-desk);border-radius:16px;padding:.8rem;display:grid;justify-items:center;gap:.2rem;color:var(--on-desk);
+  background:transparent;transition:background .15s,transform .15s;position:relative;
+}
+.trash svg{width:110px;height:auto;overflow:visible}
+.trash .lid{transform-box:fill-box;transform-origin:0% 100%;transition:transform .2s cubic-bezier(.3,1.5,.5,1)}
+.trash.open .lid{transform:rotate(-32deg) translate(-2px,-3px)}
+.trash.hot{background:rgba(255,217,61,.18);border-style:solid;border-color:var(--yellow);transform:scale(1.03)}
+.trash b{font-size:.95rem}
+.badge{position:absolute;top:.4rem;right:.5rem;background:var(--yellow);color:#1a1d29;font-weight:800;font-size:.8rem;min-width:1.5rem;height:1.5rem;border-radius:99px;display:grid;place-items:center;padding:0 .35rem}
+.trash-list{background:var(--paper);color:var(--ink);border-radius:10px;padding:.7rem;font-size:.88rem;box-shadow:var(--shadow)}
+.trash-list h4{margin:0 0 .4rem;font-size:.9rem}
+.trash-list ul{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+.trash-list li{display:flex;align-items:center;gap:.5rem;justify-content:space-between}
+.trash-list .empty{color:var(--ink-dim);margin:0}
+.confirm{margin-top:.6rem;padding:.55rem;border:2px solid var(--red);border-radius:8px;font-size:.84rem}
+.confirm .row{display:flex;gap:.4rem;margin-top:.4rem}
+.danger{background:var(--red);color:#fff;border-color:var(--red)}
+@media (max-width:700px){.desk{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- safety net ---------- */
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.4rem}
+.trio .paper{padding:1.6rem 1.2rem 1.3rem}
+.trio h3{margin:0 0 .3rem;font-size:1.35rem;line-height:1.1;letter-spacing:-.02em}
+.trio p{margin:0 0 .8rem;font-size:.95rem;color:var(--ink-dim)}
+.trio .paper:nth-child(1){transform:rotate(-.8deg)}
+.trio .paper:nth-child(2){transform:rotate(.6deg)}
+.trio .paper:nth-child(3){transform:rotate(-.4deg)}
+.ver-text{background:var(--paper-2);border-radius:6px;padding:.7rem .8rem;min-height:5.2rem;font-family:"Lato",sans-serif;font-size:.95rem;border:1px solid var(--rule);transition:background .2s}
+.ver-text.old{background:repeating-linear-gradient(135deg,var(--paper-2) 0 8px,transparent 8px 16px)}
+.ver-meta{display:flex;justify-content:space-between;font-size:.8rem;color:var(--ink-dim);margin:.5rem 0}
+.range{width:100%;accent-color:var(--blue)}
+.backup-btn{width:100%;border:2px solid var(--ink);border-radius:10px;padding:.7rem 1rem;font-weight:800;background:var(--paper-2);color:var(--ink);transition:background .2s}
+.backup-btn.warn{background:var(--amber);color:#1a1d29;border-color:#1a1d29}
+.backup-note{font-size:.85rem;color:var(--ink-dim);margin:.6rem 0 0}
+.linkish{background:none;border:0;padding:0;text-decoration:underline;font-size:.85rem;color:var(--ink-dim)}
+.drop{
+  border:2.5px dashed var(--ink);border-radius:12px;padding:1.2rem .8rem;text-align:center;font-weight:700;background:var(--paper-2);
+  transition:background .15s,transform .15s;display:block;cursor:pointer;
+}
+.drop.over{background:color-mix(in srgb,var(--yellow) 55%,var(--paper));transform:scale(1.02)}
+.drop small{display:block;font-weight:500;color:var(--ink-dim)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.drop:focus-within{outline:3px solid var(--blue);outline-offset:2px}
+.imp-list{list-style:none;margin:.7rem 0 0;padding:0;display:grid;gap:.45rem;font-size:.85rem;max-height:210px;overflow:auto}
+.imp-list li{border-left:4px solid var(--mint);padding:.1rem 0 .1rem .6rem}
+.imp-list li.skip-it{border-color:var(--red)}
+.imp-list li.maybe{border-color:var(--amber)}
+.imp-list b{display:block;word-break:break-all}
+@media (max-width:980px){.trio{grid-template-columns:1fr}.trio .paper{transform:none!important}}
+
+/* ---------- sticker wall ---------- */
+.wall{columns:3 270px;column-gap:1.3rem;margin-top:2rem}
+.slip{
+  break-inside:avoid;display:block;margin:0 0 1.3rem;padding:1.15rem 1.1rem 1.2rem;border-radius:3px;
+  background:var(--paper);color:var(--ink);box-shadow:var(--shadow);position:relative;
+}
+.slip h3{margin:0 0 .35rem;font-size:1.25rem;line-height:1.1;letter-spacing:-.02em}
+.slip p{margin:0;font-size:.95rem;color:var(--ink-dim)}
+.slip.sticky{background:var(--yellow);color:#1a1d29;transform:rotate(-1.4deg)}
+.slip.sticky p{color:#3b3a1e}
+.slip.pinky{background:#ffc2de;color:#1a1d29;transform:rotate(1.1deg)}
+.slip.pinky p{color:#4b2a3c}
+.slip.minty{background:#b4f2d6;color:#1a1d29;transform:rotate(-.7deg)}
+.slip.minty p{color:#1e4535}
+.slip.lined{background:repeating-linear-gradient(to bottom,var(--paper) 0 25px,var(--rule) 25px 26px);padding-top:1.5rem}
+.slip.lined::after{content:"";position:absolute;left:1.8rem;top:0;bottom:0;width:2px;background:#f0959c;opacity:.7}
+.slip.lined h3,.slip.lined p{padding-left:1.1rem}
+.slip.fonts-slip .fp{display:flex;flex-wrap:wrap;gap:.3rem .8rem;margin-top:.6rem;font-size:1.25rem;line-height:1.1}
+.slip code{font-family:ui-monospace,Consolas,monospace;font-size:.85em;background:rgba(127,127,127,.18);padding:.05em .35em;border-radius:4px}
+
+/* ---------- shortcuts ---------- */
+.pad{padding:1.3rem 1.3rem 1.2rem;outline-offset:4px}
+.pad-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem .9rem}
+.keyrow{
+  display:flex;align-items:center;justify-content:space-between;gap:.6rem;border:0;background:var(--paper-2);color:var(--ink);
+  border-radius:10px;padding:.5rem .7rem;text-align:left;font-size:.9rem;font-weight:600;
+}
+.keyrow:hover{background:color-mix(in srgb,var(--yellow) 40%,var(--paper-2))}
+.keyrow .caps{display:flex;gap:.2rem;flex:none}
+.keyrow.hit{animation:hit .5s}
+.keyrow.hit kbd{background:var(--ink);color:var(--paper)}
+@keyframes hit{0%{transform:scale(1)}30%{transform:scale(1.04) rotate(-.6deg);background:var(--yellow)}100%{transform:scale(1)}}
+.pad-out{margin-top:1rem;font-family:var(--font-hand);font-size:1.7rem;font-weight:700;min-height:2.2rem;line-height:1.1}
+@media (max-width:640px){.pad-grid{grid-template-columns:1fr}}
+
+/* ---------- home / privacy ---------- */
+.home{padding:1.4rem 1.2rem 1.2rem;text-align:center}
+.home svg{width:100%;max-width:520px;height:auto;overflow:visible}
+.home .cloud-btn{position:absolute;border:0;background:transparent;padding:0}
+.stage-home{position:relative;display:grid;justify-items:center}
+.cloud-bubble{min-height:3.2rem;font-family:var(--font-hand);font-weight:700;font-size:1.55rem;line-height:1.1;margin-top:.4rem}
+.path-box{display:flex;gap:.5rem;align-items:center;background:var(--ink);color:var(--paper);padding:.55rem .8rem;border-radius:8px;font:500 .82rem ui-monospace,Consolas,monospace;overflow:auto;margin-top:.8rem;text-align:left;white-space:nowrap}
+.fine{font-size:.9rem;color:var(--dim);max-width:46ch;margin:1.1rem 0 0}
+.fine strong{color:var(--on-desk)}
+
+/* ---------- install ---------- */
+.steps{list-style:none;margin:1.4rem 0 0;padding:0;display:grid;gap:1rem;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:3rem 1fr;gap:.9rem;align-items:start}
+.steps li::before{
+  content:counter(s);font-family:var(--font-hand);font-weight:700;font-size:2.4rem;line-height:1;width:3rem;height:3rem;display:grid;place-items:center;
+  border:2.5px solid var(--on-desk);border-radius:50% 46% 52% 48%/48% 52% 46% 50%;transform:rotate(-6deg);
+}
+.steps strong{display:block;font-size:1.15rem}
+.steps span{color:var(--dim)}
+.install-card{padding:1.5rem 1.4rem 1.4rem}
+.install-card h3{margin:0 0 .2rem;font-size:1.6rem;letter-spacing:-.02em;line-height:1.1}
+.install-card .meta{color:var(--ink-dim);font-size:.92rem;margin:0 0 1rem}
+.install-card .btn{width:100%;font-size:1.1rem;padding:1rem 1.2rem}
+.warn-box{margin-top:1.1rem;border:2px dashed var(--amber);background:color-mix(in srgb,var(--amber) 14%,var(--paper));border-radius:10px;padding:.8rem .9rem;font-size:.9rem}
+.warn-box strong{display:block;margin-bottom:.2rem}
+.cmd{display:flex;gap:.5rem;align-items:center;margin-top:.6rem;background:var(--ink);color:var(--paper);border-radius:8px;padding:.45rem .5rem .45rem .7rem;font:500 .78rem ui-monospace,Consolas,monospace}
+.cmd code{flex:1;min-width:0;overflow:auto;white-space:nowrap}
+.cmd button{background:var(--paper);color:var(--ink);border:0;border-radius:6px;padding:.2rem .55rem;font-weight:700;font-size:.75rem}
+.req{list-style:none;padding:0;margin:1rem 0 0;display:grid;gap:.4rem;font-size:.92rem;color:var(--ink-dim)}
+.req li::before{content:"✓";font-weight:800;color:var(--blue);margin-right:.5rem}
+[data-theme="dark"] .req li::before{color:var(--mint)}
+
+/* ---------- footer ---------- */
+.open-src{padding:clamp(3rem,6vw,5rem) 0 2rem}
+.os-card{padding:clamp(1.5rem,4vw,2.6rem);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1.5rem;align-items:center}
+.os-card h2{margin:0 0 .5rem;font-size:clamp(1.8rem,3.5vw,2.6rem);line-height:1;letter-spacing:-.03em}
+.os-card p{margin:0;color:var(--ink-dim);max-width:52ch}
+.os-links{display:flex;flex-wrap:wrap;gap:.6rem}
+@media (max-width:760px){.os-card{grid-template-columns:1fr}}
+footer{padding:1.5rem 0 3rem;color:var(--dim);font-size:.9rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:.6rem 1.5rem;justify-content:space-between;align-items:center}
+footer .hand{font-size:1.5rem}
+.theme-seg{display:inline-flex;border:2px solid var(--on-desk);border-radius:10px;overflow:hidden}
+.theme-seg button{border:0;background:transparent;color:var(--on-desk);padding:.25rem .7rem;font-weight:700;font-size:.85rem}
+.theme-seg button+button{border-left:2px solid var(--on-desk)}
+.theme-seg button[aria-pressed="true"]{background:var(--on-desk);color:var(--desk)}
+
+/* ---------- palette + toast ---------- */
+.palette-back{position:fixed;inset:0;background:rgba(5,15,12,.55);z-index:150;display:none;align-items:flex-start;justify-content:center;padding-top:14vh}
+.palette-back.show{display:flex}
+.palette{width:min(560px,calc(100% - 1.6rem));background:var(--paper);color:var(--ink);border:2px solid var(--edge);border-radius:16px;box-shadow:6px 6px 0 var(--edge);overflow:hidden}
+.palette input{width:100%;border:0;border-bottom:2px solid var(--rule);background:transparent;padding:1rem 1.1rem;font-size:1.1rem;color:var(--ink)}
+.palette input:focus{outline:none}
+.palette ul{list-style:none;margin:0;padding:.4rem;max-height:46vh;overflow:auto}
+.palette li{display:flex;justify-content:space-between;gap:1rem;padding:.55rem .7rem;border-radius:8px;cursor:pointer;font-weight:600}
+.palette li small{color:var(--ink-dim);font-weight:500}
+.palette li[aria-selected="true"]{background:var(--active);color:var(--accent)}
+.palette li[aria-selected="true"] small{color:var(--text)}
+.palette .none{padding:1rem;color:var(--ink-dim)}
+.palette-foot{padding:.5rem .9rem;border-top:1px solid var(--rule);font-size:.78rem;color:var(--ink-dim);display:flex;gap:1rem}
+#toast{
+  position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--ink);color:var(--paper);
+  padding:.65rem 1.1rem;border-radius:12px;font-weight:600;font-size:.95rem;z-index:300;opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;max-width:min(92vw,520px);text-align:center;border:2px solid var(--paper);
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+.row-open{flex:1;min-width:0;border:0;background:none;text-align:left;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem;color:var(--ink)}
+.side-row .row-open:focus-visible{outline-offset:3px}
+.btn[disabled],.btn-line[disabled]{cursor:default}
+@media print{.nav,#toast,.palette-back{display:none}}
+
+@media (max-width:900px){.hero-stage{padding-top:0}.hero-hand{position:relative;top:auto;right:auto;margin:0 0 1.4rem;justify-content:flex-start;transform:rotate(-1.5deg);animation:none;opacity:1}.hero-hand svg{transform:rotate(80deg) scaleX(-1);width:44px;height:40px;margin-bottom:-6px}}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="top">
+  <a class="brand" href="#top" aria-label="Scribly, back to top">
+    <svg class="brand-filters" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs><filter id="brandWordmarkColor" color-interpolation-filters="sRGB">
+        <feFlood class="brand-wordmark-tint" result="tint"/>
+        <feComposite in="tint" in2="SourceAlpha" operator="in"/>
+      </filter></defs>
+    </svg>
+    <img class="brand-wordmark" src="../public/scribly-wordmark.webp" width="90" height="35" alt="" aria-hidden="true">
+  </a>
+  <nav class="nav-links" aria-label="Sections">
+    <a href="#write">Write</a>
+    <a href="#markup">Mark up</a>
+    <a href="#reference">Reference</a>
+    <a href="#boards">Boards</a>
+    <a href="#install">Install</a>
+  </nav>
+  <div class="nav-tools">
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Change theme"><i class="theme-dot" aria-hidden="true"></i><span id="themeLabel">Light</span></button>
+    <a class="btn btn-sm dl-link" href="https://github.com/Malon0825/scribly/releases/latest">Download</a>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="write">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <h1>A notebook that stays on your desk.</h1>
+      <p class="hero-sub">Scribly is a free Windows notebook for writing, keeping a second note in view, and sketching architecture boards. <strong>No account. No cloud.</strong></p>
+      <div class="cta-row">
+        <a class="btn dl-link" href="https://github.com/Malon0825/scribly/releases/latest">Download for Windows</a>
+        <a class="btn btn-ghost" href="#markup">See it in action</a>
+      </div>
+      <p class="dl-meta">Scribly <span class="ver">1.4.1</span> for Windows 10 and 11 (64-bit)</p>
+      <div class="stickers" aria-label="Highlights">
+        <span class="sticker">free</span>
+        <span class="sticker">works offline</span>
+        <span class="sticker">MIT licensed</span>
+      </div>
+    </div>
+
+    <div class="hero-stage">
+      <div class="hero-hand" aria-hidden="true">
+        <span class="hand">your ideas, right at home</span>
+        <svg viewBox="0 0 70 62" fill="none"><path d="M60 4C46 6 22 14 12 46" stroke-width="3" stroke-linecap="round"/><path d="M4 36l8 12 12-8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <figure class="app-shot hero-shot">
+        <a class="shot-link" id="heroScreenshot" href="../docs/images/light.webp" target="_blank" rel="noopener" aria-label="Open full-size Scribly screenshot">
+          <img class="theme-shot theme-light" src="../docs/images/light.webp" width="1440" height="810" alt="Scribly in Light theme, with folders, a rich-text note and a checklist" fetchpriority="high" decoding="async">
+          <img class="theme-shot theme-dark" src="../docs/images/dark.webp" width="1440" height="810" alt="Scribly in Dark theme, with folders, a rich-text note and a checklist" decoding="async">
+          <img class="theme-shot theme-notebook" src="../docs/images/notebook.webp" width="1440" height="810" alt="Scribly in Notebook theme, with a lined page and notebook rings" decoding="async">
+        </a>
+        <figcaption>The real Scribly app, in your favorite theme. Click to view full size.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MARK UP ============ -->
+<section class="sec" id="markup">
+  <div class="wrap sec-grid">
+    <div class="sec-copy">
+      <h2>Mark it up, right on the note.</h2>
+      <p>Drag a <strong>highlighter</strong> or <strong>pen</strong> across your text and images. Guided mode keeps strokes dead straight at any angle. Free mode follows your hand.</p>
+      <ul class="facts">
+        <li>Highlight sizes 8, 16 and 24px. Pen sizes 1, 3 and 6px.</li>
+        <li>Undo and redo cover every stroke, and clearing too.</li>
+        <li>Press <kbd>Esc</kbd> mid-stroke to cancel it.</li>
+        <li>Strokes save with the note and with backups.</li>
+      </ul>
+      <div class="margin-hand" aria-hidden="true">
+        <svg viewBox="0 0 54 40" fill="none"><path d="M50 34C34 36 14 28 6 8" stroke-width="3" stroke-linecap="round"/><path d="M2 18l4-11 11 5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="hand">a little color goes a long way</span>
+      </div>
+    </div>
+
+    <figure class="app-shot">
+      <a class="shot-link" href="screenshots/markup-light.png" target="_blank" rel="noopener" aria-label="Open full-size screenshot: Scribly with a yellow marker stroke highlighting a line in a launch checklist">
+        <img class="theme-shot theme-light" src="screenshots/markup-light.png" alt="Scribly with a yellow marker stroke highlighting a line in a launch checklist (Light theme)" width="1440" height="900" loading="lazy" decoding="async">
+        <img class="theme-shot theme-dark" src="screenshots/markup-dark.png" alt="Scribly with a yellow marker stroke highlighting a line in a launch checklist (Dark theme)" width="1440" height="900" loading="lazy" decoding="async">
+        <img class="theme-shot theme-notebook" src="screenshots/markup-notebook.png" alt="Scribly with a yellow marker stroke highlighting a line in a launch checklist (Notebook theme)" width="1440" height="900" loading="lazy" decoding="async">
+      </a>
+      <figcaption>Highlighter strokes saved right on the note. <span>Click to view full size.</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ REFERENCE ============ -->
+<section class="sec" id="reference">
+  <div class="wrap sec-grid flip">
+    <figure class="app-shot">
+      <a class="shot-link" href="screenshots/reference-light.png" target="_blank" rel="noopener" aria-label="Open full-size screenshot: Scribly with release notes open and a read-only launch checklist in the Reference panel">
+        <img class="theme-shot theme-light" src="screenshots/reference-light.png" alt="Scribly with release notes open and a read-only launch checklist in the Reference panel (Light theme)" width="1440" height="900" loading="lazy" decoding="async">
+        <img class="theme-shot theme-dark" src="screenshots/reference-dark.png" alt="Scribly with release notes open and a read-only launch checklist in the Reference panel (Dark theme)" width="1440" height="900" loading="lazy" decoding="async">
+        <img class="theme-shot theme-notebook" src="screenshots/reference-notebook.png" alt="Scribly with release notes open and a read-only launch checklist in the Reference panel (Notebook theme)" width="1440" height="900" loading="lazy" decoding="async">
+      </a>
+      <figcaption>Write on the left. Keep your reference on the right. <span>Click to view full size.</span></figcaption>
+    </figure>
+
+    <div class="sec-copy">
+      <h2>Keep a second note in view.</h2>
+      <p>Writing the release notes while the launch plan sits next to them? Open any note or board as <strong>Reference</strong>. It's read-only, so you can't wreck it by accident.</p>
+      <ul class="facts">
+        <li>Hover a row and tap the book, or <kbd>Alt</kbd>+click it.</li>
+        <li><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>R</kbd> opens and closes the panel.</li>
+        <li>Need more room? <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd> is Focus mode.</li>
+      </ul>
+      <div class="margin-hand" aria-hidden="true">
+        <svg viewBox="0 0 54 40" fill="none"><path d="M50 34C34 36 14 28 6 8" stroke-width="3" stroke-linecap="round"/><path d="M2 18l4-11 11 5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="hand">the plan stays in view</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BOARDS ============ -->
+<section class="sec" id="boards">
+  <div class="wrap sec-grid">
+    <div class="sec-copy">
+      <h2>Sketch the architecture, then export it.</h2>
+      <p>Boards are Excalidraw canvases built into your notebook. Drop in components, connect them with elbow arrows, and send the result out as a drawing, SVG, PNG or <strong>Mermaid</strong>.</p>
+      <p>From a quick sketch to a connected system, keep the whole picture in your notebook.</p>
+      <div class="tags" aria-label="Board features">
+        <span class="tag">Offline brand logos</span>
+        <span class="tag">Import Mermaid</span>
+        <span class="tag">Export SVG and PNG</span>
+        <span class="tag">Copy for Miro</span>
+      </div>
+    </div>
+    <figure class="app-shot">
+      <a class="shot-link" href="screenshots/architecture-light.png" target="_blank" rel="noopener" aria-label="Open full-size screenshot: Scribly architecture board showing an interface, Tauri app, Rust backend, PostgreSQL and local files">
+        <img class="theme-shot theme-light" src="screenshots/architecture-light.png" alt="Scribly architecture board showing an interface, Tauri app, Rust backend, PostgreSQL and local files (Light theme)" width="1440" height="900" loading="lazy" decoding="async">
+        <img class="theme-shot theme-dark" src="screenshots/architecture-dark.png" alt="Scribly architecture board showing an interface, Tauri app, Rust backend, PostgreSQL and local files (Dark theme)" width="1440" height="900" loading="lazy" decoding="async">
+        <img class="theme-shot theme-notebook" src="screenshots/architecture-notebook.png" alt="Scribly architecture board showing an interface, Tauri app, Rust backend, PostgreSQL and local files (Notebook theme)" width="1440" height="900" loading="lazy" decoding="async">
+      </a>
+      <figcaption>An editable architecture board inside Scribly. <span>Click to view full size.</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ DESK / TRASH ============ -->
+<section class="sec" id="desk">
+  <div class="wrap sec-grid flip">
+    <div class="desk">
+      <div class="paper tape mint desk-main">
+        <div class="desk-head">
+          <h3>Notes</h3>
+          <button type="button" class="btn-line" id="newNote">New note</button>
+          <span class="hint">Drag a note onto the trash.</span>
+        </div>
+        <div class="cards" id="cards" aria-live="polite"></div>
+      </div>
+      <div class="trash-col">
+        <div class="trash" id="trash" aria-label="Trash drop target">
+          <span class="badge" id="trashBadge" hidden>0</span>
+          <svg viewBox="0 0 120 130" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M24 46l8 72c.4 4 3.8 7 8 7h40c4.2 0 7.6-3 8-7l8-72"/>
+            <path d="M48 62v44M72 62v44"/>
+            <g class="lid"><path d="M12 38h96"/><path d="M44 38V26c0-3 2-5 5-5h22c3 0 5 2 5 5v12"/></g>
+          </svg>
+          <b>Trash</b>
+        </div>
+        <div class="trash-list" id="trashList" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="sec-copy">
+      <h2>Delete without the dread.</h2>
+      <p>Removed notes, boards and whole folders go to <strong>Trash</strong> first. Drag them onto the can, watch the lid open, and restore them whenever you change your mind.</p>
+      <p>New notes get a name too. The first one in a folder each day is titled with the folder and date. After that, <strong>mythology names</strong> arrive in A to Z order, each with a small fun fact. Press <em>New note</em> to see.</p>
+      <ul class="facts">
+        <li>Clear Trash asks for confirmation before anything is gone for good.</li>
+        <li>Restoring a note also brings back its folder.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SAFETY NET ============ -->
+<section class="sec" id="safety">
+  <div class="wrap">
+    <div class="sec-copy" style="position:static;max-width:60ch">
+      <h2>Oops-proof, three ways.</h2>
+      <p>Scribly saves as you pause, and gives you more than one way back when you change your mind.</p>
+    </div>
+    <div class="trio" style="margin-top:2.2rem">
+      <div class="paper tape">
+        <h3>Version history</h3>
+        <p>Scrub through dated versions of a note. Restoring keeps your current text first.</p>
+        <div class="ver-text" id="verText"></div>
+        <div class="ver-meta"><span id="verWhen"></span><span id="verCount"></span></div>
+        <input class="range" id="verRange" type="range" min="0" max="4" value="0" aria-label="Pick a version">
+        <button type="button" class="btn-line" id="verRestore" style="margin-top:.7rem">Restore this version</button>
+        <p class="backup-note">Up to 20 versions per item for 30 days.</p>
+      </div>
+      <div class="paper tape blue">
+        <h3>Backups</h3>
+        <p>The Back up notebook button turns amber when you haven't exported in a week.</p>
+        <button type="button" class="backup-btn warn" id="bkBtn">Back up notebook</button>
+        <p class="backup-note" id="bkNote">Last backup: 9 days ago. Time for another.</p>
+        <button type="button" class="linkish" id="bkAge">Pretend a week passed</button>
+        <p class="backup-note">Optional daily backups keep seven ordinary copies plus three from before any notebook replacement.</p>
+      </div>
+      <div class="paper tape pink">
+        <h3>Bring your stuff</h3>
+        <p>Drop files to see what Scribly would do with them. Nothing leaves this page.</p>
+        <label class="drop" id="drop">
+          <input type="file" id="dropInput" multiple>
+          Drop files here
+          <small>or click to pick some</small>
+        </label>
+        <ul class="imp-list" id="impList" aria-live="polite"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WALL ============ -->
+<section class="sec" id="more">
+  <div class="wrap">
+    <div class="sec-copy" style="position:static;max-width:60ch">
+      <h2>And a drawer full of small things.</h2>
+      <p>The kind of details you only notice when they're missing.</p>
+    </div>
+    <div class="wall">
+      <div class="slip sticky"><h3>Folders and search</h3><p>Sort by hand, by date or A to Z. <kbd>Ctrl</kbd>+<kbd>K</kbd> searches the whole notebook with excerpts, then jumps to the match.</p></div>
+      <div class="slip lined"><h3>Code blocks</h3><p>Type three backticks and a space. Highlighting for JavaScript, TypeScript, Rust, Python, SQL, Go, YAML and more, with a language picker when auto-detect guesses wrong.</p></div>
+      <div class="slip"><h3>Images</h3><p>Paste, drag in, resize, caption, align. PNG, JPEG, WebP and GIF up to 5 MB each, and they work offline.</p></div>
+      <div class="slip pinky"><h3>Connected notes</h3><p>Link with <kbd>Ctrl</kbd>+<kbd>L</kbd>, see backlinks, and turn any note into a template.</p></div>
+      <div class="slip minty"><h3>Find and replace</h3><p><kbd>Ctrl</kbd>+<kbd>F</kbd> to find, <kbd>Ctrl</kbd>+<kbd>H</kbd> to replace, with match case and whole word. One Undo reverses the whole replacement.</p></div>
+      <div class="slip lined"><h3>Export that looks right</h3><p>Markdown ZIP with image files, standalone HTML, or Print to PDF. A preview shows what changes before you export.</p></div>
+      <div class="slip"><h3>Quick capture</h3><p>Jot a thought into Inbox without leaving your current note. Add an optional global shortcut in Settings.</p></div>
+      <div class="slip sticky" style="transform:rotate(1.2deg)"><h3>Rescue Notepad tabs</h3><p>Import unsaved Windows Notepad and Notepad++ tabs. Originals stay untouched, and duplicates are skipped.</p></div>
+      <div class="slip fonts-slip"><h3>Fonts and themes</h3><p>Six note fonts ship inside the app, so they work offline. Pick Light, Dark or System.</p>
+        <div class="fp"><span style="font-family:Roboto">Roboto</span><span style="font-family:Lato">Lato</span><span style="font-family:Caveat;font-size:1.5rem">Caveat</span><span style="font-family:Itim">Itim</span><span style="font-family:Gaegu;font-size:1.4rem">Gaegu</span><span style="font-family:'Gochi Hand'">Gochi Hand</span></div>
+      </div>
+      <div class="slip pinky" style="transform:rotate(-1.2deg)"><h3>Dictionary</h3><p>Select a word to look it up. WordNet works offline. Online lookups send only the word you picked.</p></div>
+      <div class="slip"><h3>Pins and recents</h3><p>Pin shortcuts without moving anything. The last ten items you opened are one click away.</p></div>
+      <div class="slip minty"><h3>Text colors</h3><p>Select text, right-click, and choose a color or highlight. Colors adapt to light and dark.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SHORTCUTS ============ -->
+<section class="sec" id="shortcuts">
+  <div class="wrap sec-grid">
+    <div class="sec-copy">
+      <h2>Your hands never leave the keys.</h2>
+      <p>Click a row, or click the pad and press a real shortcut. Even this page has a <kbd>Ctrl</kbd>+<kbd>K</kbd> search, in honor of Scribly's.</p>
+      <p class="hint" style="color:var(--dim)">Your browser keeps a few combos for itself, like <kbd>Ctrl</kbd>+<kbd>N</kbd>. Click those instead.</p>
+    </div>
+    <div class="paper tape pad" id="pad" tabindex="0" aria-label="Shortcut pad. Press a Scribly shortcut to see what it does.">
+      <div class="pad-grid" id="padGrid"></div>
+      <div class="pad-out" id="padOut" aria-live="polite">Press something.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRIVACY ============ -->
+<section class="sec" id="privacy">
+  <div class="wrap sec-grid flip">
+    <div class="paper tape mint home">
+      <div class="stage-home">
+        <svg viewBox="0 0 520 250" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="A laptop at home. A cloud with a cross through it floats above.">
+          <g transform="translate(60 60)">
+            <path d="M0 130V78L90 12l90 66v52z" fill="var(--paper-2)"/>
+            <path d="M-12 82L90 4l102 78"/>
+            <rect x="68" y="92" width="44" height="38" fill="var(--paper)"/>
+          </g>
+          <g transform="translate(250 100)">
+            <rect x="6" y="0" width="150" height="92" rx="8" fill="var(--paper)"/>
+            <rect x="16" y="10" width="130" height="72" rx="3" fill="var(--paper-2)"/>
+            <path d="M-14 100h190l-10 22H-4z" fill="var(--paper)"/>
+            <path d="M38 34c8-12 22 6 30-4s16-4 22 6" stroke="var(--blue)"/>
+            <path d="M30 56h70M30 68h48" stroke="var(--ink-dim)" stroke-width="3"/>
+          </g>
+          <g transform="translate(360 6)" id="cloudG">
+            <path d="M40 70c-20 0-30-14-26-28 3-12 16-18 28-14 4-18 30-24 44-10 6 6 8 12 8 18 18-2 28 12 24 24-3 8-10 10-18 10z" fill="var(--paper-2)" stroke-dasharray="7 7"/>
+            <path d="M54 30l50 36M104 30L54 66" stroke="var(--red)" stroke-width="6"/>
+          </g>
+        </svg>
+        <button type="button" class="btn-line" id="cloudBtn">Ask the cloud for a word</button>
+        <div class="cloud-bubble" id="cloudSay" aria-live="polite">&nbsp;</div>
+      </div>
+      <div class="path-box" aria-label="Where notes are stored on Windows"><span>%LOCALAPPDATA%\com.still.notes\database</span></div>
+    </div>
+    <div class="sec-copy">
+      <h2>Your notes stay home.</h2>
+      <p>Everything lives in a database on your own computer. PostgreSQL is bundled, listens only on loopback with a random port and an app-generated password, and stops when Scribly closes.</p>
+      <ul class="facts">
+        <li>No account and no sign-in.</li>
+        <li>No cloud sync and no shared editing. It's a personal notebook.</li>
+        <li>Updates and uninstalling leave your notebook folder alone.</li>
+        <li>Export a backup now and then. It's the safe way to copy a notebook.</li>
+      </ul>
+      <p class="fine"><strong>Honest fine print:</strong> optional word suggestions and online dictionary lookups do contact outside services, and they send only a few words, never the whole note.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INSTALL ============ -->
+<section class="sec" id="install">
+  <div class="wrap sec-grid">
+    <div class="sec-copy">
+      <h2>Three steps to a quieter desk.</h2>
+      <ol class="steps">
+        <li><div><strong>Download the installer</strong><span>Grab the setup EXE from the latest release. The source ZIP is only for developers.</span></div></li>
+        <li><div><strong>Run it</strong><span>Scribly installs for your Windows account. No administrator access needed.</span></div></li>
+        <li><div><strong>Open it from the Start menu</strong><span>New notebooks begin with one Introduction folder and a getting-started note.</span></div></li>
+      </ol>
+    </div>
+    <div class="paper tape install-card">
+      <h3>Scribly <span class="ver">1.4.1</span></h3>
+      <p class="meta" id="relMeta">Windows 10 and 11, 64-bit</p>
+      <a class="btn dl-link" href="https://github.com/Malon0825/scribly/releases/latest" id="bigDl">Download for Windows</a>
+      <ul class="req">
+        <li>Microsoft WebView2 is required. Setup fetches it if missing, so the first install may need internet.</li>
+        <li>The database is bundled. Nothing else to configure.</li>
+        <li>Free, with no automatic updater. Updates are manual.</li>
+      </ul>
+      <div class="warn-box">
+        <strong>The installer is unsigned.</strong>
+        Windows may show an unknown-publisher or SmartScreen warning. Download only from the release page, check the SHA-256 checksum it provides, and don't turn off Windows protection.
+        <div class="cmd"><code id="cmdText">Get-FileHash .\Scribly_1.4.1_x64-setup.exe -Algorithm SHA256</code><button type="button" id="cmdCopy">Copy</button></div>
+      </div>
+      <p class="hint" style="margin-top:.9rem"><strong>Updating?</strong> Export a backup in Settings, close Scribly, then run the newer installer. Your notebooks are kept.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OPEN SOURCE ============ -->
+<section class="open-src">
+  <div class="wrap">
+    <div class="paper tape pink os-card">
+      <div>
+        <h2>Free, and open to everyone.</h2>
+        <p>Scribly is MIT licensed. Use it, change it, redistribute it, even commercially. Bug fixes, docs, accessibility work and tests are all welcome.</p>
+      </div>
+      <div class="os-links">
+        <a class="btn btn-ink btn-sm" href="https://github.com/Malon0825/scribly">View the source</a>
+        <a class="btn btn-line" style="text-decoration:none" href="https://github.com/Malon0825/scribly/blob/main/docs/user-guide.md">User guide</a>
+        <a class="btn btn-line" style="text-decoration:none" href="https://github.com/Malon0825/scribly/blob/main/CONTRIBUTING.md">Contribute</a>
+        <a class="btn btn-line" style="text-decoration:none" href="https://github.com/Malon0825/scribly/issues">Report a bug</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="hand">Made for people who still like paper.</span>
+    <span>Pick your desk:
+      <span class="theme-seg" id="themeSeg" role="group" aria-label="Page theme">
+        <button type="button" data-t="light" aria-pressed="false">Light</button>
+        <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-t="notebook" aria-pressed="false">Notebook</button>
+      </span>
+    </span>
+    <span>Brand marks belong to their owners.</span>
+  </div>
+</footer>
+
+<div class="palette-back" id="palBack" role="presentation">
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Search this page">
+    <input id="palInput" type="text" placeholder="Jump to a section, or run a command" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="palList" aria-autocomplete="list">
+    <ul id="palList" role="listbox"></ul>
+    <div class="palette-foot"><span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span><span><kbd>Enter</kbd> go</span><span><kbd>Esc</kbd> close</span></div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var REPO = 'https://github.com/Malon0825/scribly';
+
+  /* ---------- toast ---------- */
+  var toastEl = $('#toast'), toastT;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(function () { toastEl.classList.remove('show'); }, 2600);
+  }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function copyText(text, okMsg) {
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast(okMsg); } catch (e) { toast('Copy failed. Select the text and copy it by hand.'); }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast(okMsg); }, fallback);
+    } else { fallback(); }
+  }
+
+  /* ---------- theme ---------- */
+  var THEMES = ['light', 'dark', 'notebook'];
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    $('#themeFavicon').href = '../public/' + (t === 'light' ? 'scribly-icon.png' : 'scribly-icon-dark.png');
+    $('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    $('#themeLabel').textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    $$('#themeSeg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.t === t)); });
+    try { localStorage.setItem('scribly-theme', t); } catch (e) {}
+    $$('.shot-link').forEach(function (link) {
+      var image = $('.theme-' + t, link);
+      if (image) link.href = image.getAttribute('src');
+    });
+  }
+  $('#themeBtn').addEventListener('click', function () {
+    var cur = document.documentElement.getAttribute('data-theme') || 'notebook';
+    setTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
+  });
+  $$('#themeSeg button').forEach(function (b) { b.addEventListener('click', function () { setTheme(b.dataset.t); }); });
+  setTheme(document.documentElement.getAttribute('data-theme') || 'notebook');
+
+  /* ---------- latest release (falls back to the static link) ---------- */
+  (function () {
+    function apply(rel) {
+      var ver = String(rel.tag_name || '').replace(/^v/i, '');
+      var assets = rel.assets || [];
+      var exe = assets.filter(function (a) { return /setup\.exe$/i.test(a.name); })[0];
+      if (ver) $$('.ver').forEach(function (n) { n.textContent = ver; });
+      if (exe) {
+        $$('.dl-link').forEach(function (a) { a.href = exe.browser_download_url; });
+        var mb = (exe.size / 1048576).toFixed(0);
+        var d = rel.published_at ? new Date(rel.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        $('#relMeta').textContent = 'Windows 10 and 11, 64-bit. About ' + mb + ' MB' + (d ? ', released ' + d : '') + '.';
+        $('#cmdText').textContent = 'Get-FileHash .\\' + exe.name + ' -Algorithm SHA256';
+      }
+    }
+    var cached = null;
+    try { cached = JSON.parse(sessionStorage.getItem('scribly-rel') || 'null'); } catch (e) {}
+    if (cached) { apply(cached); return; }
+    if (!window.fetch) return;
+    fetch('https://api.github.com/repos/Malon0825/scribly/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+      .then(function (r) { if (!r.ok) throw new Error('no'); return r.json(); })
+      .then(function (rel) { try { sessionStorage.setItem('scribly-rel', JSON.stringify(rel)); } catch (e) {} apply(rel); })
+      .catch(function () {});
+  })();
+  $('#cmdCopy').addEventListener('click', function () { copyText($('#cmdText').textContent, 'Command copied. Paste it into PowerShell.'); });
+
+  /* ---------- command palette (Ctrl+K) ---------- */
+  var palBack = $('#palBack'), palInput = $('#palInput'), palList = $('#palList'), palSel = 0, palItems = [], palPrev = null;
+  function go(id) { var el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); }
+  var COMMANDS = [
+    ['Write: see the Scribly notebook', 'Section', function () { go('write'); }],
+    ['Mark up: highlighter and pen', 'Section', function () { go('markup'); }],
+    ['Reference: keep a second note in view', 'Section', function () { go('reference'); }],
+    ['Boards: sketch an architecture', 'Section', function () { go('boards'); }],
+    ['Trash and mythology names', 'Section', function () { go('desk'); }],
+    ['Version history, backups and import', 'Section', function () { go('safety'); }],
+    ['Keyboard shortcuts', 'Section', function () { go('shortcuts'); }],
+    ['Where your notes live', 'Section', function () { go('privacy'); }],
+    ['Install Scribly', 'Section', function () { go('install'); }],
+    ['Download for Windows', 'Command', function () { location.href = $('.dl-link').href; }],
+    ['Open the user guide', 'GitHub', function () { window.open(REPO + '/blob/main/docs/user-guide.md', '_blank', 'noopener'); }],
+    ['Report a bug', 'GitHub', function () { window.open(REPO + '/issues', '_blank', 'noopener'); }],
+    ['Switch to Scribly Light', 'Theme', function () { setTheme('light'); }],
+    ['Switch to Scribly Dark', 'Theme', function () { setTheme('dark'); }],
+    ['Switch to Scribly Notebook', 'Theme', function () { setTheme('notebook'); }]
+  ];
+  function palRender() {
+    var q = palInput.value.trim().toLowerCase();
+    palItems = COMMANDS.filter(function (c) { return !q || c[0].toLowerCase().indexOf(q) > -1 || c[1].toLowerCase().indexOf(q) > -1; });
+    if (palSel >= palItems.length) palSel = 0;
+    if (!palItems.length) { palList.innerHTML = '<li class="none" role="option" aria-selected="false">Nothing matches that. Try "install" or "dark".</li>'; return; }
+    palList.innerHTML = palItems.map(function (c, i) {
+      return '<li role="option" id="pal' + i + '" data-i="' + i + '" aria-selected="' + (i === palSel) + '"><span>' + esc(c[0]) + '</span><small>' + esc(c[1]) + '</small></li>';
+    }).join('');
+    palInput.setAttribute('aria-activedescendant', 'pal' + palSel);
+    var s = $('[aria-selected="true"]', palList); if (s && s.scrollIntoView) s.scrollIntoView({ block: 'nearest' });
+  }
+  function palOpen() { palPrev = document.activeElement; palBack.classList.add('show'); palInput.value = ''; palSel = 0; palRender(); palInput.focus(); }
+  function palClose() { palBack.classList.remove('show'); if (palPrev && palPrev.focus) palPrev.focus(); }
+  function palRun(i) { var c = palItems[i]; if (!c) return; palClose(); setTimeout(c[2], 30); }
+  palInput.addEventListener('input', function () { palSel = 0; palRender(); });
+  palInput.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); palSel = Math.min(palSel + 1, palItems.length - 1); palRender(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); palSel = Math.max(palSel - 1, 0); palRender(); }
+    else if (e.key === 'Enter') { e.preventDefault(); palRun(palSel); }
+  });
+  palList.addEventListener('click', function (e) { var li = e.target.closest('li[data-i]'); if (li) palRun(+li.dataset.i); });
+  palBack.addEventListener('mousedown', function (e) { if (e.target === palBack) palClose(); });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+      e.preventDefault(); palBack.classList.contains('show') ? palClose() : palOpen();
+    } else if (e.key === 'Escape' && palBack.classList.contains('show')) { palClose(); }
+  });
+
+  /* ---------- NOTES, MYTHOLOGY NAMES, TRASH ---------- */
+  (function () {
+    // Demo flavor: the first three names come from the app; the rest of the A-Z list here is for illustration.
+    var MYTH = [
+      ['Anubis', 'Egyptian god of embalming, usually shown with a jackal head.'],
+      ['Baldur', 'Norse god of light. Only mistletoe could hurt him.'],
+      ['Cupid', 'Roman god of desire. The Greeks called him Eros.'],
+      ['Demeter', 'Greek goddess of the harvest.'],
+      ['Eos', 'Greek goddess of the dawn, who opens the gates of day.'],
+      ['Freya', 'Norse goddess of love, said to ride a chariot pulled by cats.'],
+      ['Gaia', 'The Greek personification of Earth, mother of the Titans.'],
+      ['Hermes', 'Greek messenger god with winged sandals.'],
+      ['Isis', 'Egyptian goddess of magic, who pieced Osiris back together.'],
+      ['Janus', 'Roman god of doorways. January is named after him.'],
+      ['Kali', 'Hindu goddess of time and change.'],
+      ['Loki', 'Norse trickster who once gave birth to a horse.'],
+      ['Maui', 'Polynesian hero who fished islands out of the sea.'],
+      ['Nyx', 'Greek goddess of the night.'],
+      ['Odin', 'Norse all-father who traded an eye for wisdom.'],
+      ['Pan', 'Greek god of shepherds, and the root of the word panic.'],
+      ['Quetzalcoatl', 'The feathered serpent god of the Aztecs.'],
+      ['Ra', 'Egyptian sun god who sails the sky by boat.'],
+      ['Selene', 'Greek goddess of the moon.'],
+      ['Thor', 'Norse god of thunder. His hammer is called Mjolnir.'],
+      ['Ullr', 'Norse god linked with skis and archery.'],
+      ['Vesta', 'Roman goddess of the hearth, whose flame was never allowed to go out.'],
+      ['Woden', 'The Old English form of Odin, which gives us Wednesday.'],
+      ['Xipe Totec', 'Aztec god of spring and renewal.'],
+      ['Ymir', 'Norse primordial giant whose body formed the world.'],
+      ['Zeus', 'Greek king of the gods and keeper of thunderbolts.']
+    ];
+    var cardsEl = $('#cards'), trashEl = $('#trash'), listEl = $('#trashList'), badge = $('#trashBadge');
+    var notes = [], trashed = [], uid = 0, nameIdx = 0, confirming = false;
+    var today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    function mkNote() {
+      var n;
+      if (uid === 0) n = { id: ++uid, title: 'Notes \u00b7 ' + today, fact: 'Titled with the folder name and today\u2019s date.' };
+      else {
+        var m = MYTH[nameIdx % MYTH.length], round = Math.floor(nameIdx / MYTH.length);
+        n = { id: ++uid, title: m[0] + (round ? ' ' + (round + 1) : ''), fact: m[1] }; nameIdx++;
+      }
+      return n;
+    }
+    function cardEl(n, fresh) {
+      var d = document.createElement('div'); d.className = 'ncard' + (fresh ? ' arrive' : ''); d.dataset.id = n.id;
+      d.innerHTML = '<span class="grip" aria-hidden="true">&#10303;</span><div class="grow"><h4></h4><p></p></div><button type="button" class="mini">Move to Trash</button>';
+      $('h4', d).textContent = n.title; $('p', d).textContent = n.fact;
+      return d;
+    }
+    function renderCards(freshId) {
+      cardsEl.innerHTML = '';
+      if (!notes.length) { cardsEl.innerHTML = '<p class="hint" style="padding:.6rem 0">No notes here. Restore one from Trash, or press New note.</p>'; return; }
+      notes.forEach(function (n) { cardsEl.appendChild(cardEl(n, n.id === freshId)); });
+    }
+    function renderTrash() {
+      badge.hidden = !trashed.length; badge.textContent = trashed.length;
+      var h = '<h4>In Trash</h4>';
+      if (!trashed.length) h += '<p class="empty">Empty. Drag a note onto the can.</p>';
+      else {
+        h += '<ul>' + trashed.map(function (n) { return '<li><span>' + esc(n.title) + '</span><button type="button" class="mini" data-restore="' + n.id + '">Restore</button></li>'; }).join('') + '</ul>';
+        h += '<div style="margin-top:.6rem"><button type="button" class="mini" id="clearBtn">Clear Trash\u2026</button></div>';
+        if (confirming) h += '<div class="confirm" role="alertdialog" aria-label="Confirm clearing Trash"><strong>Delete ' + trashed.length + (trashed.length === 1 ? ' item' : ' items') + ' forever?</strong> This can\u2019t be undone.<div class="row"><button type="button" class="mini danger" id="clearYes">Delete forever</button><button type="button" class="mini" id="clearNo">Keep them</button></div></div>';
+      }
+      listEl.innerHTML = h;
+    }
+    function toTrash(id) {
+      var i = notes.findIndex(function (n) { return n.id === id; }); if (i < 0) return;
+      trashed.push(notes.splice(i, 1)[0]); confirming = false; renderCards(); renderTrash();
+    }
+    function restore(id) {
+      var i = trashed.findIndex(function (n) { return n.id === id; }); if (i < 0) return;
+      var n = trashed.splice(i, 1)[0]; notes.push(n); confirming = false; renderCards(n.id); renderTrash();
+    }
+    cardsEl.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var c = b.closest('.ncard'); toTrash(+c.dataset.id);
+    });
+    listEl.addEventListener('click', function (e) {
+      var r = e.target.closest('[data-restore]');
+      if (r) { restore(+r.dataset.restore); return; }
+      if (e.target.id === 'clearBtn') { confirming = true; renderTrash(); var y = $('#clearYes'); if (y) y.focus(); }
+      else if (e.target.id === 'clearNo') { confirming = false; renderTrash(); }
+      else if (e.target.id === 'clearYes') { var n = trashed.length; trashed = []; confirming = false; renderTrash(); toast(n + (n === 1 ? ' item' : ' items') + ' permanently deleted.'); }
+    });
+    $('#newNote').addEventListener('click', function () {
+      if (notes.length >= 7) { toast('That\u2019s plenty for a demo. Trash a few to make room.'); return; }
+      var n = mkNote(); notes.push(n); renderCards(n.id);
+    });
+
+    // drag to trash
+    cardsEl.addEventListener('pointerdown', function (e) {
+      var card = e.target.closest('.ncard'); if (!card || e.target.closest('button')) return;
+      if (e.pointerType !== 'mouse' && !e.target.closest('.grip')) return;
+      if (e.button !== 0) return;
+      e.preventDefault();
+      var id = +card.dataset.id, rect = card.getBoundingClientRect(), ox = e.clientX - rect.left, oy = e.clientY - rect.top;
+      var ghost = card.cloneNode(true); ghost.classList.add('drag-ghost'); ghost.classList.remove('arrive'); ghost.style.width = rect.width + 'px'; document.body.appendChild(ghost);
+      card.classList.add('dragging'); trashEl.classList.add('open');
+      function place(ev) {
+        ghost.style.left = (ev.clientX - ox) + 'px'; ghost.style.top = (ev.clientY - oy) + 'px';
+        var r = trashEl.getBoundingClientRect();
+        var hot = ev.clientX >= r.left - 8 && ev.clientX <= r.right + 8 && ev.clientY >= r.top - 8 && ev.clientY <= r.bottom + 8;
+        trashEl.classList.toggle('hot', hot); return hot;
+      }
+      place(e);
+      function mv(ev) { place(ev); }
+      function done(ev, cancelled) {
+        var hot = cancelled ? false : place(ev);
+        window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', cn);
+        ghost.remove(); card.classList.remove('dragging'); trashEl.classList.remove('open', 'hot');
+        if (hot) toTrash(id);
+      }
+      function up(ev) { done(ev, false); }
+      function cn(ev) { done(ev, true); }
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', cn);
+    });
+
+    notes.push(mkNote()); notes.push(mkNote());
+    renderCards(); renderTrash();
+  })();
+
+  /* ---------- SAFETY: versions, backup, import ---------- */
+  (function () {
+    var V = [
+      { t: 'Today, 9:42 am', txt: 'Ship the dictionary fix, then write the release notes.' },
+      { t: 'Today, 8:15 am', txt: 'Ship the dictionary fix.' },
+      { t: 'Yesterday, 5:30 pm', txt: 'Fix dictionary lookups. Maybe rename Archive?' },
+      { t: 'Yesterday, 2:05 pm', txt: 'Archive is confusing. Call it Trash?' },
+      { t: 'Monday, 11:20 am', txt: 'Things that could go wrong: everything.' }
+    ];
+    var rng = $('#verRange'), txt = $('#verText'), when = $('#verWhen'), count = $('#verCount');
+    function showVer() {
+      var i = +rng.value; txt.textContent = V[i].txt; txt.classList.toggle('old', i > 0);
+      when.textContent = V[i].t + (i === 0 ? ' (current)' : ''); count.textContent = V.length + ' versions';
+      rng.max = V.length - 1; $('#verRestore').disabled = false;
+    }
+    rng.addEventListener('input', showVer);
+    $('#verRestore').addEventListener('click', function () {
+      var i = +rng.value; if (i === 0) { toast('That already is the current version.'); return; }
+      V.unshift({ t: 'Just now', txt: V[i].txt }); if (V.length > 20) V.length = 20;
+      rng.value = 0; showVer(); toast('Restored. Your previous text stays in history.');
+    });
+    showVer();
+
+    var bk = $('#bkBtn'), bkNote = $('#bkNote');
+    $('#bkBtn').addEventListener('click', function () {
+      bk.classList.remove('warn'); bkNote.textContent = 'Last backup: just now. All good.'; toast('Backup exported. Check your Downloads folder.');
+    });
+    $('#bkAge').addEventListener('click', function () {
+      bk.classList.add('warn'); bkNote.textContent = 'Last backup: 8 days ago. Time for another.';
+    });
+
+    var drop = $('#drop'), input = $('#dropInput'), out = $('#impList');
+    var IMG = /\.(png|jpe?g|webp|gif)$/i, TXT = /\.(txt|md|markdown|log|csv|tsv|json|ya?ml|toml|ini|xml|html?|css|js|jsx|ts|tsx|py|rs|go|java|c|cpp|h|cs|sql|sh|bash)$/i;
+    function fmt(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+    function verdict(f) {
+      var n = f.name;
+      if (f.size > 20 * 1048576) return ['skip-it', 'Over 20 MB, so Scribly would skip this one.'];
+      if (IMG.test(n)) return f.size > 5 * 1048576 ? ['skip-it', 'Images can be up to 5 MB, so this one would be skipped.'] : ['', 'Becomes an image note, and the original is kept.'];
+      if (/\.pdf$/i.test(n)) return ['maybe', 'Text is extracted if the PDF has selectable text. Scanned PDFs need OCR first. Up to 500 pages.'];
+      if (/\.docx$/i.test(n)) return ['', 'Text is extracted, including text inside tables.'];
+      if (/\.doc$/i.test(n)) return ['skip-it', 'Legacy .doc files need saving as .docx first.'];
+      if (/\.(md|markdown|txt)$/i.test(n)) return ['', 'Becomes a note named after the file.'];
+      if (TXT.test(n)) return ['', 'Becomes a note. Code and JSON keep their spacing in code blocks.'];
+      return ['maybe', 'Not a type Scribly lists as supported. The import result would tell you it was skipped and keep the rest.'];
+    }
+    function handle(files) {
+      files = Array.prototype.slice.call(files); if (!files.length) return;
+      var over = files.length > 25; files = files.slice(0, 25);
+      out.innerHTML = files.map(function (f) { var v = verdict(f); return '<li class="' + v[0] + '"><b>' + esc(f.name) + ' <span style="font-weight:500;color:var(--ink-dim)">(' + fmt(f.size) + ')</span></b>' + esc(v[1]) + '</li>'; }).join('') +
+        (over ? '<li class="maybe">Scribly imports up to 25 files at a time, so the rest would wait for a second round.</li>' : '');
+    }
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { handle(e.dataTransfer.files); });
+    input.addEventListener('change', function () { handle(input.files); });
+    out.innerHTML = '<li class="maybe">Try a .docx, a PDF, a screenshot, or a .doc to see the difference.</li>';
+  })();
+
+  /* ---------- SHORTCUT PAD ---------- */
+  (function () {
+    var KEYS = [
+      ['Ctrl+N', 'New note'], ['Ctrl+Shift+N', 'New board'], ['Ctrl+K', 'Search the notebook'], ['Ctrl+L', 'Link to a note or board'],
+      ['Ctrl+S', 'Save immediately'], ['Ctrl+F', 'Find in this note'], ['Ctrl+H', 'Find and replace'], ['Ctrl+Shift+F', 'Focus mode'],
+      ['Ctrl+Shift+R', 'Toggle Reference'], ['Ctrl+Alt+C', 'Make a code block'], ['Ctrl+B', 'Bold'], ['Ctrl+I', 'Italic'],
+      ['Ctrl+Z', 'Undo'], ['Ctrl+Shift+Z', 'Redo'], ['Ctrl+/', 'Show all shortcuts'], ['Alt+Click', 'Open as Reference']
+    ];
+    var SAY = {
+      'Ctrl+N': 'A fresh note appears.', 'Ctrl+Shift+N': 'A blank board, ready for boxes.', 'Ctrl+K': 'Search finds the exact line, not just the title.',
+      'Ctrl+L': 'Link it. Backlinks will remember.', 'Ctrl+S': 'Saved. (It already was.)', 'Ctrl+F': 'Find, with Enter and Shift+Enter to hop.',
+      'Ctrl+H': 'Replace next, or replace all in one Undo.', 'Ctrl+Shift+F': 'Focus mode. Everything else steps back.', 'Ctrl+Shift+R': 'Reference slides in, read-only.',
+      'Ctrl+Alt+C': 'Code block. Ctrl+Enter gets you out.', 'Ctrl+B': 'Bold.', 'Ctrl+I': 'Italic.', 'Ctrl+Z': 'Undo. No judgment.', 'Ctrl+Shift+Z': 'Redo. Changed your mind again?',
+      'Ctrl+/': 'The whole cheat sheet.', 'Alt+Click': 'Any sidebar row becomes Reference.'
+    };
+    var grid = $('#padGrid'), out = $('#padOut'), pad = $('#pad');
+    grid.innerHTML = KEYS.map(function (k, i) {
+      return '<button type="button" class="keyrow" data-i="' + i + '"><span>' + esc(k[1]) + '</span><span class="caps">' +
+        k[0].split('+').map(function (p) { return '<kbd>' + esc(p) + '</kbd>'; }).join('') + '</span></button>';
+    }).join('');
+    function hit(i) {
+      var row = $$('.keyrow', grid)[i]; row.classList.remove('hit'); void row.offsetWidth; row.classList.add('hit');
+      out.textContent = KEYS[i][1] + ': ' + SAY[KEYS[i][0]];
+    }
+    grid.addEventListener('click', function (e) { var b = e.target.closest('.keyrow'); if (b) hit(+b.dataset.i); });
+    pad.addEventListener('keydown', function (e) {
+      if (['Control', 'Shift', 'Alt', 'Meta'].indexOf(e.key) > -1) return;
+      var parts = [];
+      if (e.ctrlKey || e.metaKey) parts.push('Ctrl'); if (e.altKey) parts.push('Alt'); if (e.shiftKey) parts.push('Shift');
+      var k = e.code && /^Key/.test(e.code) ? e.code.slice(3) : (e.code === 'Slash' ? '/' : e.key.toUpperCase());
+      parts.push(k);
+      var order = ['Ctrl', 'Shift', 'Alt'];
+      var combo = parts.filter(function (p) { return order.indexOf(p) > -1; }).sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); }).concat([k]).join('+');
+      var idx = -1; KEYS.forEach(function (x, i) { if (x[0] === combo) idx = i; });
+      if (idx > -1) { e.preventDefault(); hit(idx); }
+      else if (e.ctrlKey || e.metaKey || e.altKey) { out.textContent = combo + ' isn\u2019t one of Scribly\u2019s.'; }
+    });
+  })();
+
+  /* ---------- CLOUD ---------- */
+  (function () {
+    var lines = ['I could sync your notes, if anyone asked.', 'No account? Rude. Efficient, but rude.', 'Fine. I\u2019ll just float here, unemployed.', 'Your notes are on your laptop. I checked. I wasn\u2019t invited.', 'Do you at least want a weather report?'];
+    var i = 0, say = $('#cloudSay');
+    $('#cloudBtn').addEventListener('click', function () { say.textContent = lines[i % lines.length]; i++; });
+  })();
+})();
+
+</script>
+</body>
+</html>

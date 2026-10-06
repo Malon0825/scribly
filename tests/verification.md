@@ -1,5 +1,35 @@
 # Verification history
 
+## GitHub Pages website publication, 2026-10-06
+
+Working-tree scope based on `b0c5154`: prepared the completed Scribly landing page, nine themed feature screenshots, `scripts/build-pages.mjs` and a pinned GitHub Pages deployment workflow. Packaging rebases image/branding URLs for the repository's Pages subpath and publishes only website assets. Existing app CI now skips website-only changes. The initial commit uses `[skip ci]` and publication is dispatched manually to honor the user's no-tests request while changing the workflow filters.
+
+- `node scripts/build-pages.mjs`: passed; created the ignored `.build-pages/` publication artifact. `git diff --check`: passed. Source and asset-path review only; no app build, browser tests or runtime interaction validation run. GitHub Pages enablement and deployment results will be recorded after publication.
+
+## Webpage uses real Scribly screenshots, 2026-10-06
+
+Scrollbar follow-up: styled native page and nested scrollbars with theme-token tracks, rounded muted thumbs and accent hover/press colors. Chromium/WebView2 styling uses 12px tracks without arrow buttons; other browsers receive standard scrollbar colors. Windows forced-colors mode uses system colors. Native scrolling behavior remains unchanged. Source/content review only; no tests, build or runtime checks run, per the user's preference.
+
+Header branding follow-up: removed the app icon and its unused CSS from the header, retaining the theme-aware Scribly wordmark. Favicon behavior is unchanged. Source/content review only; no tests or build run.
+
+Navigation follow-up: removed the Search/Ctrl+K header button and its click binding; the keyboard command palette remains available. Centered the section links within the header using equal outer grid columns, with branding on the left and theme/Download controls on the right. Retained the existing narrow-screen navigation breakpoint. Source/content review only; no tests or build run.
+
+Notebook branding correction: at the user's request, Notebook now uses the Dark icon, favicon and tan wordmark color (`#e6c495`). Light and Dark branding retain their existing choices. Source/content review only; no tests or build run.
+
+Wordmark visibility follow-up: replaced the empty CSS-mask span with a normal image of the actual wordmark. An inline SVG color filter retains the exact blue/tan/gold theme colors without loading the image as an external CSS mask. Source/content review only; no tests, build or runtime checks run. User supplied a screenshot of the blank wordmark area; rendering remains for manual validation.
+
+Default-theme follow-up: the webpage now starts in Notebook when no valid saved theme exists, including when browser storage is unavailable. Existing visitor choices remain remembered. Updated the initial HTML theme, browser theme-color and script fallbacks. Source/content review only; no tests or build run, per the user's preference.
+
+Branding follow-up in the same working-tree scope: replaced the webpage's placeholder S icon and typed wordmark with the actual assets from `public/`. The icon and favicon use Scribly's Light/Dark variants (Notebook retains the Light icon, matching `src/useAppIcon.ts`), and the masked wordmark uses the app's blue Light, tan Dark and gold Notebook colors. Source/content review only; no tests, build or webpage runtime checks run, per the user's manual-testing preference.
+
+Second follow-up in the same working-tree scope: captured matching Light, Dark and Notebook variants for markup, Reference and architecture in `assets/screenshots/`, using isolated demo data in the existing app browser preview. Generalized the hero's CSS theme selection to every app screenshot and updated every full-size link to the active theme's image. Replaced the two superseded light-only captures. Screenshot asset inspection and source/content review only; Playwright CLI produced images without running tests. Webpage theme switching and links remain for the user's manual testing; no app build or native validation run.
+
+Follow-up in the same working-tree scope: aligned the webpage's Light, Dark and Notebook modes with the exact semantic color tokens in `src/styles.css` and `src/notebook.css`. Light uses blue-gray chrome and blue actions; Dark uses warm charcoal and tan actions; Notebook uses cream ruled paper, navy navigation and red actions. Primary actions, focus rings, palette selection, screenshot backgrounds and browser theme-color now follow those tokens. Preserved the page layout and decorative stationery accents. Source/content review only; no tests, webpage runtime checks or app build run, following the user's manual-testing preference.
+
+Working-tree scope based on `b0c5154`: updated the initial `assets/webpage.html` design to replace the writing, markup, Reference and architecture mockups with screenshots of Scribly's browser preview. Reused the existing 1.4.0 Light/Dark/Notebook and architecture captures; added markup and Reference captures with isolated demo notes in `assets/screenshots/`. Hero imagery follows the page theme; full-size image links, descriptive alt text and responsive sizing preserve the initial layout. Removed the replaced mockups' scripts and adjusted their interactive prompts.
+
+- Source/content review only. Playwright CLI was used to produce the two screenshot assets, not to run tests or validate webpage behavior. No tests or app build run, per the user's manual-testing request. Webpage rendering, theme switching and image links remain for manual validation; older screenshots still show the earlier Archive label. No app code, installer or release changed.
+
 ## Scribly 1.4.1 release published, 2026-10-06
 
 Publication scope: user authorized publishing the combined installer built from `1106d1e`. Created `v1.4.1` at that source revision and published as the latest stable release with updated `docs/releases/v1.4.1.md` notes. No rebuild or tests run.
