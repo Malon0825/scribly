@@ -4,7 +4,8 @@
 
 Working-tree scope based on `b0c5154`: prepared the completed Scribly landing page, nine themed feature screenshots, `scripts/build-pages.mjs` and a pinned GitHub Pages deployment workflow. Packaging rebases image/branding URLs for the repository's Pages subpath and publishes only website assets. Existing app CI now skips website-only changes. The initial commit uses `[skip ci]` and publication is dispatched manually to honor the user's no-tests request while changing the workflow filters.
 
-- `node scripts/build-pages.mjs`: passed; created the ignored `.build-pages/` publication artifact. `git diff --check`: passed. Source and asset-path review only; no app build, browser tests or runtime interaction validation run. GitHub Pages enablement and deployment results will be recorded after publication.
+- `node scripts/build-pages.mjs`: passed; created the ignored `.build-pages/` publication artifact. `git diff --check`: passed. Source and asset-path review only; no app build, browser tests or runtime interaction validation run.
+- Website source committed as `e4b57be` and pushed to `origin/main`. GitHub confirmed Pages is not enabled. The saved Git credential belongs to `ItsMark-SE` with push access but no admin/maintain permissions; Pages creation returned HTTP 404. Manual deployment run `37413616894` failed at configure-pages because Pages is disabled; packaging/upload/deploy steps were skipped. No app test workflow was triggered. Publication remains blocked until a repository owner enables Pages with GitHub Actions as its source, after which the website workflow can be rerun. Run: https://github.com/Malon0825/scribly/actions/runs/37413616894
 
 ## Webpage uses real Scribly screenshots, 2026-10-06
 
