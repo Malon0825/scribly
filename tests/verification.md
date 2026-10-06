@@ -2,6 +2,8 @@
 
 ## GitHub Pages website publication, 2026-10-06
 
+Publication completed after the owner enabled GitHub Actions as the Pages source. Manual run `37414446139` deployed source revision `674c918` successfully, including static packaging and artifact upload. A publication availability request returned HTTP 200 with the Scribly title and initial `data-theme="notebook"` at https://malon0825.github.io/scribly/. No tests, app build or webpage interaction checks run. Routine Actions Node-runtime and runner-image migration advisories did not prevent deployment. Run: https://github.com/Malon0825/scribly/actions/runs/37414446139
+
 Working-tree scope based on `b0c5154`: prepared the completed Scribly landing page, nine themed feature screenshots, `scripts/build-pages.mjs` and a pinned GitHub Pages deployment workflow. Packaging rebases image/branding URLs for the repository's Pages subpath and publishes only website assets. Existing app CI now skips website-only changes. The initial commit uses `[skip ci]` and publication is dispatched manually to honor the user's no-tests request while changing the workflow filters.
 
 - `node scripts/build-pages.mjs`: passed; created the ignored `.build-pages/` publication artifact. `git diff --check`: passed. Source and asset-path review only; no app build, browser tests or runtime interaction validation run.
