@@ -1,0 +1,38 @@
+[data-motion-surface] { animation: none !important; transition: none !important; }
+[data-motion-content] {
+  animation: none !important;
+  transition: background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out !important;
+}
+.app :is(.note-content, .note-title, .document-scroll, .editor-toolbar) {
+  transition: background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
+}
+[data-motion-surface="menu"] {
+  transform: none;
+  transform-origin: right top;
+}
+[data-motion-surface="menu"][data-side="top"] { transform-origin: right bottom; }
+[data-motion-surface="dialog"] :is(.modal, .image-preview) {
+  animation: none;
+  transition: none;
+  transform-origin: center;
+}
+.motion-exit-host {
+  position: fixed;
+  pointer-events: none !important;
+  overflow: visible;
+}
+.motion-exit-host * { pointer-events: none !important; }
+.motion-disclosure { overflow: clip; min-height: 0; transition: none; }
+.motion-disclosure > div { display: flow-root; }
+.note-controls > .motion-disclosure { width: 100%; max-width: 80ch; }
+.note-controls > .focus-formatting-disclosure { font-family: var(--note-font); font-size: calc(18px * var(--text-scale)); }
+.focus-formatting-disclosure > div { display: flex; flex-direction: column; align-items: center; }
+.document-heading-disclosure { width: 100%; max-width: 80ch; flex-shrink: 0; align-self: center; font-family: var(--note-font); font-size: calc(18px * var(--text-scale)); }
+.document-heading-disclosure > div { display: flex; flex-direction: column; }
+.focus-formatting-disclosure > div > .motion-disclosure { width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-motion-surface], [data-motion-content] { translate: none !important; scale: none !important; }
+  [data-motion-content] { transition: none !important; }
+  .focus-formatting-disclosure > div { translate: none !important; }
+}

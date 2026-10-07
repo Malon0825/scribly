@@ -1,0 +1,24 @@
+.action-popover:is(.folder-dropdown, .item-options, .meeting-options-menu) { width: calc(280px * var(--element-scale)); padding: calc(6px * var(--element-scale)); }
+.folder-options-content { min-width: 0; }
+.folder-action-group + .folder-action-group { border-top: 1px solid var(--line); margin-top: calc(5px * var(--element-scale)); padding-top: calc(5px * var(--element-scale)); }
+.folder-action { width: 100%; min-height: calc(36px * var(--element-scale)); padding: calc(8px * var(--element-scale)) calc(10px * var(--element-scale)); gap: calc(11px * var(--element-scale)); border-radius: calc(6px * var(--element-scale)); justify-content: flex-start; text-align: left; font-size: calc(13px * var(--text-scale)); line-height: 1.4; }
+.folder-action-icon { display: inline-flex; flex: 0 0 calc(20px * var(--element-scale)); align-items: center; justify-content: center; }
+.folder-action-icon svg { width: calc(20px * var(--element-scale)); height: calc(20px * var(--element-scale)); }
+.folder-action-label { flex: 1; min-width: 0; }
+.folder-action-end { flex-shrink: 0; color: var(--muted); }
+.folder-action:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--hover); }
+.folder-action:active { background: var(--active); transition-duration: 0s; }
+.folder-action:disabled { opacity: .45; }
+.folder-options-heading { display: flex; align-items: center; gap: calc(5px * var(--element-scale)); padding-bottom: calc(7px * var(--element-scale)); margin-bottom: calc(5px * var(--element-scale)); border-bottom: 1px solid var(--line); }
+.folder-options-heading h3 { margin: 0; font-size: calc(14px * var(--text-scale)); font-weight: 600; color: var(--fg); }
+.folder-options-heading .folder-options-back { width: calc(36px * var(--element-scale)); padding: calc(8px * var(--element-scale)); flex-shrink: 0; }
+.folder-options-back .folder-action-label { display: none; }
+.folder-defaults { padding: calc(7px * var(--element-scale)) calc(5px * var(--element-scale)); }
+.folder-default-label { display: flex; align-items: center; gap: calc(9px * var(--element-scale)); font-size: calc(13px * var(--text-scale)); margin-bottom: calc(8px * var(--element-scale)); }
+.folder-defaults .app-select { width: 100%; }
+.folder-copy-toggle { margin-top: calc(12px * var(--element-scale)); padding-right: calc(32px * var(--element-scale)); position: relative; }
+.folder-copy-toggle small { display: block; color: var(--muted); font-size: calc(11px * var(--text-scale)); margin-top: calc(3px * var(--element-scale)); }
+.folder-copy-indicator { position: absolute; right: calc(9px * var(--element-scale)); top: calc(11px * var(--element-scale)); display: flex; align-items: center; justify-content: center; width: calc(16px * var(--element-scale)); height: calc(16px * var(--element-scale)); border: 1px solid var(--muted); border-radius: calc(4px * var(--element-scale)); }
+.folder-copy-toggle[aria-pressed="true"] .folder-copy-indicator { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.folder-default-hint { margin: calc(8px * var(--element-scale)) calc(10px * var(--element-scale)) 0; color: var(--muted); font-size: calc(12px * var(--text-scale)); line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { .folder-action-icon { translate: none !important; } }

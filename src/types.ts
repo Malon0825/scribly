@@ -12,7 +12,9 @@ type ItemBase = {
   pinned?: boolean;
   template?: { titlePattern: string; resetChecklist: boolean };
   autoTitle?: { folderId: string | null; day: string; ordinal: number };
+  meeting?: MeetingNote;
 };
+export type MeetingNote = { role: 'transcript' | 'summary'; sessionId?: string; sourceNoteId?: string; segmentCount?: number; transcriptClosed?: boolean; analysisIds?: string[]; editedAnalysisIds?: string[] };
 // Keep the ordered `notes` collection and HTML field readable by legacy drafts.
 // Boards have an empty content field; all drawing data lives in a typed payload.
 export type Note = ItemBase & (

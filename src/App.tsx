@@ -1,10 +1,21 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { Dialog } from "./Dialog";
-import { IconContext, SidebarSimple, FileText, BookOpen, X, Check, UploadSimple, Trash, Minus, Square, SpinnerGap, WarningCircle, PushPin, ClockCounterClockwise, CaretDown } from "@phosphor-icons/react";
+import { IconContext, SidebarSimple, FileText, BookOpen, Microphone, X, Check, UploadSimple, Trash, Minus, Square, SpinnerGap, WarningCircle, PushPin, ArrowUUpLeft, ClockCounterClockwise, CaretDown } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { NoteEditor } from "./NoteEditor";
 import { DictionaryPanel } from "./DictionaryPanel";
+import { MeetingPanel, MeetingEdit } from './MeetingPanel';
+import { MeetingStreamPreview } from './MeetingStreamPreview';
+import { setMeetingTrashed, deleteMeeting, meetingTime, type Meeting, type MeetingKind } from './meetings';
+import { MeetingDocument } from './MeetingDocument';
+import { useMeetingPlayback } from './useMeetingPlayback';
+import { useMeetingRequests } from './MeetingAIControls';
+import { MeetingSettings } from './MeetingSettings';
+import { useMeetings } from './useMeetings';
+import { useMeetingNoteWriter, type MeetingAppend } from './useMeetingNoteWriter';
+import { meetingNoteTitle, summaryNote, replaceMeetingPersonalContent, replaceMeetingSummaryContent, meetingNoteForExport } from './meetingNotes';
+import { ItemIcon } from './ItemIcon';
 import { SettingsContent, type SettingsSection } from "./SettingsContent";
 import { QuickCaptureSettings } from "./QuickCaptureSettings";
 import { QuickCapture } from "./QuickCapture";
@@ -12,6 +23,7 @@ import { useCaptureWriter } from "./useCaptureWriter";
 import { drainCaptureForShutdown, openNativeCapture, subscribeCaptureOpen } from "./captureService";
 import { AppSelect } from "./AppSelect";
 import { ActionPopover } from "./ActionPopover";
+import { FolderOptions } from './FolderOptions';
 import { AnimatedIcon } from "./AnimatedIcon";
 import { TrashIcon } from "./TrashIcon";
 import { normalizeAppearance, elementSizes, noteFonts } from "./appearance";
@@ -19,11 +31,12 @@ import { useWorkspace } from "./useWorkspace";
 import { useAppIcon } from "./useAppIcon";
 import { useSidebarDrag } from "./useSidebarDrag";
 import { PanelResize } from "./PanelResize";
+import { MotionToast } from './MotionToast';
 import { defaultNoteTitle, noteTitleFact } from "./noteNaming";
 import { newNoteContent } from "./newNoteContent";
 import { noteSummary } from "./noteSummary";
 import { readNotebookView, orderNotes, matchesNote, notePreview, type NotebookView } from './notebookNavigation';
-import { readBackup as readBackupHistory, recordBackup, backupStatus, type BackupRecord } from './backupHistory';
+import { readBackup as readBackupHistory, recordBackup, type BackupRecord } from './backupHistory';
 import { mergeBackup } from "./importBackup";
 import { parseImportFile, importAccept, MAX_IMPORT_FILES } from "./importFiles";
 import { portableBackup } from "./attachments";
@@ -86,6 +99,8 @@ const safeFilename = (s: string) =>
 export default function App() {
   const { workspace, update: mutate, status, error, dataPath, flush, reload, checkpoint, registerBoardDraft, boardChanged, savedRevision } =
     useWorkspace();
+  const meetings = useMeetings(!!workspace && status !== 'loading');
+  const [meetingOpen, setMeetingOpen] = useState(false);
   useCaptureWriter({ ready: !!workspace && status !== "loading", update: mutate, checkpoint, flush });
   const [captureOpen, setCaptureOpen] = useState(false);
   const captureReturnTo = useRef<HTMLElement | null>(null);
@@ -208,6 +223,19 @@ export default function App() {
   const append = useRef<(html: string) => void>(() => {}),
     toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const active = workspace?.notes.find((n) => n.id === workspace.activeId && !isTemplate(n));
+  const meetingAppend = useRef<MeetingAppend | null>(null);
+  useMeetingNoteWriter(meetings.meetings, active?.id, { checkpoint, update, append:meetingAppend, error:meetings.setError });
+  const activeMeeting = meetings.meetings.find(meeting => meeting.id === active?.meeting?.sessionId);
+  const [reviewMeeting, setReviewMeeting] = useState<{meeting:Meeting;segment:number | null} | null>(null);
+  useEffect(() => { if (activeMeeting) meetings.select(activeMeeting.id); }, [activeMeeting?.id, meetings.select]);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const [seekRequest, setSeekRequest] = useState<{id:string;segment:number;serial:number} | null>(null);
+  const [meetingUndo, setMeetingUndo] = useState<Meeting | null>(null);
+  const currentMeeting = activeMeeting || meetings.selected;
+  const meetingPlayer = useMeetingPlayback(currentMeeting);
+  const meetingRequests = useMeetingRequests(currentMeeting, meetings, generatedMeeting);
+  useEffect(() => { setAnalysisId(null); }, [active?.meeting?.sessionId]);
+  useEffect(() => { if (meetings.reminder) notify(meetings.reminder.message); }, [meetings.reminder]);
   useEffect(() => {
     setFindFor(current => current?.id === active?.id ? current : null);
     setBoardSearch(current => current?.id === active?.id ? current : null);
@@ -313,7 +341,7 @@ export default function App() {
     if (document.activeElement?.closest(selector)) document.querySelector<HTMLElement>(destination)?.focus({ preventScroll: true });
   }
   function toggleFocus() {
-    moveFocusFromPanels('.sidebar, .reference-panel, .panel-resize, .brand, .theme-toggle, button[aria-label="Reference"], button[aria-label="Dictionary"], .document-head, .board-top-controls, .editor-toolbar, .weekly-bar, .export-shortcut, .focus-tools-toggle, .excalidraw .layer-ui__wrapper__top-right, .excalidraw .sidebar', 'button[aria-label="Focus"]');
+    moveFocusFromPanels('.sidebar, .reference-panel, .panel-resize, .brand, .theme-toggle, .meeting-toggle, button[aria-label="Reference"], button[aria-label="Dictionary"], .document-head, .meeting-ai-controls, .board-top-controls, .editor-toolbar, .weekly-bar, .export-shortcut, .focus-tools-toggle, .excalidraw .layer-ui__wrapper__top-right, .excalidraw .sidebar', 'button[aria-label="Focus"]');
     setMenu(false); setFolderMenu(null); setNoteMenuId(null);
     setFocusTools(false);
     setFocus((value) => !value);
@@ -432,6 +460,7 @@ export default function App() {
         e.preventDefault();
         try {
           await drainCaptureForShutdown();
+          await invoke('meeting_stop');
           await flush();
           await getCurrentWindow().destroy();
         } catch {
@@ -536,6 +565,74 @@ export default function App() {
     const createdFolder = folderId;
     if (createdFolder) setExpanded((s) => new Set([...s, createdFolder]));
   }
+  function startMeetingNote(folderId: string | null) {
+    const current = checkpoint();
+    if (!current) throw Error('Open the notebook before starting a meeting.');
+    const folder = current.folders.find(folder => folder.id === folderId && !folder.deletedAt);
+    if (folderId && !folder) throw Error('This meeting folder is no longer available.');
+    const now = new Date(); const id = crypto.randomUUID();
+    const note: Note = { id, folderId, title:meetingNoteTitle(folder?.name || 'Unfiled',now), content:'<p></p>', createdAt:now.toISOString(), updatedAt:now.toISOString(), archived:false, meeting:{role:'transcript',segmentCount:0} };
+    if (!update(w => ({ ...w,notes:[...w.notes,note],activeId:id }))) throw Error('The meeting note could not be created.');
+    newNoteFocus.current = id;
+    setView('notes'); setQuery(''); setFolderMenu(null); setNoteMenuId(null); setMenu(false);
+    if (notebookView.filter === 'boards') changeNotebookView({filter:'all'});
+    if (folderId) setExpanded(value => new Set([...value,folderId]));
+    setMeetingOpen(true); setDictionary(false); setReference(true); setFocus(false);
+    return {noteId:id,title:note.title};
+  }
+  async function prepareMeetingNote() {
+    const note = checkpoint()?.notes.find(item => item.id === noteRef.current?.id && isLiveItem(item));
+    const target = note?.meeting?.role === 'transcript' && !note.meeting.sessionId ? {noteId:note.id,title:note.title} : startMeetingNote(note?.folderId || null);
+    await flush(); return target;
+  }
+  function openMeetingDocument(meeting: Meeting, results = false) {
+    if (meeting.deletedAt) { meetings.setError('Restore this meeting from Trash before opening it.'); return; }
+    const current = checkpoint(); if (!current) return;
+    let source = current.notes.find(note => isLiveItem(note) && note.meeting?.role === 'transcript' && note.meeting.sessionId === meeting.id)
+      || current.notes.find(note => isLiveItem(note) && note.id === meeting.noteId && note.meeting?.role === 'transcript' && !note.meeting.sessionId);
+    const now = new Date().toISOString();
+    if (!source) {
+      const origin = current.notes.find(note => isLiveItem(note) && note.id === meeting.noteId);
+      const folderId = origin?.folderId || null;
+      source = { id:crypto.randomUUID(), folderId, title:meeting.title.endsWith(' · Meeting') ? meeting.title : `${meeting.title} · Meeting`, content:'<p></p>', createdAt:now, updatedAt:now, archived:false, meeting:{role:'transcript',sessionId:meeting.id,segmentCount:0} };
+    } else if (!source.meeting?.sessionId) source = { ...source,meeting:{...source.meeting,role:'transcript',sessionId:meeting.id} };
+    const created = summaryNote(current,source,meeting);
+    const destination = results ? created || current.notes.find(note => isLiveItem(note) && note.meeting?.role === 'summary' && note.meeting.sessionId === meeting.id && note.meeting.sourceNoteId === source!.id) : source;
+    if (!destination) { meetings.setError('Restore the meeting summary note from Trash or Archive before opening AI notes.'); return; }
+    const nextSource = source;
+    if (!update(w => ({ ...w, notes:w.notes.some(note => note.id === nextSource.id) ? [...w.notes.map(note => note.id === nextSource.id ? nextSource : note),...(created ? [created] : [])] : [...w.notes,nextSource,...(created ? [created] : [])] }))) return;
+    meetings.select(meeting.id); setQuery(''); selectNote(destination,false);
+  }
+  function generatedMeeting(meeting:Meeting, kind?:MeetingKind) {
+    openMeetingDocument(meeting,true);
+    if (kind && !['summary','actions','minutes'].includes(kind)) setAnalysisId(meeting.analyses.filter(analysis => analysis.kind === kind).at(-1)?.id || null);
+    else setAnalysisId(null);
+  }
+  function seekMeeting(segmentId:number) {
+    if (!currentMeeting) return;
+    const segment = currentMeeting.segments.find(segment => segment.id === segmentId);
+    if (!segment) return;
+    meetingPlayer.seek(segment.start,true);
+    const source = workspace?.notes.find(note => note.meeting?.sessionId === currentMeeting.id && note.meeting.role === 'transcript');
+    if (source) selectNote(source,false); else if (!currentMeeting.deletedAt) openMeetingDocument(currentMeeting,false);
+    setAnalysisId(null);
+    setSeekRequest({id:currentMeeting.id,segment:segmentId,serial:Date.now()});
+  }
+  function trashMeeting(meeting:Meeting) {
+    void meetings.run('Moving meeting to Trash', () => setMeetingTrashed(meeting.id,true), result => {
+      const movedAt = result.deletedAt || Date.now();
+      update(w => ({...w,notes:w.notes.map(note => note.meeting?.sessionId === meeting.id && !note.deletedAt ? {...note,deletedAt:new Date(movedAt).toISOString(),updatedAt:new Date(movedAt).toISOString()} : note)}));
+      setMeetingUndo(result); notify('Moved to Trash');
+      clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''),9000);
+      setView('notes');
+    });
+  }
+  function restoreMeeting(meeting:Meeting) {
+    void meetings.run('Restoring meeting', () => setMeetingTrashed(meeting.id,false), result => {
+      update(w => ({...w,notes:w.notes.map(note => note.meeting?.sessionId === meeting.id && note.deletedAt === new Date(meeting.deletedAt!).toISOString() ? {...note,deletedAt:undefined,updatedAt:new Date().toISOString()} : note)}));
+      setMeetingUndo(null); setView('notes'); openMeetingDocument(result,true); notify('Meeting restored');
+    });
+  }
   function patchNote(id: string, patch: Partial<Note>) {
     return update((w) => ({
       ...w,
@@ -581,7 +678,7 @@ export default function App() {
     if (!target) { notify("This linked item is missing. Its link is retained for future restoration."); return; }
     if (inReference) {
       if (!isLiveItem(target)) { notify("Restore this item before opening it in Reference."); return; }
-      update(w => ({ ...w,referenceId:id })); setDictionary(false); setReference(true);
+      update(w => ({ ...w,referenceId:id })); setDictionary(false); setMeetingOpen(false); setReference(true);
     } else { setQuery(""); selectNote(target,false); }
   }
   function activateLink(id: string, anchor: HTMLElement, action: "open" | "reference" | "options", restore: () => void) {
@@ -649,7 +746,7 @@ export default function App() {
   function openDictionary(word?: string) {
     if (word) setDictionaryTerm(word);
     moveFocusFromPanels('.reference-panel', 'button[aria-label="Dictionary"]');
-    setDictionary(true); setReference(true); setFocus(false);
+    setDictionary(true); setMeetingOpen(false); setReference(true); setFocus(false);
   }
   function closeDictionary() {
     moveFocusFromPanels('.reference-panel', 'button[aria-label="Dictionary"]');
@@ -657,11 +754,11 @@ export default function App() {
   }
   function toggleReference() {
     moveFocusFromPanels('.reference-panel', 'button[aria-label="Reference"]');
-    setReference(value => dictionary || !value); setDictionary(false); setFocus(false);
+    setReference(value => dictionary || meetingOpen || !value); setDictionary(false); setMeetingOpen(false); setFocus(false);
   }
   function showReference(note: Note) {
     if (!update(w => ({ ...w, referenceId: note.id }))) return;
-    setDictionary(false); setReference(true); setFocus(false); setNoteMenuId(null);
+    setDictionary(false); setMeetingOpen(false); setReference(true); setFocus(false); setNoteMenuId(null);
   }
   async function exportData(name: string, content: string | (() => string | Promise<string>), type: string): Promise<boolean> {
     try {
@@ -708,7 +805,10 @@ export default function App() {
       const current = checkpoint() || workspace;
       if (!current) return;
       const notes = current.notes.filter(note => !isBoard(note) && !isTemplate(note) &&
-        (folder ? note.folderId === id && !note.archived && !note.deletedAt : note.id === id));
+        (folder ? note.folderId === id && !note.archived && !note.deletedAt : note.id === id)).map(note => {
+          const meeting = meetings.meetings.find(record => record.id === note.meeting?.sessionId);
+          return meeting ? meetingNoteForExport(note,meeting) : note;
+        });
       if (!notes.length) { notify("This folder has no active text notes to export."); return; }
       const scope = folder ? current.folders.find(item => item.id === id)?.name || "Folder" : notes[0].title || "Untitled";
       // Text/title values are immutable strings; shallow item snapshots avoid
@@ -834,7 +934,7 @@ export default function App() {
     if (weekly) {
       if (!patchNote(weekly.id, { content: weekly.content + content })) return;
       update((w) => ({ ...w, referenceId: weekly.id }));
-      setDictionary(false); setReference(true);
+      setDictionary(false); setMeetingOpen(false); setReference(true);
       notify(`${unique.length} items added to Weekly update.`);
     } else {
       createNote(active.folderId, "Weekly update", content);
@@ -845,6 +945,7 @@ export default function App() {
     ? (active.content.match(/data-checked="true"/g) || []).length
     : 0;
   const matches = (n: Note) => !isTemplate(n) && matchesNote(n, '', notebookView.filter) && notebookMatches(n, query);
+  const trashedMeetings = meetings.meetings.filter(meeting => meeting.deletedAt);
   const visible = (n: Note) => !n.archived && !n.deletedAt && matches(n);
   const renderNote = (n: Note) => (
     <div
@@ -868,7 +969,7 @@ export default function App() {
         onMouseDown={event => { if (event.altKey) preserveDocumentFocus(event); }}
         onClick={(event) => event.altKey && isLiveItem(n) ? showReference(n) : selectNote(n)}
       >
-        {isBoard(n) ? <AnimatedIcon kind="board" size={26} /> : <AnimatedIcon kind="note" size={26} />}
+        <ItemIcon note={n} size={26} />
         <span>
           <span className="note-name">{n.pinned && <PushPin size={13} aria-label="Pinned" />} {n.title || "Untitled"}</span>
           {query.trim() ? <span className="note-preview search-excerpt">{(() => { const excerpt = matchingExcerpt(noteSummary(n).text, query); return <>{excerpt.before}<mark>{excerpt.match}</mark>{excerpt.after}</>; })()}</span> : rowDensity === 'comfortable' && (
@@ -976,7 +1077,6 @@ export default function App() {
                             : "Saved in browser"}
                     </span>
                   </button>);
-  const backupDue = !backup || Date.now() - backup.at >= 7 * 86400000;
 
   return (
     <IconContext.Provider value={{ weight: "regular" }}>
@@ -1020,6 +1120,10 @@ export default function App() {
           <div className="board-command-host" ref={setBoardControlsHost} />
           {isBoard(active) && saveControl}
           <div className="top-actions">
+            <button inert={focus} className={`pill meeting-toggle ${meetingOpen && reference && !focus ? 'selected' : ''}`} aria-label="Meetings" aria-pressed={meetingOpen && reference && !focus} aria-controls="reference-panel" onMouseDown={preserveDocumentFocus}
+              onClick={() => { moveFocusFromPanels('.reference-panel', 'button[aria-label="Meetings"]'); setReference(value => !meetingOpen || !value || focus); setMeetingOpen(true); setDictionary(false); setFocus(false); }}>
+              <Microphone size={21} /><span>{meetings.recording ? `${meetings.recording.recording === 'paused' ? 'Paused' : 'Recording'} ${meetings.feedback?.id === meetings.recording.id ? Math.floor(meetings.feedback.duration / 60) + ':' + String(Math.floor(meetings.feedback.duration % 60)).padStart(2, '0') : ''}` : 'Meetings'}</span>
+            </button>
             {focus && !isBoard(active) && <button className={`pill focus-tools-toggle ${focusTools ? 'selected' : ''}`} aria-pressed={focusTools} aria-expanded={focusTools} aria-controls={isBoard(active) ? 'board-secondary-controls' : 'note-formatting-controls'} onMouseDown={preserveDocumentFocus}
               onClick={() => {
                 if (focusTools) moveFocusFromPanels('.board-top-controls, .editor-toolbar, .excalidraw .layer-ui__wrapper__top-right, .excalidraw .sidebar', '.focus-tools-toggle');
@@ -1032,10 +1136,10 @@ export default function App() {
               <BookOpen size={21} /><span>Dictionary</span>
             </button>
             <button
-              className={`pill ${reference && !dictionary && !focus ? "selected" : ""}`}
+              className={`pill ${reference && !dictionary && !meetingOpen && !focus ? "selected" : ""}`}
               aria-label="Reference"
               title="Reference (Ctrl+Shift+R)"
-              aria-pressed={reference && !dictionary && !focus}
+              aria-pressed={reference && !dictionary && !meetingOpen && !focus}
               onMouseDown={preserveDocumentFocus}
               onClick={toggleReference}
             >
@@ -1209,11 +1313,11 @@ export default function App() {
 
                 <button className="shortcut-heading" aria-expanded={pinsExpanded} onClick={() => setPinsExpanded(value => !value)}><PushPin size={18} /><span>Pinned</span><CaretDown size={14} className={pinsExpanded ? "" : "collapsed-caret"} /></button>
                 {pinsExpanded && <div className="notebook-shortcuts" aria-label="Pinned items">
-                  {workspace.notes.some(note => note.pinned && isLiveItem(note)) ? workspace.notes.filter(note => note.pinned && isLiveItem(note)).map(note => <button key={note.id} className="shortcut-select" aria-current={active?.id === note.id ? "page" : undefined} onClick={() => { setQuery(""); selectNote(note, false); }}>{isBoard(note) ? <AnimatedIcon kind="board" size={18} /> : <FileText size={18} />}<span>{note.title || "Untitled"}</span></button>) : <p className="shortcut-empty">Pin items from their options menu.</p>}
+                  {workspace.notes.some(note => note.pinned && isLiveItem(note)) ? workspace.notes.filter(note => note.pinned && isLiveItem(note)).map(note => <button key={note.id} className="shortcut-select" aria-current={active?.id === note.id ? "page" : undefined} onClick={() => { setQuery(""); selectNote(note, false); }}><ItemIcon note={note} size={18} /><span>{note.title || "Untitled"}</span></button>) : <p className="shortcut-empty">Pin items from their options menu.</p>}
                 </div>}
                 <button className="shortcut-heading" aria-expanded={recentExpanded} onClick={() => setRecentExpanded(value => !value)}><ClockCounterClockwise size={18} /><span>Recently opened</span><CaretDown size={14} className={recentExpanded ? "" : "collapsed-caret"} /></button>
                 {recentExpanded && <div className="notebook-shortcuts" aria-label="Recently opened items">
-                  {(workspace.recentIds || []).map(id => workspace.notes.find(note => note.id === id && isLiveItem(note))).filter((note): note is Note => !!note).map(note => <button key={note.id} className="shortcut-select" aria-current={active?.id === note.id ? "page" : undefined} onClick={() => { setQuery(""); selectNote(note, false); }}>{isBoard(note) ? <AnimatedIcon kind="board" size={18} /> : <FileText size={18} />}<span>{note.title || "Untitled"}</span></button>)}
+                  {(workspace.recentIds || []).map(id => workspace.notes.find(note => note.id === id && isLiveItem(note))).filter((note): note is Note => !!note).map(note => <button key={note.id} className="shortcut-select" aria-current={active?.id === note.id ? "page" : undefined} onClick={() => { setQuery(""); selectNote(note, false); }}><ItemIcon note={note} size={18} /><span>{note.title || "Untitled"}</span></button>)}
                   {!(workspace.recentIds || []).some(id => workspace.notes.some(note => note.id === id && isLiveItem(note))) && <p className="shortcut-empty">Open a note to find it here.</p>}
                 </div>}
               </ActionPopover>}
@@ -1221,13 +1325,14 @@ export default function App() {
               {view === "trash" ? (
                 <div className="loose-notes">
                   <p className="empty-search">Restore items anytime, or clear Trash to delete them permanently.</p>
-                  <button className="danger-text" disabled={!workspace.notes.some(note => note.deletedAt) && !workspace.folders.some(folder => folder.deletedAt)} onClick={() => setModal({ kind: "emptyTrash" })}>Clear Trash…</button>
+                  <button className="danger-text" disabled={!workspace.notes.some(note => note.deletedAt) && !workspace.folders.some(folder => folder.deletedAt) && !trashedMeetings.length} onClick={() => setModal({ kind: "emptyTrash" })}>Clear Trash…</button>
                   {workspace.folders.filter(folder => folder.deletedAt).map(folder => <div className="trash-folder" key={folder.id}>
                     <div className="trash-folder-heading"><AnimatedIcon kind="folder" size={20} /><span>{folder.name}</span><button onClick={() => restoreFolder(folder.id)}>Restore folder</button></div>
                     {workspace.notes.filter(note => note.folderId === folder.id && note.deletedAt && matches(note)).map(renderNote)}
                   </div>)}
+                  {trashedMeetings.map(meeting => <div className="trash-folder-heading" key={meeting.id}><Microphone size={20} /><span>{meeting.title} · Recording</span><button aria-label={`Restore meeting ${meeting.title}`} onClick={() => restoreMeeting(meeting)}><ArrowUUpLeft size={18} /></button></div>)}
                   {workspace.notes.filter(note => note.deletedAt && !workspace.folders.some(folder => folder.id === note.folderId && folder.deletedAt) && matches(note)).map(renderNote)}
-                  {!workspace.notes.some(note => note.deletedAt && matches(note)) && !workspace.folders.some(folder => folder.deletedAt) && <p className="empty-search">{query ? "No Trash items match your search." : "Trash is empty."}</p>}
+                  {!workspace.notes.some(note => note.deletedAt && matches(note)) && !workspace.folders.some(folder => folder.deletedAt) && !trashedMeetings.length && <p className="empty-search">{query ? "No Trash items match your search." : "Trash is empty."}</p>}
                 </div>
               ) : query ? (
                 <div className="search-results">
@@ -1295,48 +1400,16 @@ export default function App() {
                         </button>
                         {folderMenu === folder.id && (
                           <ActionPopover anchor={actionAnchor.current} label="Folder options" className="folder-dropdown" onClose={() => setFolderMenu(null)}>
-                            <button onClick={() => editFolder(folder.id)}>
-                              Rename folder
-                            </button>
-                            <button onClick={() => createBoard(folder.id)}><AnimatedIcon kind="board" size={18} />New board</button>
-                            <button onClick={() => openTemplates("choose",folder.id)}>New note from template…</button>
-                            <button onClick={() => openFormattedExport(folder.id,true)}><AnimatedIcon kind="download" size={18} />Export notes…</button>
-                            <span className="menu-label">DEFAULT NOTE TEMPLATE</span>
-                            <AppSelect label="Default note template" value={folder.templateId || ""} options={[{ value:"",label:"None" },...workspace.notes.filter(isTemplate).map(note => ({ value:note.id,label:note.title }))]} onChange={value => { update(w => ({ ...w,folders:w.folders.map(f => f.id === folder.id ? { ...f,templateId:value || undefined } : f) })); setFolderMenu(null); }} />
-                            {folder.templateId && <span className="menu-label">Template takes priority over Copy last note.</span>}
-                            <button disabled={importing} onClick={() => chooseImport(folder.id)}>
-                              <AnimatedIcon kind="upload" size={18} />
-                              Import files…
-                            </button>
-                            <button disabled={importing} onClick={() => chooseNotepadImport(folder.id)}>
-                              <AnimatedIcon kind="upload" size={18} />Import from Windows Notepad…
-                            </button>
-                            <button disabled={importing} onClick={() => chooseNotepadImport(folder.id, "notepadPlus")}>
-                              <AnimatedIcon kind="upload" size={18} />Import from Notepad++…
-                            </button>
-                            <button
-                              className="folder-copy-option"
-                              aria-pressed={!!folder.copyLastNote}
-                              aria-label="Copy last note"
-                              title="New notes copy the most recently created active note in this folder, including formatting and checklist states."
-                              onClick={() => {
-                                update((w) => ({
-                                  ...w,
-                                  folders: w.folders.map((f) => f.id === folder.id
-                                    ? { ...f, copyLastNote: !f.copyLastNote } : f),
-                                }));
-                                setFolderMenu(null);
-                              }}
-                            >
-                              <span className="folder-copy-check" aria-hidden="true">
-                                {folder.copyLastNote && <Check size={13} />}
-                              </span>
-                              <span>
-                                <span>Copy last note</span>
-                                <small>Start new notes with its content</small>
-                              </span>
-                            </button>
-                            <button className="danger-text" onClick={() => moveFolderToTrash(folder.id)}><Trash size={18} />Move folder to Trash</button>
+                            <FolderOptions folder={folder} templates={workspace.notes.filter(isTemplate).map(note => ({ value: note.id, label: note.title }))}
+                              importing={importing} recording={!!meetings.recording}
+                              onNewNote={() => { createNote(folder.id); setFolderMenu(null); }} onNewBoard={() => createBoard(folder.id)}
+                              onMeeting={() => { try { startMeetingNote(folder.id); } catch (reason) { notify(String(reason)); } }}
+                              onTemplate={() => openTemplates('choose', folder.id)} onRename={() => editFolder(folder.id)}
+                              onExport={() => openFormattedExport(folder.id, true)}
+                              onImport={() => chooseImport(folder.id)}
+                              onDefaultTemplate={value => update(w => ({ ...w, folders: w.folders.map(f => f.id === folder.id ? { ...f, templateId: value || undefined } : f) }))}
+                              onCopyLast={() => update(w => ({ ...w, folders: w.folders.map(f => f.id === folder.id ? { ...f, copyLastNote: !f.copyLastNote } : f) }))}
+                              onTrash={() => moveFolderToTrash(folder.id)} />
                           </ActionPopover>
                         )}
                       </div>
@@ -1398,7 +1471,7 @@ export default function App() {
           </aside>
           <PanelResize panel="sidebar" visible={sidebar && !focus} layoutKey={`${reference && !focus}-${appearance.elementSize}`} />
           {workspace.theme === 'notebook' && sidebar && !focus && <div className="notebook-binding" aria-hidden="true" />}
-          <main className={`document-panel panel ${isBoard(active) ? "board-document" : ""}`}>
+          <main className={`document-panel panel ${isBoard(active) ? "board-document" : ""} ${active?.meeting ? 'meeting-document' : ''}`}>
             {active ? (
               <>
                 <div className="document-scroll">
@@ -1408,11 +1481,11 @@ export default function App() {
                         ref={titleRef}
                         className="note-title"
                         aria-label={isBoard(active) ? "Board title" : "Note title"}
-                        readOnly={!!active.deletedAt || active.archived}
+                        readOnly={!!active.deletedAt || active.archived || !!activeMeeting}
                         aria-describedby={titleFact ? "note-title-fact" : undefined}
                         placeholder="Untitled"
                         rows={1}
-                        value={active.title}
+                        value={activeMeeting ? activeMeeting.title : active.title}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.nativeEvent.isComposing) e.preventDefault();
                         }}
@@ -1420,12 +1493,12 @@ export default function App() {
                           patchNote(active.id, { title: e.target.value.replace(/[\r\n]+/g, " ") })
                         }
                       />
-                      {titleFact && (
+                      {titleFact && !activeMeeting && (
                         <p className="note-title-fact" id="note-title-fact">
                           <span aria-hidden="true">– </span>{titleFact}
                         </p>
                       )}
-                      <p className="note-date" title={`Created: ${new Date(active.createdAt).toLocaleString()} · Modified: ${new Date(active.updatedAt).toLocaleString()}`}>
+                      {activeMeeting ? <p className="note-date">{new Date(activeMeeting.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})} · {meetingTime(activeMeeting.duration)} · {new Set(activeMeeting.segments.map(segment => segment.speaker)).size} people</p> : <p className="note-date" title={`Created: ${new Date(active.createdAt).toLocaleString()} · Modified: ${new Date(active.updatedAt).toLocaleString()}`}>
                         Created{' '}
                         {new Date(active.createdAt).toLocaleDateString(
                           "en-US",
@@ -1436,9 +1509,9 @@ export default function App() {
                             day: "numeric",
                           },
                         )}
-                      </p>
+                      </p>}
                     </div>
-                    <div className="note-menu-anchor">
+                    <div className="note-menu-anchor" hidden={!!activeMeeting}>
                       <button
                         className="icon-button"
                         aria-label={isBoard(active) ? "Board options" : "Note options"}
@@ -1521,7 +1594,12 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  {isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} notebook={workspace.theme === "notebook"} readOnly={active.archived || !!active.deletedAt} focusMode={focus} controlsHost={boardControlsHost} searchTarget={boardSearch?.id === active.id ? boardSearch : undefined} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} onLinkRequest={requestLink} onLinkReady={fn => { insertItemLink.current = fn; }} onItemLink={openLinkedItem} onExternalLink={openExternalLink} /></Suspense></BoardBoundary> : <NoteEditor
+                  {active.meeting?.role === 'summary' && activeMeeting && !active.archived && !active.deletedAt && <MeetingStreamPreview meeting={activeMeeting} stream={meetings.streams[activeMeeting.id]} onCancel={() => void invoke('meeting_cancel', {id:activeMeeting.id}).catch(reason => meetings.setError(String(reason)))} />}
+                  {activeMeeting && active.meeting ? <MeetingDocument key={active.id} meeting={activeMeeting} transcript={active.meeting.role === 'transcript'} content={active.content} editedAnalysisIds={active.meeting.editedAnalysisIds || []} formattingVisible={!focus || focusTools} player={meetingPlayer} c={meetings} requests={meetingRequests} analysisId={analysisId} seekRequest={seekRequest} onSeek={seekMeeting}
+                    onFix={segment => setReviewMeeting({meeting:activeMeeting,segment})} onSettings={() => setModal({kind:'settings',section:'meetings'})}
+                    onSummary={() => { setAnalysisId(null); openMeetingDocument(activeMeeting,true); }} readOnly={active.archived || !!active.deletedAt || !!activeMeeting.deletedAt}
+                    onSummaryChange={(html,ids) => patchNote(active.id,{content:replaceMeetingSummaryContent(active.content,activeMeeting,ids,html),meeting:{...active.meeting,role:'summary',editedAnalysisIds:[...new Set([...(active.meeting?.editedAnalysisIds || []),...ids])]}})}
+                    onPersonalChange={html => patchNote(active.id,{content:replaceMeetingPersonalContent(active.content,activeMeeting,html)})} /> : isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} notebook={workspace.theme === "notebook"} readOnly={active.archived || !!active.deletedAt} focusMode={focus} controlsHost={boardControlsHost} searchTarget={boardSearch?.id === active.id ? boardSearch : undefined} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} onLinkRequest={requestLink} onLinkReady={fn => { insertItemLink.current = fn; }} onItemLink={openLinkedItem} onExternalLink={openExternalLink} /></Suspense></BoardBoundary> : <NoteEditor
                     key={active.id}
                     content={active.content}
                     onWordSelected={word => { if (!focus) openDictionary(word); }}
@@ -1537,9 +1615,11 @@ export default function App() {
                     onAppendReady={(fn) => {
                       append.current = fn;
                     }}
+                    onMeetingAppendReady={fn => { meetingAppend.current = fn ? { id:active.id,write:fn } : null; }}
                   />}
+                  {active.meeting?.role === 'transcript' && activeMeeting && ['recording','paused'].includes(activeMeeting.recording) && <p className="meeting-live-caption">{activeMeeting.recording === 'paused' ? 'Transcription paused' : meetings.interim?.id === activeMeeting.id && meetings.interim.text ? <><span>Live</span> {meetings.interim.text}</> : activeMeeting.liveTranscription ? 'Listening for speech…' : 'Recording locally · Live transcription is off'}</p>}
                   {backlinks(workspace.notes,active.id).length > 0 && <details className="item-backlinks"><summary>Backlinks ({backlinks(workspace.notes,active.id).length})</summary><div aria-label="Backlinks">{backlinks(workspace.notes,active.id).map(note => <div key={note.id}><button onClick={() => openLinkedItem(note.id)}>{note.title || "Untitled"}{note.deletedAt ? " · In Trash" : ""}</button><button disabled={!isLiveItem(note)} aria-label={`Open ${note.title} in Reference`} onClick={() => openLinkedItem(note.id,true)}><BookOpen size={17} /></button></div>)}{!backlinks(workspace.notes,active.id).length && <p>No other notes or boards link here yet.</p>}</div></details>}
-                  {checkedCount > 0 && !active.deletedAt && !active.archived && (
+                  {checkedCount > 0 && !active.meeting && !active.deletedAt && !active.archived && (
                     <div className="weekly-bar">
                       <span>
                         {checkedCount} completed{" "}
@@ -1553,14 +1633,11 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                {!isBoard(active) && <footer className="document-footer">
-                  {saveControl}
+                {!isBoard(active) && !active.meeting && <footer className="document-footer">
+                  {status === "error" || status === "saving" ? saveControl : null}
                   <span className="word-count">
                     {noteSummary(active).words} words
                   </span>
-                  <button className={`backup-shortcut ${backupDue ? 'backup-due' : ''}`} disabled={backupBusy} title={`${backupStatus(backup)}. Export a full notebook backup`} onClick={() => void exportBackup()}>
-                    {backupBusy ? 'Exporting…' : 'Back up notebook'}
-                  </button>
                   <button
                     ref={exportAnchor}
                     className="export-shortcut"
@@ -1614,21 +1691,33 @@ export default function App() {
           <aside
             id="reference-panel"
             className="reference-panel panel"
-            aria-label={dictionary ? "Dictionary panel" : "Reference panel"}
+            aria-label={meetingOpen ? 'Meeting panel' : dictionary ? "Dictionary panel" : "Reference panel"}
             onKeyDown={event => { if (dictionary && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeDictionary(); } }}
             inert={!reference || focus}
           >
             <div className="reference-label">
-              <div className="reference-modes"><button aria-pressed={!dictionary} onMouseDown={preserveDocumentFocus} onClick={() => setDictionary(false)}>Reference</button><button aria-pressed={dictionary} onMouseDown={preserveDocumentFocus} onClick={() => { setDictionary(true); }}>Dictionary</button></div>
+              <h2 className="meeting-panel-label">{meetingOpen ? 'Meeting' : dictionary ? 'Dictionary' : 'Reference'}</h2>
               <button
                 className="icon-button"
-                aria-label={dictionary ? "Close dictionary" : "Close reference"}
-                onClick={() => { if (dictionary) { closeDictionary(); return; } moveFocusFromPanels(".reference-panel", 'button[aria-label="Reference"]'); setReference(false); }}
+                aria-label={meetingOpen ? 'Close meetings' : dictionary ? "Close dictionary" : "Close reference"}
+                onClick={() => { if (dictionary) { closeDictionary(); return; } moveFocusFromPanels(".reference-panel", meetingOpen ? 'button[aria-label="Meetings"]' : 'button[aria-label="Reference"]'); setReference(false); }}
               >
                 <AnimatedIcon kind="close" size={21} />
               </button>
             </div>
-            {dictionary ? <DictionaryPanel word={dictionaryTerm} onWord={word => setDictionaryTerm(word)} onRelatedWord={word => { replaceDictionaryWord.current(word, dictionaryTerm); setDictionaryTerm(word); }} onExternalLink={openExternalLink} /> : <>
+            {meetingOpen ? <MeetingPanel controller={meetings} noteId={active?.id || null} noteTitle={active?.title || 'current note'}
+              meetingNote={active?.meeting?.role === 'transcript'} meetingSessionId={active?.meeting?.sessionId} onPrepareMeeting={prepareMeetingNote} onOpenMeeting={openMeetingDocument}
+              allowAnalysis={!active?.meeting || (!active.archived && !active.deletedAt && !isBoard(active))}
+              requests={meetingRequests} player={meetingPlayer} transcript={active?.meeting?.role === 'transcript'}
+              onView={transcript => { if (currentMeeting) { setAnalysisId(null); openMeetingDocument(currentMeeting,!transcript); } }}
+              onAnalysis={id => { if (currentMeeting) { openMeetingDocument(currentMeeting,true); setAnalysisId(id); } }} onDelete={trashMeeting}
+              onExport={(meeting,returnTo) => {
+                const current = checkpoint() || workspace;
+                const notes = current.notes.filter(note => !isBoard(note) && isLiveItem(note) && note.meeting?.sessionId === meeting.id).map(note => meetingNoteForExport(note,meeting));
+                if (!notes.length) return false;
+                setFormattedExport({notes,scope:meeting.title,returnTo}); return true;
+              }}
+              onSettings={() => setModal({ kind: 'settings', section: 'meetings' })} /> : dictionary ? <DictionaryPanel word={dictionaryTerm} onWord={word => setDictionaryTerm(word)} onRelatedWord={word => { replaceDictionaryWord.current(word, dictionaryTerm); setDictionaryTerm(word); }} onExternalLink={openExternalLink} /> : <>
             <AppSelect
               className="reference-picker"
               label="Reference note or board"
@@ -1690,10 +1779,10 @@ export default function App() {
           </aside>
         </div>
         {toast && (
-          <div className="toast" role="status">
+          <MotionToast>
             <Check size={18} />
-            {toast}
-          </div>
+            {toast}{toast === 'Moved to Trash' && meetingUndo && <><span> · </span><button disabled={!!meetings.busy} onClick={() => restoreMeeting(meetingUndo)}>Undo</button></>}
+          </MotionToast>
         )}
         {boardCreation && <BoardBoundary onClose={() => setBoardCreation(null)}><Suspense fallback={<div role="status" className="toast">Opening board import…</div>}><CreateBoardDialog mode={boardCreation} dark={dark} returnFocus={() => document.getElementById('board-insert-trigger')} onClose={() => setBoardCreation(null)} onCreate={(title: string, board: BoardData) => createBoard(active?.folderId ?? null, title, board, true)} /></Suspense></BoardBoundary>}
         {notepadImport && <NotepadImportDialog workspace={workspace} folderId={notepadImport.folderId} source={notepadImport.source} onClose={() => setNotepadImport(null)} returnFocus={() => notepadImport.returnTo}
@@ -1711,6 +1800,7 @@ export default function App() {
           setHistoryId(null); notify("Version restored. The previous content remains in history.");
         }} />}
         {restorePreview && <BackupRestoreDialog backup={restorePreview} onClose={() => { restoreGeneration.current++; setRestorePreview(null); }} onRestore={restoreNotebook} />}
+        {reviewMeeting && <MeetingEdit value={reviewMeeting} c={meetings} onClose={() => setReviewMeeting(null)} />}
         {linkPicker && <ItemLinkPicker notes={workspace.notes} onClose={closeLinkPicker} onInsert={note => { const pending = linkPicker; setLinkPicker(null); pending.insert(note); }} onOpen={(id,reference) => { closeLinkPicker(); openLinkedItem(id,reference); }} />}
         {linkAction && (() => { const target = workspace.notes.find(note => note.id === linkAction.id && !isTemplate(note)); const close = () => { const restore = linkAction.restore; setLinkAction(null); restore(); }; return <ActionPopover anchor={linkAction.anchor} label="Item link options" className="note-dropdown" onClose={close}><span className="menu-label">{target?.title || "Missing item"}{target?.deletedAt ? " · In Trash" : ""}</span><button disabled={!target} onClick={() => { const id = linkAction.id; setLinkAction(null); openLinkedItem(id); }}>Open</button><button disabled={!target || !isLiveItem(target)} onClick={() => { const id = linkAction.id; close(); openLinkedItem(id,true); }}>Open in Reference</button>{(!target || !isLiveItem(target)) && <span className="menu-label">{target ? "Restore before opening in Reference." : "Target unavailable. The link is retained."}</span>}</ActionPopover>; })()}
         {templatesDialog && <TemplateDialog mode={templatesDialog.mode} source={templatesDialog.source} notes={workspace.notes} onClose={() => setTemplatesDialog(null)} onSave={saveTemplate} onDelete={id => { update(w => removeTemplate(w,id)); notify("Template deleted. Existing notes are unchanged."); }} onCreate={(id,title,reset) => { createNote(templatesDialog.folderId,undefined,undefined,undefined,{ id,title,reset }); setTemplatesDialog(null); }} />}
@@ -1747,8 +1837,10 @@ export default function App() {
                 onAppearance={appearance => update(w => ({ ...w, appearance }))}
                 onExport={() => void exportBackup()} onImport={() => chooseImport(null)}
                 startupExtras={<QuickCaptureSettings onOpen={openCapture} />}
+                meetingExtras={<MeetingSettings controller={meetings} />}
                 appearanceExtras={<button className="notepad-settings-import" onClick={() => openTemplates("manage")}>Manage note templates…</button>}
                 backupExtras={<>
+                  <h4>Meeting copies</h4><button disabled={!desktop || !!meetings.busy} onClick={() => void meetings.run('Restoring a meeting copy', () => invoke<Meeting | null>('meeting_restore'), meeting => { if (meeting) { setModal(null); openMeetingDocument(meeting,true); } })}>Restore a meeting backup</button>
                   <button className="notepad-settings-import" disabled={importing} onClick={() => chooseNotepadImport(null)}>
                     <AnimatedIcon kind="upload" size={21} />Import from Windows Notepad…
                   </button>
@@ -1812,7 +1904,12 @@ export default function App() {
                   <button onClick={() => setModal(null)}>Cancel</button>
                   <button
                     className="danger-button"
+                    disabled={!!meetings.busy}
                     onClick={() => {
+                      if (modal.kind === "emptyTrash" && trashedMeetings.length) {
+                        void meetings.run('Clearing Trash', async () => { for (const meeting of trashedMeetings) await deleteMeeting(meeting.id); }, () => { update(w => ({...purgeTrash(w),activeId:view === 'trash' ? '' : w.activeId})); setModal(null); notify('Trash cleared'); });
+                        return;
+                      }
                       if (modal.kind === "delete" || modal.kind === "emptyTrash") {
                         if (!update(w => {
                           if (modal.kind === "emptyTrash") return { ...purgeTrash(w), activeId: view === "trash" ? "" : w.activeId };

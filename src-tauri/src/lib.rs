@@ -16,6 +16,18 @@ mod diagnostics;
 mod files;
 mod history;
 mod json_size;
+mod meeting_audio;
+mod meeting_auth;
+mod meeting_gemini;
+mod meeting_openrouter;
+mod meeting_recovery;
+mod meeting_backup;
+mod meeting_live;
+mod meeting_providers;
+mod meeting_recorder;
+mod meeting_silence;
+mod meeting_video;
+mod meetings;
 mod notepad;
 mod notepad_plus;
 mod quick_capture;
@@ -150,6 +162,8 @@ pub fn run() {
             }
         }).build())
         .manage(DatabaseState(Mutex::new(None)))
+        .manage(meetings::MeetingState::default())
+        .plugin(tauri_plugin_notification::init())
         .manage(StartupTiming { started, benchmark_root, database_ready_ms: Mutex::new(None), reported: Mutex::new(false) })
         .setup(move |app| {
             if let Some((config, profile)) = &benchmark_window {
@@ -210,6 +224,32 @@ pub fn run() {
             }
             let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
             commands::open_external_link,
+            meetings::meeting_list,
+            meetings::meeting_import,
+            meetings::meeting_update,
+            meetings::meeting_media,
+            meetings::meeting_cancel,
+            meetings::meeting_delete,
+            meetings::meeting_trash,
+            meetings::meeting_action,
+            meetings::meeting_archive,
+            meetings::meeting_restore,
+            meeting_auth::meeting_connections,
+            meeting_auth::meeting_set_deepgram,
+            meeting_auth::meeting_set_gemini,
+            meeting_auth::meeting_set_openrouter,
+            meeting_auth::meeting_set_preferences,
+            meeting_auth::meeting_signin,
+            meeting_auth::meeting_cancel_signin,
+            meeting_auth::meeting_disconnect,
+            meeting_auth::meeting_models,
+            meeting_providers::meeting_transcribe,
+            meeting_providers::meeting_analyze,
+            meeting_recorder::meeting_devices,
+            meeting_recorder::meeting_start,
+            meeting_recorder::meeting_pause,
+            meeting_recorder::meeting_stop,
+            meeting_recorder::meeting_recover,
             commands::list_history,
             commands::read_history,
             commands::checkpoint_history,
@@ -273,6 +313,9 @@ pub fn run() {
             app.exit(0);
         }
         if matches!(event, tauri::RunEvent::Exit) {
+            if let Err(error) = meeting_recorder::stop(app) {
+                eprintln!("Meeting recording shutdown failed: {error}");
+            }
             let database = app
                 .state::<DatabaseState>()
                 .0

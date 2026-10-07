@@ -21,6 +21,8 @@ import "@fontsource/gaegu/latin-700.css";
 import "@fontsource/gochi-hand/latin-400.css";
 import "./styles.css";
 import "./notebook.css";
+import './meetings.css';
+import './motion.css';
 Object.assign(window, { EXCALIDRAW_ASSET_PATH: "/excalidraw/" });
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

@@ -102,7 +102,7 @@ impl Drop for PostgresServer {
 }
 
 pub(crate) struct Database {
-    client: Client,
+    pub(crate) client: Client,
     pub(crate) root: PathBuf,
     server: PostgresServer,
 }

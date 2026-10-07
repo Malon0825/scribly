@@ -1,6 +1,7 @@
 import type { Workspace } from "./types";
 import { validateBoard } from "./boardData";
 import { sourceFilesInHtml } from "./sourceFileData";
+import { validateMeetingNote } from './meetingNotes';
 
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 export function validateWorkspace(value: unknown): asserts value is Workspace {
@@ -21,6 +22,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       || ![n.title, n.content, n.createdAt, n.updatedAt].every((v) => typeof v === "string") || typeof n.archived !== "boolean"
       || (n.folderId !== null && (typeof n.folderId !== "string" || !folders.has(n.folderId)))) throw Error("Invalid notebook item or missing folder.");
     notes.add(n.id);
+    if (n.meeting !== undefined) { validateMeetingNote(n.meeting); if (n.kind === 'board' || n.kind === 'template') throw Error('Only notes can be linked to meetings.'); }
     if (n.pinned !== undefined && typeof n.pinned !== "boolean") throw Error("Invalid pinned item.");
     if (n.kind !== undefined && n.kind !== "note" && n.kind !== "board" && n.kind !== "template") throw Error("Unsupported notebook item.");
     if (n.kind === "template") {

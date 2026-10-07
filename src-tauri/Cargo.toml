@@ -25,11 +25,24 @@ dunce = "1"
 sha2 = "0.10"
 crc32fast = "1"
 regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+tokio = { version = "1", features = ["time", "sync", "macros", "fs", "io-util"] }
+tokio-util = { version = "0.7", features = ["io"] }
+base64 = "0.22"
+jsonwebtoken = "9"
+hound = "3.5"
+zip = { version = "2", default-features = false }
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-native-roots"] }
+tauri-plugin-notification = "2"
 tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
-windows = { version = "0.62", features = ["Win32_UI_Shell_PropertiesSystem", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_Storage_EnhancedStorage"] }
+wasapi = "0.25"
+webrtc-vad = "0.4"
+windows-capture = "2.0.1"
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_Security_Cryptography", "Win32_System_Memory"] }
+windows = { version = "0.62", features = ["Win32_UI_Shell_PropertiesSystem", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_Storage_EnhancedStorage", "Win32_System_Performance", "Win32_Media_Multimedia"] }
 
 [profile.release]
 strip = true

@@ -8,6 +8,7 @@ import { validTextColor } from "./textColors";
 import { inkAttributes } from "./inkData";
 import { itemHref, itemIdFromHref, validItemId, safeExternalHref, remapItemLinks } from "./itemLinks";
 import { isTemplate, isLiveItem } from "./types";
+import { validateMeetingNote } from './meetingNotes';
 // Imported documents are limited to the formatting supported by our editor.
 function cleanHtml(html: string, allowSources = false): string {
   const doc = document.createElement("template"); doc.innerHTML = html;
@@ -137,6 +138,7 @@ export function parseBackup(
     )
       throw Error("Invalid note in backup.");
     noteIds.add(n.id);
+    if (n.meeting !== undefined) { validateMeetingNote(n.meeting); if (isBoard(n) || isTemplate(n)) throw Error('Only notes can be linked to meetings.'); }
     if (n.autoTitle !== undefined) {
       const naming = n.autoTitle;
       if (!naming || typeof naming !== "object" ||
@@ -179,6 +181,7 @@ export function mergeBackup(
     ...n,
     id: itemMap.get(n.id)!,
     folderId: n.folderId ? folderMap.get(n.folderId)! : null,
+    ...(n.meeting?.sourceNoteId ? { meeting: { ...n.meeting, sourceNoteId:itemMap.get(n.meeting.sourceNoteId) || n.meeting.sourceNoteId } } : {}),
     ...(n.autoTitle ? {
       autoTitle: { ...n.autoTitle, folderId: n.autoTitle.folderId
         ? folderMap.get(n.autoTitle.folderId) || n.autoTitle.folderId : null },

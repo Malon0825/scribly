@@ -2434,6 +2434,7 @@ button:active { transition-duration: 0s; }
 }
 .focus-mode .topbar .brand,
 .focus-mode .topbar button[aria-label="Reference"],
+.focus-mode .topbar .meeting-toggle,
 .focus-mode .theme-toggle,
 .focus-mode .document-head,
 .focus-mode .weekly-bar,
@@ -2510,7 +2511,7 @@ button:active { transition-duration: 0s; }
   padding-top: calc(22px * var(--element-scale));
   padding-bottom: calc(8px * var(--element-scale));
 }
-.document-panel:not(.board-document) :is(.document-head, .editor-toolbar, .note-find, .item-backlinks, .note-editor-surface) {
+.document-panel:not(.board-document) :is(.document-head, .editor-toolbar, .note-find, .item-backlinks, .note-editor-surface, .meeting-reader) {
   width: 100%; max-width: 80ch; align-self: center;
   font-family: var(--note-font); font-size: calc(18px * var(--text-scale));
 }
@@ -2710,6 +2711,16 @@ button:active { transition-duration: 0s; }
 .about-version { font-weight: 400; font-size: calc(14px * var(--text-scale)); color: var(--muted); margin-left: 8px; }
 .about-actions { margin-top: 20px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .about-actions .link-button { gap: 14px; }
+.settings-details { margin-top: 18px; color: var(--muted); font-size: calc(13px * var(--text-scale)); line-height: 1.6; }
+.settings-details summary { color: var(--text); cursor: pointer; padding-block: 8px; }
+.settings-details summary:hover { color: var(--accent); }
+.settings-section-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; color: var(--fg); font-size: calc(16px * var(--text-scale)); font-weight: 600; }
+.settings-section-title span { margin-left: auto; color: var(--muted); font-size: calc(12px * var(--text-scale)); font-weight: 400; }
+.meeting-recording-reminder { display: flex; align-items: flex-start; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: calc(13px * var(--text-scale)); line-height: 1.6; }
+.meeting-recording-reminder svg { flex-shrink: 0; margin-top: 2px; }
+.meeting-recording-reminder p { margin: 0; }
+.meeting-settings .meeting-connection { color: var(--muted); }
+.meeting-settings .meeting-connection.connected { color: var(--green); }
 .about-storage { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; font-size: calc(13px * var(--text-scale)); }
 .about-storage summary { cursor: pointer; color: var(--text); }
 .storage-path { overflow-wrap: anywhere; color: var(--muted); line-height: 1.5; }

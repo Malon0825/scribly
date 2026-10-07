@@ -1,4 +1,5 @@
 import { AnimatedIcon } from "./AnimatedIcon";
+import { MotionDisclosure } from './MotionDisclosure';
 import { noteClipboardText } from "./clipboardText";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
@@ -30,11 +31,17 @@ import { Link as LinkIcon, DotsThree } from "@phosphor-icons/react";
 import type { Note } from "./types";
 import { dictionaryWord } from "./dictionary";
 import { NextWordPrediction } from "./wordPrediction";
+import { MeetingTranscript } from './MeetingTranscript';
+import { MeetingSummary, MeetingCitation } from './MeetingSummary';
+import type { MeetingNoteWrite } from './meetingNotes';
 export function NoteEditor({
   content,
   readOnly = false,
+  formattingVisible = true,
   onChange,
   onAppendReady,
+  onMeetingAppendReady,
+  onMeetingSeek,
   onImagesReady,
   validateContent,
   findRequest,
@@ -45,8 +52,11 @@ export function NoteEditor({
 }: {
   content: string;
   readOnly?: boolean;
+  formattingVisible?: boolean;
   onChange?: (html: string) => void;
   onAppendReady?: (append: (html: string) => void) => void;
+  onMeetingAppendReady?: (append: ((change: MeetingNoteWrite, commit: (content:string) => boolean) => boolean) | null) => void;
+  onMeetingSeek?: (session:string, segment:number) => void;
   onImagesReady?: (insert: (files: File[], point?: { left: number; top: number }) => void) => void;
   validateContent?: (html: string) => void;
   findRequest?: FindRequest;
@@ -60,6 +70,7 @@ export function NoteEditor({
 }) {
   const imageInput = useRef<HTMLInputElement>(null);
   const wordSelected = useRef(onWordSelected); wordSelected.current = onWordSelected;
+  const meetingSeek = useRef(onMeetingSeek); meetingSeek.current = onMeetingSeek;
   const dictionaryReplaceReady = useRef(onDictionaryReplaceReady); dictionaryReplaceReady.current = onDictionaryReplaceReady;
   const linkHandlers = useRef({ onLinkRequest, onItemLink, onExternalLink, readOnly });
   linkHandlers.current = { onLinkRequest, onItemLink, onExternalLink, readOnly };
@@ -122,6 +133,9 @@ export function NoteEditor({
       NotifyImage,
       NotifySourceFile,
       NoteSearch,
+      MeetingTranscript,
+      MeetingSummary,
+      MeetingCitation.configure({seek:(session,segment) => meetingSeek.current?.(session,segment)}),
       NextWordPrediction.configure({ enabled: () => predictionEnabled.current, announce: setPredictionAnnouncement }),
       ItemLink.configure({
         readOnly: () => linkHandlers.current.readOnly,
@@ -166,10 +180,12 @@ export function NoteEditor({
         "aria-multiline": "true",
       },
     },
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
       const html = editor.getHTML();
       lastEmittedHtml.current = html;
-      onChange?.(html);
+      const meetingCommit: unknown = transaction.getMeta('meetingCommit');
+      if (typeof meetingCommit === 'function') meetingCommit(html);
+      else onChange?.(html);
     },
   });
   useEffect(() => { editor?.setEditable(!readOnly,false); }, [editor,readOnly]);
@@ -343,11 +359,47 @@ export function NoteEditor({
       });
     return () => onAppendReady?.(() => {});
   }, [editor, onAppendReady]);
+  useEffect(() => {
+    if (!editor || readOnly || !onMeetingAppendReady) return;
+    onMeetingAppendReady((change, commit) => {
+      if (editor.isDestroyed || !editor.isEditable) throw Error('The meeting note is not editable.');
+      const before = editor.state; const beforeHtml = editor.getHTML(); let saved = false;
+      const transaction = editor.state.tr.setMeta('addToHistory',false)
+        .setMeta('meetingCommit',(content:string) => { saved = commit(content); });
+      const parse = (html:string) => {
+        const template = document.createElement('div'); template.innerHTML = html;
+        return ProseMirrorParser.fromSchema(editor.schema).parseSlice(template, { preserveWhitespace:'full' }).content;
+      };
+      if (typeof change === 'string') transaction.insert(editor.state.doc.content.size,parse(change));
+      else {
+        const positions:number[] = [];
+        editor.state.doc.forEach((_node,position) => positions.push(position));
+        positions.push(editor.state.doc.content.size);
+        for (const edit of change(beforeHtml).reverse()) {
+          const start = positions[edit.index];
+          const end = positions[edit.index + edit.remove];
+          const replacement = parse(edit.html);
+          const current = editor.state.doc.childCount > edit.index ? editor.state.doc.child(edit.index) : null;
+          const first = replacement.firstChild;
+          // Attribute adoption/detachment must keep the caret and user edits in that paragraph.
+          if (edit.remove === 1 && current && first && current.type === first.type && current.content.eq(first.content)) {
+            transaction.setNodeMarkup(start,first.type,first.attrs,first.marks);
+            if (replacement.childCount > 1) transaction.insert(end,replacement.cut(first.nodeSize));
+          } else transaction.replaceWith(start,end,replacement);
+        }
+      }
+      if (!transaction.docChanged) return commit(beforeHtml);
+      try { editor.view.dispatch(transaction); }
+      finally { if (!saved) { editor.view.updateState(before); lastEmittedHtml.current = beforeHtml; } }
+      return saved;
+    });
+    return () => onMeetingAppendReady(null);
+  }, [editor, readOnly, onMeetingAppendReady]);
   if (!editor) return null;
   return (
     <>
       {(!readOnly || findVisible) && <NoteControls>
-      {!readOnly && <EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} onFindRequest={openFind} onLinkRequest={onLinkRequest ? requestItemLink : undefined} pen={pen} changePen={changePen} predictions={predictions} onPredictionsChange={() => setPredictions(value => !value)} />}
+      {!readOnly && <MotionDisclosure open={formattingVisible} keepMounted reveal frequency={Math.sqrt(300)} className="focus-formatting-disclosure"><EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} onFindRequest={openFind} onLinkRequest={onLinkRequest ? requestItemLink : undefined} pen={pen} changePen={changePen} predictions={predictions} onPredictionsChange={() => setPredictions(value => !value)} /></MotionDisclosure>}
       {find && <NoteFind editor={editor} request={find} open={findVisible} readOnly={readOnly} onClose={() => setFindVisible(false)} />}
       </NoteControls>}
       {!readOnly && <>

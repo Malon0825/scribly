@@ -9,14 +9,14 @@ import { backupStatus, type BackupRecord } from './backupHistory';
 import { desktop } from './storage';
 import { version } from '../package.json';
 
-export type SettingsSection = 'appearance' | 'startup' | 'backup' | 'about';
+export type SettingsSection = 'appearance' | 'startup' | 'backup' | 'meetings' | 'about';
 const sections: { id: SettingsSection; label: string }[] = [
   { id: 'appearance', label: 'Appearance' }, { id: 'startup', label: 'Startup' },
-  { id: 'backup', label: 'Backup & restore' }, { id: 'about', label: 'About' },
+  { id: 'backup', label: 'Backup & restore' }, { id: 'meetings', label: 'Accounts & Advanced' }, { id: 'about', label: 'About' },
 ];
 export function SettingsContent({ theme, appearance, backup, backupBusy, importing, dataPath,
-  initialSection = 'appearance', startupExtras, appearanceExtras, backupExtras, onTheme, onAppearance, onExport, onImport, onUpdates, onShortcuts, onDone }: {
-  startupExtras?: ReactNode; appearanceExtras?: ReactNode; backupExtras?: ReactNode;
+  initialSection = 'appearance', startupExtras, appearanceExtras, backupExtras, meetingExtras, onTheme, onAppearance, onExport, onImport, onUpdates, onShortcuts, onDone }: {
+  startupExtras?: ReactNode; appearanceExtras?: ReactNode; backupExtras?: ReactNode; meetingExtras?: ReactNode;
   theme: Workspace['theme']; appearance: Appearance; backup: BackupRecord | null;
   backupBusy: boolean; importing: boolean; dataPath: string; initialSection?: SettingsSection;
   onTheme: (value: Workspace['theme']) => void; onAppearance: (value: Appearance) => void;
@@ -68,6 +68,7 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
         </div>
         {backupExtras}
       </section>
+      <section className="settings-page" role="tabpanel" id="settings-page-meetings" aria-labelledby="settings-tab-meetings" hidden={section !== 'meetings'}>{meetingExtras}</section>
       <section className="settings-page" role="tabpanel" id="settings-page-about" aria-labelledby="settings-tab-about" hidden={section !== 'about'}>
         <h3>Scribly <span className="about-version">{version}</span></h3>
         <p className="setting-hint">A personal notebook for writing and drawing. No cloud sync or account required.</p>
@@ -82,6 +83,6 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
         </details>
       </section>
     </div>
-    <div className="settings-footer"><span>Changes save automatically</span><button className="primary" onClick={onDone}>Done</button></div>
+    <div className="settings-footer"><span>Changes save automatically</span><button onClick={onDone}>Done</button></div>
   </>;
 }

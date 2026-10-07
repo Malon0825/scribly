@@ -153,6 +153,37 @@ fn validate_workspace_items(
         if note.get("kind").is_some_and(|v| v.as_str().is_none()) {
             return Err("Unsupported notebook item.".into());
         }
+        if let Some(meeting) = note.get("meeting") {
+            if !meeting.is_object()
+                || !matches!(meeting["role"].as_str(), Some("transcript" | "summary"))
+                || matches!(note["kind"].as_str(), Some("board" | "template"))
+                || meeting.get("sessionId").is_some_and(|id| {
+                    id.as_str()
+                        .is_none_or(|id| id.len() != 36 || uuid::Uuid::parse_str(id).is_err())
+                })
+                || meeting
+                    .get("sourceNoteId")
+                    .is_some_and(|id| id.as_str().is_none_or(|id| id.is_empty() || id.len() > 800))
+                || meeting
+                    .get("segmentCount")
+                    .is_some_and(|count| count.as_u64().is_none_or(|count| count > 100_000))
+                || meeting
+                    .get("transcriptClosed")
+                    .is_some_and(|closed| closed.as_bool().is_none())
+                || ["analysisIds", "editedAnalysisIds"].iter().any(|key| {
+                    meeting.get(*key).is_some_and(|ids| {
+                        ids.as_array().is_none_or(|ids| {
+                            ids.len() > 1000
+                                || ids
+                                    .iter()
+                                    .any(|id| id.as_str().is_none_or(|id| id.len() > 100))
+                        })
+                    })
+                })
+            {
+                return Err("Invalid meeting note metadata.".into());
+            }
+        }
         match note.get("kind").and_then(Value::as_str) {
             Some("board") => validate_board(note.get("board").ok_or("Missing board payload")?)?,
             None | Some("note" | "template") => {
@@ -434,6 +465,17 @@ pub(crate) fn validate_board(board: &Value) -> Result<(), String> {
 mod navigation_tests {
     use super::validate_workspace;
     use serde_json::json;
+
+    #[test]
+    fn meeting_note_metadata_survives_save_and_rejects_malformed_progress() {
+        let mut doc = json!({"schemaVersion":5,"theme":"light","folders":[],"activeId":"n","referenceId":null,"notes":[{"id":"n","title":"Meeting","content":"<p>Transcript</p>","createdAt":"x","updatedAt":"x","archived":false,"folderId":null,"meeting":{"role":"transcript","sessionId":"73e4f8b5-d38d-46e8-8295-4e954875d77d","segmentCount":3,"transcriptClosed":true}}]});
+        assert!(validate_workspace(&doc).is_ok());
+        doc["notes"][0]["meeting"]["segmentCount"] = json!(-1);
+        assert!(validate_workspace(&doc).is_err());
+        doc["notes"][0]["meeting"]["segmentCount"] = json!(3);
+        doc["notes"][0]["meeting"]["sessionId"] = json!("malformed");
+        assert!(validate_workspace(&doc).is_err());
+    }
 
     #[test]
     fn notebook_theme_is_valid_for_persistence() {
