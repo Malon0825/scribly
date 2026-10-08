@@ -4,6 +4,8 @@ import { TextSelection, type SelectionBookmark, type Transaction } from "@tiptap
 import { closeHistory } from "@tiptap/pm/history";
 import { CaretUp, CaretDown, X, ArrowCounterClockwise } from "@phosphor-icons/react";
 import { emptySearch, searchKey } from "./textSearch";
+import { MotionDisclosure } from './MotionDisclosure';
+import { DisclosureCaret } from './DisclosureCaret';
 
 export type FindRequest = { serial: number; query?: string; replace: boolean };
 export function NoteFind({ editor, request, open, readOnly, onClose }: { editor: Editor; request: FindRequest; open: boolean; readOnly: boolean; onClose: () => void }) {
@@ -86,7 +88,7 @@ export function NoteFind({ editor, request, open, readOnly, onClose }: { editor:
     setReplaced(targets.length);
   }
   const pending = state.query !== query || state.caseSensitive !== caseSensitive || state.wholeWord !== wholeWord;
-  return <div className={`quiet-disclosure find-disclosure${open ? " is-open" : ""}`} inert={!open} aria-hidden={!open} onTransitionEnd={event => { if (open && event.target === event.currentTarget && event.propertyName === 'grid-template-rows') navigate(0); }}><div><section className="note-find" aria-label="Find in note" onKeyDown={event => {
+  return <MotionDisclosure open={open} keepMounted className="find-disclosure" onOpened={() => navigate(0)}><section className="note-find" aria-label="Find in note" onKeyDown={event => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); dismiss(); }
     if (event.key === "Enter" && event.target === field.current) { event.preventDefault(); navigate(event.shiftKey ? -1 : 1); }
   }}>
@@ -100,15 +102,15 @@ export function NoteFind({ editor, request, open, readOnly, onClose }: { editor:
     <div className="find-options">
       <button className="find-option" aria-label="Match case" title="Match case (Space to toggle)" aria-pressed={caseSensitive} onClick={() => setCaseSensitive(value => !value)}>Aa</button>
       <button className="find-option whole-word" aria-label="Whole word" title="Whole word (Space to toggle)" aria-pressed={wholeWord} onClick={() => setWholeWord(value => !value)}>ab</button>
-      {!readOnly && <button className="replace-toggle" aria-expanded={replace} aria-controls="note-replace-controls" onClick={() => setReplace(value => !value)}>Replace <CaretDown size={16} className={replace ? "is-open" : ""} /></button>}
+      {!readOnly && <button className="replace-toggle" aria-expanded={replace} aria-controls="note-replace-controls" onClick={() => setReplace(value => !value)}>Replace <DisclosureCaret open={replace} /></button>}
       {readOnly && <span>Read-only note</span>}
     </div>
-    {!readOnly && <div className={`quiet-disclosure${replace ? " is-open" : ""}`} inert={!replace}><div><div id="note-replace-controls" className="find-row replace-row">
+    {!readOnly && <MotionDisclosure open={replace} keepMounted><div id="note-replace-controls" className="find-row replace-row">
       <input aria-label="Replace with" placeholder="Replace with" value={replacement} onChange={event => setReplacement(event.target.value)} />
       <button disabled={pending || !state.matches.length} aria-label="Replace next" onClick={() => replaceMatches(false)}>Replace</button>
       <button disabled={pending || !state.matches.length} onClick={() => replaceMatches(true)}>Replace all</button>
-    </div></div></div>}
+    </div></MotionDisclosure>}
     {hasOriginal && <p className="find-hint">Original file contents are excluded. Find searches this note’s text and annotations.</p>}
     {replaced !== null && <p className="find-hint replacement-status" role="status">Replaced {replaced} · <button onClick={() => { editor.commands.undo(); setReplaced(null); }}> <ArrowCounterClockwise size={14} />Undo</button></p>}
-  </section></div></div>;
+  </section></MotionDisclosure>;
 }

@@ -13,10 +13,10 @@ export function readNotebookView(): NotebookView {
   } catch { return defaultNotebookView; }
 }
 export function orderNotes(notes: Note[], sort: NotebookView['sort']) {
-  if (sort === 'manual') return notes;
+  if (sort === 'manual' && notes.some(note => note.sidebarManual)) return notes;
   return [...notes].sort((a, b) => sort === 'title'
     ? a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
-    : b.updatedAt.localeCompare(a.updatedAt));
+    : sort === 'manual' ? b.createdAt.localeCompare(a.createdAt) : b.updatedAt.localeCompare(a.updatedAt));
 }
 export function matchesNote(note: Note, query: string, filter: NotebookView['filter']) {
   return (filter === 'all' || (filter === 'boards' ? isBoard(note) : !isBoard(note)))

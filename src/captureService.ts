@@ -41,7 +41,7 @@ export function appendCapture(workspace: Workspace, capture: CaptureSubmission):
     return workspace;
   }
   let inbox = workspace.folders.find(folder => !folder.deletedAt && folder.name.trim().toLowerCase() === "inbox");
-  if (!inbox) inbox = { id: `capture-inbox-${capture.id}`, name: "Inbox" };
+  if (!inbox) inbox = { id: `capture-inbox-${capture.id}`, name: "Inbox", createdAt: capture.createdAt };
   const note: Note = { id: capture.id, folderId: inbox.id, title: capture.title, content: captureContent(capture.text), createdAt: capture.createdAt, updatedAt: capture.createdAt, archived: false };
   return { ...workspace, folders: workspace.folders.some(folder => folder.id === inbox.id) ? workspace.folders : [...workspace.folders, inbox], notes: [...workspace.notes, note] };
 }

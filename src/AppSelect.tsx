@@ -1,6 +1,14 @@
 import { AnimatedIcon } from "./AnimatedIcon";
 import * as Select from "@radix-ui/react-select";
 import { CaretDown, CaretUp, Check } from "@phosphor-icons/react";
+import { useRef, type ComponentProps } from 'react';
+import { useSurfaceMotion } from './useSurfaceMotion';
+
+function MotionSelectContent({ motionLabel, ...props }: ComponentProps<typeof Select.Content> & { motionLabel: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useSurfaceMotion(ref, 'menu', `select-${motionLabel}`);
+  return <Select.Content {...props} ref={ref} />;
+}
 
 export type SelectOption = { value: string; label: string; group?: string };
 // Radix owns focus, typeahead, keyboard navigation and collision placement.
@@ -17,7 +25,7 @@ export function AppSelect({ value, options, onChange, label, title, id, describe
       <Select.Value /><Select.Icon className="select-caret"><AnimatedIcon kind="down" size={16} /></Select.Icon>
     </Select.Trigger>
     <Select.Portal>
-      <Select.Content className="select-popup" data-notify-select-content="" position="popper" sideOffset={6} collisionPadding={10}
+      <MotionSelectContent motionLabel={label} className="select-popup" data-notify-select-content="" position="popper" sideOffset={6} collisionPadding={10}
         onEscapeKeyDown={(event) => event.stopPropagation()}
         onCloseAutoFocus={onCloseFocus ? (event) => { event.preventDefault(); onCloseFocus(); } : undefined}>
         <Select.ScrollUpButton className="select-scroll"><CaretUp size={16} /></Select.ScrollUpButton>
@@ -31,7 +39,7 @@ export function AppSelect({ value, options, onChange, label, title, id, describe
           </Select.Group>)}
         </Select.Viewport>
         <Select.ScrollDownButton className="select-scroll"><CaretDown size={16} /></Select.ScrollDownButton>
-      </Select.Content>
+      </MotionSelectContent>
     </Select.Portal>
   </Select.Root>;
 }

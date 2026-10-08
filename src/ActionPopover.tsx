@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useSurfaceMotion } from './useSurfaceMotion';
 
 export function ActionPopover({ anchor, children, label, className, onClose, point }: {
   anchor: HTMLElement | null; children: ReactNode; label: string; className: string; onClose: () => void;
@@ -57,6 +58,7 @@ export function ActionPopover({ anchor, children, label, className, onClose, poi
       if (popup.contains(document.activeElement) && anchor.isConnected) anchor.focus({ preventScroll: true });
     };
   }, [anchor, point]);
+  useSurfaceMotion(ref, 'menu', label);
   return createPortal(<div ref={ref} role="dialog" aria-label={label} className={`dropdown action-popover ${className}`}
     onClick={(event) => event.stopPropagation()}
     onKeyDown={(event) => {

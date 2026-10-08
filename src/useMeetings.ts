@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { desktop } from './storage';
-import { defaultMeetingPreferences, listMeetings, savePreviewMeeting, sampleMeeting, type Meeting, type MeetingConnections, type MeetingPreferences, type MeetingStream, type RecordingFeedback } from './meetings';
+import { defaultMeetingPreferences, listMeetings, savePreviewMeeting, sampleMeeting, type Meeting, type MeetingConnections, type MeetingKind, type MeetingPreferences, type MeetingStream, type RecordingFeedback } from './meetings';
+
+export type MeetingAITask = { id:string; kind:MeetingKind | 'recap' | 'transcript'; resuming?:boolean; stage?:'updating' };
 
 export function useMeetings(ready: boolean) {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -13,6 +15,7 @@ export function useMeetings(ready: boolean) {
   const [interim, setInterim] = useState<{ id:string; text:string } | null>(null);
   const [reminder, setReminder] = useState<{ id:string; message:string } | null>(null);
   const [busy, setBusy] = useState('');
+  const [aiTask, setAITask] = useState<MeetingAITask | null>(null);
   const [recordingBusy, setRecordingBusy] = useState('');
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -37,12 +40,12 @@ export function useMeetings(ready: boolean) {
     }
     return () => { live = false; loadGeneration.current++; offs.forEach(off => off()); };
   }, [ready, reload]);
-  async function run<T>(label: string, operation: () => Promise<T>, after?: (value: T) => void): Promise<void> {
+  async function run<T>(label: string, operation: () => Promise<T>, after?: (value: T) => void, task?:MeetingAITask): Promise<void> {
     if (lock.current) return;
-    lock.current = true; setBusy(label); setError('');
-    try { const value = await operation(); await reload(); lock.current = false; setBusy(''); after?.(value); }
+    lock.current = true; setBusy(label); setAITask(task || null); setError('');
+    try { const value = await operation(); if (task) setAITask({...task,stage:'updating'}); await reload(); lock.current = false; setBusy(''); setAITask(null); after?.(value); }
     catch (reason) { setError(String(reason)); }
-    finally { lock.current = false; setBusy(''); }
+    finally { lock.current = false; setBusy(''); setAITask(null); }
   }
   async function runRecording(label: string, operation: () => Promise<Meeting | null>, after?: (value:Meeting | null) => void): Promise<void> {
     if (recordingLock.current) return;
@@ -60,6 +63,6 @@ export function useMeetings(ready: boolean) {
   function addSample(noteId: string | null, integrated = false) { void run('Loading sample', async () => { const record = sampleMeeting(noteId,integrated); await savePreviewMeeting(record); return record; }, selectResult); }
   const selected = meetings.find(item => item.id === selectedId && !item.deletedAt) || meetings.find(item => !item.deletedAt) || null;
   const recording = meetings.find(item => !item.deletedAt && (item.recording === 'recording' || item.recording === 'paused')) || null;
-  return { meetings, selected, select, recording, feedback, interim, streams, reminder, dismissReminder:() => setReminder(null), connections, preferences, savePreferences, setConnections, refreshConnections, busy, recordingBusy, error, setError, loaded, run, runRecording, reload, selectResult, addSample };
+  return { meetings, selected, select, recording, feedback, interim, streams, reminder, dismissReminder:() => setReminder(null), connections, preferences, savePreferences, setConnections, refreshConnections, busy, aiTask, recordingBusy, error, setError, loaded, run, runRecording, reload, selectResult, addSample };
 }
 export type MeetingsController = ReturnType<typeof useMeetings>;

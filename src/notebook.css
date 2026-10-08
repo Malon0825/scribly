@@ -223,7 +223,8 @@
     var(--paper-edge-mask),
     repeating-linear-gradient(180deg, transparent 0, transparent calc(27px * var(--text-scale) - 1px), var(--paper-rule) calc(27px * var(--text-scale) - 1px), var(--paper-rule) calc(27px * var(--text-scale))),
     var(--panel);
-  background-position: 0 0, 0 0, 0 var(--paper-top-margin);
+  background-position: 0 var(--reference-paper-offset, 0px), 0 var(--reference-paper-offset, 0px), 0 calc(var(--paper-top-margin) + var(--reference-paper-offset, 0px));
+  background-size: auto, 100% var(--reference-paper-height, 100%), auto;
   background-repeat: repeat, no-repeat, no-repeat;
   background-attachment: local;
 }

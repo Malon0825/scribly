@@ -41,10 +41,12 @@ import { AlignLeftIcon } from '@animateicons/react/lucide/align-left-icon';
 import { AlignCenterIcon } from '@animateicons/react/lucide/align-center-icon';
 import { AlignRightIcon } from '@animateicons/react/lucide/align-right-icon';
 import { ArrowUpIcon } from '@animateicons/react/lucide/arrow-up-icon';
+import { ArrowLeftIcon } from '@animateicons/react/lucide/arrow-left-icon';
 import { ArrowDownIcon } from '@animateicons/react/lucide/arrow-down-icon';
 import { ListPlusIcon } from '@animateicons/react/lucide/list-plus-icon';
+import { CoffeeIcon } from '@animateicons/react/lucide/coffee-icon';
 
-const icons = { add: PlusIcon, board: WorkflowIcon, sidebar: PanelLeftIcon, reference: BookOpenIcon, focus: TargetIcon, settings: SettingsIcon, sun: SunIcon, moon: MoonIcon, system: MonitorIcon, search: SearchIcon, folder: FolderIcon, folderAdd: FolderPlusIcon, note: FileTextIcon, archive: ArchiveIcon, bold: BoldIcon, italic: ItalicIcon, list: ListIcon, checklist: SquareCheckIcon, code: CodeIcon, image: ImageIcon, palette: PaletteIcon, undo: UndoIcon, redo: RedoIcon, highlight: HighlighterIcon, draw: PencilIcon, options: EllipsisIcon, copy: CopyIcon, download: DownloadIcon, upload: UploadIcon, open: ExternalLinkIcon, tools: SlidersHorizontalIcon, down: ChevronDownIcon, right: ChevronRightIcon, up: ChevronUpIcon, close: XIcon, zoom: ZoomInIcon, alignLeft: AlignLeftIcon, alignCenter: AlignCenterIcon, alignRight: AlignRightIcon, moveUp: ArrowUpIcon, moveDown: ArrowDownIcon, weekly: ListPlusIcon };
+const icons = { back: ArrowLeftIcon, coffee: CoffeeIcon, add: PlusIcon, board: WorkflowIcon, sidebar: PanelLeftIcon, reference: BookOpenIcon, focus: TargetIcon, settings: SettingsIcon, sun: SunIcon, moon: MoonIcon, system: MonitorIcon, search: SearchIcon, folder: FolderIcon, folderAdd: FolderPlusIcon, note: FileTextIcon, archive: ArchiveIcon, bold: BoldIcon, italic: ItalicIcon, list: ListIcon, checklist: SquareCheckIcon, code: CodeIcon, image: ImageIcon, palette: PaletteIcon, undo: UndoIcon, redo: RedoIcon, highlight: HighlighterIcon, draw: PencilIcon, options: EllipsisIcon, copy: CopyIcon, download: DownloadIcon, upload: UploadIcon, open: ExternalLinkIcon, tools: SlidersHorizontalIcon, down: ChevronDownIcon, right: ChevronRightIcon, up: ChevronUpIcon, close: XIcon, zoom: ZoomInIcon, alignLeft: AlignLeftIcon, alignCenter: AlignCenterIcon, alignRight: AlignRightIcon, moveUp: ArrowUpIcon, moveDown: ArrowDownIcon, weekly: ListPlusIcon };
 let media: MediaQueryList | undefined;
 const subscribers = new Set<() => void>();
 let preferenceTimer: ReturnType<typeof setTimeout> | undefined;

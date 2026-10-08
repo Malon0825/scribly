@@ -1,7 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useSurfaceMotion } from './useSurfaceMotion';
 import { QuickCapture } from "./QuickCapture";
 
 export function QuickCaptureWindow() {
+  const ref = useRef<HTMLDivElement>(null);
+  useSurfaceMotion(ref, 'window', 'quick-capture');
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
@@ -12,5 +15,5 @@ export function QuickCaptureWindow() {
     apply(); media.addEventListener("change", apply); window.addEventListener("focus", apply); window.addEventListener("storage", apply);
     return () => { media.removeEventListener("change", apply); window.removeEventListener("focus", apply); window.removeEventListener("storage", apply); };
   }, []);
-  return <QuickCapture />;
+  return <div ref={ref} style={{ height: '100%' }}><QuickCapture /></div>;
 }

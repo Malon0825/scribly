@@ -1,4 +1,5 @@
 import { AnimatedIcon } from "./AnimatedIcon";
+import { useSurfaceMotion } from './useSurfaceMotion';
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
@@ -11,6 +12,8 @@ import { displayImageSource } from "./attachments";
 
 function ImagePreview({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
+  useSurfaceMotion(backdrop, 'dialog', 'image-preview');
   const [actualSize, setActualSize] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   useEffect(() => {
@@ -28,7 +31,7 @@ function ImagePreview({ src, alt, onClose }: { src: string; alt: string; onClose
     document.addEventListener("keydown", key, true);
     return () => { document.removeEventListener("keydown", key, true); if (previous.isConnected) previous.focus({ preventScroll: true }); };
   }, [onClose]);
-  return createPortal(<div className="modal-backdrop image-preview-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+  return createPortal(<div ref={backdrop} className="modal-backdrop image-preview-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
     <div ref={ref} role="dialog" aria-modal="true" aria-label="Image preview" className="image-preview">
       <div className="image-preview-actions"><span>{alt || "Image"}</span>
         <button aria-label="Actual image size" aria-pressed={actualSize} title={actualSize ? "Fit image to window" : "View at actual size"} onClick={() => setActualSize((value) => !value)}><AnimatedIcon kind="zoom" size={20} /></button>

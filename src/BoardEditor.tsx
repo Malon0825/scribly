@@ -1,4 +1,5 @@
 import { AnimatedIcon } from "./AnimatedIcon";
+import { useContentMotion } from './useSurfaceMotion';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Excalidraw, CaptureUpdateAction, restoreElements, getNonDeletedElements, exportToBlob, exportToSvg, newElementWith, convertToExcalidrawElements, viewportCoordsToSceneCoords } from "@excalidraw/excalidraw";
@@ -96,6 +97,7 @@ export default function BoardEditor({ id, title, board, dark, readOnly, notebook
   }, [engine, searchTarget?.serial]);
   useEffect(() => () => { if (searchFrame.current !== undefined) cancelAnimationFrame(searchFrame.current); }, []);
   const canvasOwner = useRef<HTMLElement | null>(null);
+  useContentMotion(canvasOwner, `${id}-${focusMode}`);
   const insertTrigger = useRef<HTMLButtonElement | null>(null);
   const exportTrigger = useRef<HTMLButtonElement | null>(null), codeField = useRef<HTMLTextAreaElement | null>(null), copyButton = useRef<HTMLButtonElement | null>(null);
   const copyAttempt = useRef(0), copying = useRef(false);

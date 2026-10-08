@@ -27,7 +27,7 @@ import { NoteSearch } from "./textSearch";
 import { NoteFind, type FindRequest } from "./NoteFind";
 import { ItemLink } from "./ItemLink";
 import { NoteControls } from "./NoteControls";
-import { Link as LinkIcon, DotsThree } from "@phosphor-icons/react";
+import { Link as LinkIcon, DotsThree, TextAa } from "@phosphor-icons/react";
 import type { Note } from "./types";
 import { dictionaryWord } from "./dictionary";
 import { NextWordPrediction } from "./wordPrediction";
@@ -497,7 +497,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
             onClick={onColorsRequest}><AnimatedIcon kind="palette" size={20} /></button>
           <button className="prediction-toggle" aria-label="Next word suggestions" aria-pressed={predictions}
             title="Next word suggestions · Tab to accept, Escape to dismiss. Sends the previous word, typed prefix and up to five topic words to Datamuse."
-            onClick={onPredictionsChange}><span aria-hidden="true">Aa<span className="prediction-toggle-mark">›</span></span></button>
+            onClick={onPredictionsChange}><TextAa size={22} aria-hidden="true" /></button>
   </div>;
   return (
       <>
@@ -539,7 +539,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor, imageLoading, onImag
           <div className="toolbar-spacer" />
           <button aria-label="Find in note" title="Find in note (Ctrl+F)" onClick={onFindRequest}><AnimatedIcon kind="search" size={20} /></button>
         </div>
-        {compact && <div className={`quiet-disclosure${more ? ' is-open' : ''}`} inert={!more} aria-hidden={!more} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setMore(false); moreButton.current?.focus(); } }}><div><div id="extra-formatting-tools" className="toolbar-more-row">{extraTools}</div></div></div>}
+        {compact && <MotionDisclosure open={more} keepMounted onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setMore(false); moreButton.current?.focus(); } }}><div id="extra-formatting-tools" className="toolbar-more-row">{extraTools}</div></MotionDisclosure>}
       </>
   );
 });

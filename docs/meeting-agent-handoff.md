@@ -6,6 +6,24 @@ Branch: `main`; HEAD: `54a8b0ec998aa6ffc84cb74b1ba2c8e944bc3a86`.
 
 ## Current state
 
+### Version 1.5.0 installer, 2026-10-08
+
+The user's requested 1.5.0 rebuild completed successfully. npm/Tauri/Cargo application versions and the generated executable's ProductVersion/FileVersion agree on 1.5.0. Installer: `release/Scribly_1.5.0_x64-setup.exe`, SHA-256 `1169840d2feb28c729e1dc9683ba7dfe924c8893fd6aeb845ea6d64b9ac5747f`; the release copy matches the NSIS bundle. It includes the current working tree, including follow-up answers under the question, input focus corrections, larger red meeting dots, action-specific AI loading states, and the single TextAa suggestions icon that fixes toolbar wrapping. This supersedes older statements below that these changes are absent from the installer. Build and browser icon-toggle checks passed; no tests, provider calls, installation or native runtime acceptance were performed. See `tests/verification.md` for evidence and limits.
+
+### Follow-up answers in the meeting panel, 2026-10-08
+
+The user requested follow-up answers below the question input without touching the summary note. MeetingAIControls now shows persisted question/answer records in the panel, with current-transcript citation buttons and earlier-transcript labels. Answer generation/resume completion does not navigate the main document; its progress does not render in the summary document. New question analyses are excluded from appendSummaryResults, with no note update for a question-only completion. Existing stored answer blocks are retained. Earlier versions question entries scroll to the panel response. This change is newer than the 1.4.2 installer and requires manual native follow-up/citation verification; no inference calls or tests were run.
+
+### Version 1.4.2 installer rebuild, 2026-10-08
+
+The application version is now 1.4.2 across npm, Tauri and Cargo metadata. `npm.cmd run package` completed successfully, including frontend build, optimized native compilation, NSIS packaging and release copy. The installer is `release/Scribly_1.4.2_x64-setup.exe` with SHA-256 `07245441A9C53FCC02C8690DE3B150F2162A3E9B513437A332D3C87E8C6B4A94`. It was not installed or launched; no tests or live provider calls were run.
+
+### Latest meeting flow follow-up (after commit 3155ff1)
+
+Additional save-state review: transcript/title/speaker fields now lock during saving, with visible progress and actual error text inside the edit dialog. This prevents edits made after submitting from being lost when the successful save closes the dialog. Empty model catalogs now explain unavailability, and resumed work uses the correct result-type progress label. Native delayed-save/error and account-catalog branches still need manual verification.
+
+Meeting failures now disclose the actual error, and model-catalog errors are shown directly. Partially completed recaps offer Finish missing sections using the existing request path. Resume availability shares the handler's model/revision guard, respects analysis permissions, and names the unfinished result type. The Key points prompt now requests up to 12 concise discussion points without duplicate timestamp prefixes; the evidence and JSON contract remain unchanged. Existing results are retained. OpenRouter checkpoint keys include prompt text, so old unfinished Key points checkpoints may need fresh requests when resumed. Frontend build and Cargo check passed; native branches and output quality remain manual verification. No tests, live inference or installer rebuild performed. See tests/verification.md.
+
 ### Latest meeting-options correction (after the installer below)
 
 The user requested matching the folder more-options design, icons for each meeting action, quiz/flashcards inside that menu and a more visible ellipsis. The meeting menu now reuses MenuAction and the shared folder width, padding, icon geometry, divider groups and interaction styling. Visible group captions are removed; accessible group names remain. Study notes, quiz and flashcards share one group, with no duplicate study links below the question input. The outlined, active-tone 44px options trigger uses accent color and a larger regular ellipsis, plus tooltip/focus/open states. The default saved panel has five controls including Close. Existing request/export/naming/language/redo/save/delete guards and handlers are preserved. This frontend update is available in development and is not in the 20:15 installer; no subsequent packaging run has occurred.

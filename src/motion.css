@@ -1,3 +1,52 @@
+/* A single JS owner controls spatial transitions. Content remains visible if
+   motion is unavailable; preferences are also observed by every spring. */
+.workspace[data-motion-layout] { transition: none; }
+.workspace[data-motion-layout] .sidebar {
+  width: var(--sidebar-width, var(--sidebar-default));
+  max-width: none;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  transition: none;
+}
+.workspace[data-motion-layout] .document-panel { grid-column: 2; grid-row: 1; }
+@media (min-width: 701px) {
+  /* Keep the paper-edge overlap on the live panel pose during Focus changes. */
+  :root[data-theme="notebook"] .workspace[data-motion-layout] > .document-panel {
+    margin-left: calc(-4px * var(--element-scale) * var(--motion-sidebar-reveal, 0));
+  }
+}
+.document-panel:not(.board-document) > .document-scroll { scrollbar-gutter: stable; }
+.document-scroll[data-reading-motion] { overflow-x: clip; }
+.workspace[data-motion-layout] .reference-panel {
+  width: var(--reference-width, var(--reference-default));
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  transition: none;
+}
+.workspace[data-motion-layout] .sidebar-resize {
+  left: calc(var(--motion-sidebar-column) + 5px * var(--element-scale));
+}
+.workspace[data-motion-layout] .reference-resize { right: calc(var(--motion-reference-column) + 5px * var(--element-scale)); }
+@media (max-width: 1050px) {
+  .workspace[data-motion-layout] .reference-resize { right: min(var(--reference-width, var(--reference-default)), calc(100% - 32px * var(--element-scale))); }
+  .workspace[data-motion-layout] .reference-panel {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    max-width: calc(100% - 32px * var(--element-scale));
+    z-index: 30;
+  }
+}
+@media (max-width: 700px) {
+  .workspace[data-motion-layout] .sidebar {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: calc(270px * var(--element-scale));
+    max-width: calc(100% - 32px * var(--element-scale));
+    z-index: 35;
+  }
+}
 [data-motion-surface] { animation: none !important; transition: none !important; }
 [data-motion-content] {
   animation: none !important;
@@ -30,9 +79,27 @@
 .document-heading-disclosure { width: 100%; max-width: 80ch; flex-shrink: 0; align-self: center; font-family: var(--note-font); font-size: calc(18px * var(--text-scale)); }
 .document-heading-disclosure > div { display: flex; flex-direction: column; }
 .focus-formatting-disclosure > div > .motion-disclosure { width: 100%; }
-
+.motion-caret { display: inline-flex; flex-shrink: 0; }
+.motion-caret svg { rotate: none; transition: none; }
+.topbar[data-topbar-motion] { position: relative; flex-shrink: 0; overflow: hidden; }
+.focus-tools-toggle[hidden] { display: none; }
+.dictionary-panel-title { margin: 0; color: var(--fg); font: 650 calc(18px * var(--text-scale))/1.4 "Segoe UI", sans-serif; }
+.focus-mode .reference-label { min-height: calc(34px * var(--element-scale)); }
+.settings-tabs { position: relative; isolation: isolate; }
+.settings-dialog { height: min(calc(760px * var(--element-scale)), calc(100dvh - 48px * var(--element-scale))); }
+.settings-dialog .settings-pages { flex: 1; overflow-x: hidden; }
+.settings-tabs button { position: relative; z-index: 1; }
+.settings-tab-highlight {
+  position: absolute; left: 0; top: 0; z-index: 0;
+  pointer-events: none; border-radius: 8px; background: var(--active);
+}
+.settings-tabs[data-settings-motion] button[aria-selected="true"] { background: transparent; }
+.settings-page { transition: none; }
 @media (prefers-reduced-motion: reduce) {
   [data-motion-surface], [data-motion-content] { translate: none !important; scale: none !important; }
   [data-motion-content] { transition: none !important; }
+  .workspace[data-motion-layout] :is(.sidebar, .reference-panel) { transform: none !important; }
+  .settings-page { translate: none !important; }
   .focus-formatting-disclosure > div { translate: none !important; }
+  .document-heading-disclosure > div { translate: none !important; }
 }

@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Microphone, Pause, Play, Stop, Gear, DotsThree, Trash, DownloadSimple, Copy, Users, Translate, ArrowCounterClockwise, ArrowsClockwise, ClockCounterClockwise, VideoCamera, NotePencil, ListChecks, Cards, Folders } from '@phosphor-icons/react';
 import { Dialog } from './Dialog';
 import { MeetingAIControls, type MeetingRequests } from './MeetingAIControls';
+import { MeetingStreamPreview } from './MeetingStreamPreview';
 import { ActionPopover } from './ActionPopover';
 import { MenuAction } from './MenuAction';
 import { MeetingPlayer } from './MeetingPlayer';
@@ -21,22 +22,22 @@ export function MeetingEdit({ value, c, onClose }: { value: Editor; c: MeetingsC
   return createPortal(<Dialog title={segment ? 'Fix transcript' : 'Rename people'} onClose={() => { if (!c.busy) onClose(); }} initialFocus={() => document.querySelector<HTMLInputElement | HTMLTextAreaElement>('#meeting-edit-first')}>
     <form onSubmit={event => { event.preventDefault(); void c.run('Saving meeting', () => updateMeeting(draft), onClose); }}>
       {segment ? <>
-        <label className="meeting-field">Transcript segment<select value={segmentId!} onChange={event => setSegmentId(Number(event.target.value))}>{draft.segments.map(item => <option key={item.id} value={item.id}>{meetingTime(item.start)} · {speakerLabel(draft,item.speaker)} · {item.text.slice(0,70)}</option>)}</select></label>
+        <label className="meeting-field">Transcript segment<select disabled={!!c.busy} value={segmentId!} onChange={event => setSegmentId(Number(event.target.value))}>{draft.segments.map(item => <option key={item.id} value={item.id}>{meetingTime(item.start)} · {speakerLabel(draft,item.speaker)} · {item.text.slice(0,70)}</option>)}</select></label>
         <label className="field-label" htmlFor="meeting-edit-first">Transcript · {meetingTime(segment.start)}</label>
-        <textarea id="meeting-edit-first" className="meeting-transcript-edit" value={segment.text} maxLength={50_000} onChange={event => setDraft({ ...draft, segments: draft.segments.map(item => item.id === segment.id ? { ...item, text: event.target.value, words:[] } : item) })} />
+        <textarea id="meeting-edit-first" className="meeting-transcript-edit" readOnly={!!c.busy} value={segment.text} maxLength={50_000} onChange={event => setDraft({ ...draft, segments: draft.segments.map(item => item.id === segment.id ? { ...item, text: event.target.value, words:[] } : item) })} />
         <label className="field-label" htmlFor="meeting-edit-speaker">Speaker</label>
-        <select id="meeting-edit-speaker" value={segment.speaker} onChange={event => setDraft({ ...draft, segments: draft.segments.map(item => item.id === segment.id ? { ...item, speaker: event.target.value } : item) })}>
+        <select id="meeting-edit-speaker" disabled={!!c.busy} value={segment.speaker} onChange={event => setDraft({ ...draft, segments: draft.segments.map(item => item.id === segment.id ? { ...item, speaker: event.target.value } : item) })}>
           {[...new Set(draft.segments.map(item => item.speaker))].map(id => <option key={id} value={id}>{speakerLabel(draft,id)}</option>)}
         </select>
       </> : <>
         <label className="meeting-field" htmlFor="meeting-edit-first">Meeting title
-          <input id="meeting-edit-first" value={draft.title} required maxLength={200} onChange={event => setDraft({ ...draft, title: event.target.value })} />
+          <input id="meeting-edit-first" readOnly={!!c.busy} value={draft.title} required maxLength={200} onChange={event => setDraft({ ...draft, title: event.target.value })} />
         </label>
         <p className="setting-hint">Name each person once. Their name will appear throughout the meeting.</p>
         {[...new Set(draft.segments.map(item => item.speaker))].map(id => {
           const identity = draft.speakerIdentities?.find(identity => identity.speakerId === id);
           const current = draft.speakerIdentityRevision === draft.revision;
-          return <div key={id} className="meeting-speaker-entry"><label className="meeting-field">{defaultSpeakerLabel(id)}<input value={draft.speakers[id] || ''} maxLength={200} placeholder={defaultSpeakerLabel(id)} onChange={event => setDraft({ ...draft, speakers: { ...draft.speakers, [id]: event.target.value } })} /></label>
+          return <div key={id} className="meeting-speaker-entry"><label className="meeting-field">{defaultSpeakerLabel(id)}<input readOnly={!!c.busy} value={draft.speakers[id] || ''} maxLength={200} placeholder={defaultSpeakerLabel(id)} onChange={event => setDraft({ ...draft, speakers: { ...draft.speakers, [id]: event.target.value } })} /></label>
             {identity && <details className="meeting-speaker-evidence"><summary>{identity.confidence === 'strong' ? 'AI inferred' : 'Suggested'}: {speakerIdentityLabel(identity)}{!current && ' · Earlier transcript'}</summary>
               <p className="setting-hint">{identity.reason}</p>
               {!!identity.aliases.length && <p className="setting-hint">Spelling variants: {identity.aliases.join(', ')}</p>}
@@ -47,17 +48,19 @@ export function MeetingEdit({ value, c, onClose }: { value: Editor; c: MeetingsC
         })}
       </>}
 
-      {c.error && <p role="alert" className="meeting-error">Changes could not be saved. Try again or check Settings.</p>}
+      {c.busy && <p role="status" className="meeting-progress">{c.busy}…</p>}
+      {c.error && <p role="alert" className="meeting-error">{c.error}</p>}
       <div className="dialog-actions"><button type="button" disabled={!!c.busy} onClick={onClose}>Cancel</button><button className="primary" disabled={!!c.busy || !draft.title.trim()} type="submit">Save changes</button></div>
     </form>
   </Dialog>, document.body);
 }
 
-export function MeetingPanel({ controller: c, noteId, noteTitle, meetingNote, meetingSessionId, allowAnalysis, requests, player, transcript, onView, onAnalysis, onDelete, onExport, onPrepareMeeting, onOpenMeeting, onSettings }: {
+export function MeetingPanel({ controller: c, noteId, noteTitle, meetingNote, meetingSessionId, allowAnalysis, requests, player, transcript, onView, onSeek, onAnalysis, onDelete, onExport, onPrepareMeeting, onOpenMeeting, onSettings }: {
   controller: MeetingsController; noteId: string | null; noteTitle: string;
   meetingNote: boolean; meetingSessionId?: string; onPrepareMeeting: () => Promise<{noteId:string;title:string}>;
   onOpenMeeting: (meeting: Meeting, results?:boolean) => void; onSettings: () => void;
   allowAnalysis: boolean; requests:MeetingRequests; player:MeetingPlayback; transcript:boolean; onView:(transcript:boolean) => void; onAnalysis:(id:string | null) => void; onDelete:(meeting:Meeting) => void;
+  onSeek:(segment:number) => void;
   onExport:(meeting:Meeting,returnTo:HTMLElement | null) => boolean;
 }) {
   const [devices, setDevices] = useState<MeetingDevice[]>([]);
@@ -92,7 +95,7 @@ export function MeetingPanel({ controller: c, noteId, noteTitle, meetingNote, me
   useContentMotion(surface, meeting?.id || 'new');
   const processing = !!meeting && (['transcribing', 'analyzing'].includes(meeting.processing) || meeting.notesStatus === 'processing');
   const error = c.error || (!showSetup && meeting?.error);
-  const progress = (c.busy ? /sav|updat|restor|export|import|recover/i.test(c.busy) ? 'Saving changes' : 'Working on this meeting' : '') || (processing ? meeting?.processing === 'transcribing' ? 'Creating the transcript' : 'Preparing meeting notes' : '');
+  const generation = meeting && <MeetingStreamPreview key={meeting.id} meeting={meeting} stream={c.streams[meeting.id]} task={c.aiTask} onCancel={() => invoke<void>('meeting_cancel', {id:meeting.id})} />;
   const refreshDevices = () => { if (desktop) void invoke<MeetingDevice[]>('meeting_devices').then(setDevices).catch(reason => c.setError(String(reason))); };
   useEffect(refreshDevices, []);
   useEffect(() => { setLanguage(meeting?.transcriptionLanguage || 'en'); setOptions(false); setSheet(null); }, [meeting?.id]);
@@ -117,15 +120,16 @@ export function MeetingPanel({ controller: c, noteId, noteTitle, meetingNote, me
     return <label className="meeting-field">Spoken language<select value={language} disabled={!!c.busy || processing || !desktop} onChange={event => setLanguage(event.target.value)}><option value="en">English</option><option value="multi">Multilingual</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ja">Japanese</option><option value="zh">Chinese</option></select></label>;
   }
   function openResult(result: Meeting | null) { if (result) { setNewRecording(false); c.selectResult(result); onOpenMeeting(result); } }
-  function transcribe() { void c.run('Creating transcript', () => invoke<Meeting>('meeting_transcribe', {id:meeting!.id,language,model:fileModel}), c.selectResult); }
+  function transcribe() { if (meeting) void c.run('Creating transcript', () => invoke<Meeting>('meeting_transcribe', {id:meeting.id,language,model:fileModel}), c.selectResult, {id:meeting.id,kind:'transcript'}); }
   const cannotTranscribe = !desktop || !transcriptionConnected || !meeting?.media || meeting?.recording !== 'saved' || !!c.busy || processing;
   const sources = [microphone !== 'none' && 'microphone', system !== 'none' && 'call audio', videoSource !== 'none' && 'video'].filter(Boolean).join(', ');
   return <div ref={surface} className="meeting-panel">
     {(!meeting || showSetup) && <div className="meeting-toolbar"><strong>New meeting</strong><button className="icon-button" aria-label="Meeting settings" title="Services and defaults" onClick={onSettings}><Gear size={19} /></button></div>}
     {!desktop && <p className="meeting-notice">Browser preview. Recording and connected AI are available in the Windows app.</p>}
     {c.reminder && <div className="meeting-notice" role="alert"><p>{c.reminder.message}</p><button onClick={c.dismissReminder}>Dismiss reminder</button></div>}
-    {error && <div className="meeting-feedback" role="alert"><strong>This action could not finish.</strong><p>Check your account or recording in Settings, then try again.</p><button className="link-button" onClick={onSettings}>Open Settings</button></div>}
-    {progress && <div className="meeting-work-status"><p role="status" className="meeting-progress">{progress}…</p>{processing && meeting && <button className="link-button" onClick={() => void invoke('meeting_cancel', {id:meeting.id}).catch(reason => c.setError(String(reason)))}>Cancel processing</button>}</div>}
+    {error && <div className="meeting-feedback" role="alert"><strong>This action could not finish.</strong><details><summary>Error details</summary><p className="meeting-error">{error}</p></details><button className="link-button" onClick={onSettings}>Open Settings</button></div>}
+    {c.busy && !c.aiTask && <p role="status" className="meeting-progress">{c.busy}…</p>}
+    {showSetup && generation}
     {c.recording ? <section className="meeting-capture" aria-label="Recording controls">
       <p className="meeting-recording-label" role="status">{c.recording.recording === 'paused' ? 'Paused' : 'Recording'} <span>{meetingTime(c.feedback?.id === c.recording.id ? c.feedback.duration : c.recording.duration)}</span></p>
       <h3 className="meeting-section-title">{c.recording.title}</h3>
@@ -152,11 +156,13 @@ export function MeetingPanel({ controller: c, noteId, noteTitle, meetingNote, me
       {!desktop && <button disabled={!!c.busy} onClick={() => void c.run('Loading sample', async () => { const target = await onPrepareMeeting(); const record = sampleMeeting(target.noteId,true); await savePreviewMeeting(record); return record; }, openResult)}>Load sample meeting</button>}
     </section>}
     {meeting && !showSetup && <>
-      <div className="meeting-panel-heading"><div><h3>{meeting.title}</h3><p className="meeting-secondary">{new Date(meeting.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})} · {meetingTime(meeting.duration)} · {new Set(meeting.segments.map(segment => segment.speaker)).size} people</p></div><button ref={optionsButton} className="icon-button meeting-options-trigger" aria-label="Meeting options" title="Meeting options" aria-haspopup="dialog" aria-expanded={options} onClick={() => setOptions(value => !value)}><DotsThree size={28} weight="regular" /></button></div>
+      <div className="meeting-panel-heading"><div><h3>{meeting.title}</h3><p className="meeting-secondary">{new Date(meeting.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})} · {meetingTime(meeting.duration)} · {new Set(meeting.segments.map(segment => segment.speaker)).size} people</p></div><button ref={optionsButton} className="icon-button meeting-options-trigger" aria-label="Meeting options" title="Meeting options" aria-haspopup="dialog" aria-expanded={options} onClick={() => setOptions(value => !value)}><DotsThree size={36} weight="bold" /></button></div>
       <div className="meeting-document-nav" role="group" aria-label="Meeting view"><button aria-pressed={!transcript} onClick={() => onView(false)}>Summary</button><button aria-pressed={transcript} onClick={() => onView(true)}>Transcript</button></div>
+      {!requests.questionPending && c.streams[meeting.id]?.kind !== 'question' && generation}
       {meeting.recording === 'interrupted' && <div className="meeting-next-step"><p>This recording was interrupted.</p><button className="primary" disabled={!!c.busy} onClick={() => void c.run('Recovering recording', () => invoke<Meeting>('meeting_recover', {id:meeting.id}), c.selectResult)}>Recover recording</button></div>}
       {meeting.recording === 'saved' && !meeting.segments.length && <div className="meeting-next-step"><p>No transcript yet.</p>{!transcriptionConnected && desktop ? <button className="primary" onClick={onSettings}>Set up transcription</button> : <button className="primary" disabled={cannotTranscribe} onClick={transcribe}>Create transcript</button>}</div>}
-      {allowAnalysis && meeting.recording === 'saved' && !!meeting.segments.length && <MeetingAIControls key={meeting.id} requests={requests} />}
+      {allowAnalysis && meeting.recording === 'saved' && !processing && requests.missing.length > 0 && requests.missing.length < 3 && <div className="meeting-next-step"><p>Some meeting notes are still missing.</p><button className="primary" disabled={requests.unavailable} onClick={() => requests.prepare()}>Finish missing sections</button></div>}
+      {meeting.recording === 'saved' && !!meeting.segments.length && <MeetingAIControls key={meeting.id} requests={allowAnalysis ? requests : {...requests,unavailable:true}} meeting={meeting} onSeek={onSeek} progress={(requests.questionPending || c.streams[meeting.id]?.kind === 'question') ? generation : null} />}
       {options && <ActionPopover anchor={optionsButton.current} label="Meeting options" className="meeting-options-menu" onClose={() => setOptions(false)}>
         <div className="folder-action-group" role="group" aria-label="Share and save">
           <MenuAction icon={DownloadSimple} disabled={!!c.busy} onClick={() => { setOptions(false); if (onExport(meeting,optionsButton.current)) return; void c.run('Exporting meeting', () => exportArtifact(`${meeting.title.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').slice(0,100)}.md`,meetingMarkdown(meeting),'text/markdown')); }}>Share or export</MenuAction>
@@ -167,7 +173,7 @@ export function MeetingPanel({ controller: c, noteId, noteTitle, meetingNote, me
           <MenuAction icon={Translate} disabled={!!c.busy || processing} onClick={() => { setOptions(false); setSheet('language'); }}>Language: {({en:'English',multi:'Multilingual',es:'Spanish',fr:'French',de:'German',ja:'Japanese',zh:'Chinese'} as Record<string,string>)[language] || language}</MenuAction>
           <MenuAction icon={ArrowCounterClockwise} disabled={cannotTranscribe} onClick={() => { setOptions(false); setSheet('redo'); }}>Redo transcript</MenuAction>
           <MenuAction icon={ArrowsClockwise} disabled={requests.unavailable || !allowAnalysis} onClick={() => { setOptions(false); requests.prepare(true); }}>Redo summary</MenuAction>
-          {meeting.recovery && <MenuAction icon={Play} disabled={requests.unavailable} onClick={() => { setOptions(false); requests.resume(); }}>Continue unfinished summary</MenuAction>}
+          {meeting.recovery && <MenuAction icon={Play} disabled={!requests.canResume || !allowAnalysis} onClick={() => { setOptions(false); requests.resume(); }}>Continue unfinished {({summary:'summary',minutes:'key points',actions:'action items',study:'study notes',quiz:'quiz',flashcards:'flashcards',question:'answer'})[meeting.recovery.kind]}</MenuAction>}
           <MenuAction icon={ClockCounterClockwise} disabled={!meeting.analyses.length} onClick={() => { setOptions(false); setSheet('history'); }}>Earlier versions</MenuAction>
           {meeting.video && <MenuAction icon={VideoCamera} onClick={() => { setOptions(false); setSheet('video'); }}>Watch video</MenuAction>}
         </div>
@@ -191,7 +197,7 @@ export function MeetingPanel({ controller: c, noteId, noteTitle, meetingNote, me
       {sheet === 'redo' && <><p>Create a new transcript? Your current one and speaker names will be replaced. Your notes stay.</p><div className="dialog-actions"><button id="meeting-sheet-first" onClick={() => setSheet(null)}>Cancel</button><button className="primary" disabled={cannotTranscribe} onClick={() => { setSheet(null); transcribe(); }}>Create new transcript</button></div></>}
       {sheet === 'save' && <><label className="meeting-check"><input id="meeting-sheet-first" type="checkbox" checked={includeMedia} onChange={event => setIncludeMedia(event.target.checked)} />Include audio and video</label><div className="dialog-actions"><button onClick={() => setSheet(null)}>Cancel</button><button className="primary" disabled={!!c.busy} onClick={() => void c.run('Saving a copy', () => invoke('meeting_archive',{id:meeting.id,includeMedia}), () => setSheet(null))}>Save copy</button></div></>}
       {sheet === 'language' && <>{languageSelect()}<p className="setting-hint">Used next time you redo the transcript.</p><div className="dialog-actions"><button id="meeting-sheet-first" onClick={() => setSheet(null)}>Done</button></div></>}
-      {sheet === 'history' && <div className="meeting-version-list">{[...meeting.analyses].reverse().map(result => <button key={result.id} onClick={() => { setSheet(null); onAnalysis(result.id); }}>{({summary:'Summary',minutes:'Key points',actions:'Action items',study:'Study notes',quiz:'Quiz',flashcards:'Flashcards',question:'Answer'})[result.kind]}<span>{new Date(result.createdAt).toLocaleString()}</span></button>)}</div>}
+      {sheet === 'history' && <div className="meeting-version-list">{[...meeting.analyses].reverse().map(result => <button key={result.id} onClick={() => { setSheet(null); if (result.kind === 'question') document.getElementById(`meeting-answer-${result.id}`)?.scrollIntoView({block:'nearest',behavior:'instant'}); else onAnalysis(result.id); }}>{({summary:'Summary',minutes:'Key points',actions:'Action items',study:'Study notes',quiz:'Quiz',flashcards:'Flashcards',question:'Answer'})[result.kind]}<span>{new Date(result.createdAt).toLocaleString()}</span></button>)}</div>}
     </Dialog>, document.body)}
     {sheet === 'other' && createPortal(<Dialog title="Saved meetings" onClose={() => setSheet(null)}><div className="meeting-version-list">{c.meetings.filter(item => !item.deletedAt).map(item => <button key={item.id} onClick={() => { setSheet(null); openResult(item); }}>{item.title}<span>{new Date(item.createdAt).toLocaleDateString()}</span></button>)}</div></Dialog>,document.body)}
   </div>;

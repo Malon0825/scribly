@@ -1,5 +1,6 @@
 import { AnimatedIcon } from "./AnimatedIcon";
 import { useEffect, useRef, type ReactNode } from "react";
+import { useSurfaceMotion } from './useSurfaceMotion';
 
 export function Dialog({
   title,
@@ -17,6 +18,8 @@ export function Dialog({
   initialFocus?: () => HTMLElement | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
+  useSurfaceMotion(backdrop, 'dialog', title);
   const close = useRef(onClose);
   const focusOwner = useRef(returnFocus);
   const initialOwner = useRef(initialFocus);
@@ -61,6 +64,7 @@ export function Dialog({
   }, []);
   return (
     <div
+      ref={backdrop}
       className="modal-backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();

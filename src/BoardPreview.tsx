@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useContentMotion } from './useSurfaceMotion';
 import type { BoardData } from "./boardData";
 import { architectureTag } from "./boardData";
 import { elementLabel, isNodeShape } from "./boardMermaid";
@@ -8,6 +9,8 @@ import "./board.css";
 export default function BoardPreview({ board, dark }: { board: BoardData; dark: boolean }) {
   const [svg, setSvg] = useState(""), [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
+  const surface = useRef<HTMLDivElement>(null);
+  useContentMotion(surface, `${!!svg}-${error}`);
   useEffect(() => {
     let canceled = false; setSvg(""); setError("");
     const draw = async () => {
@@ -28,7 +31,7 @@ export default function BoardPreview({ board, dark }: { board: BoardData; dark: 
       .map((e) => elementLabel(e, board.elements)).filter(Boolean);
     return labels.length ? `Architecture: ${labels.slice(0, 30).map((label) => label.slice(0, 100)).join(", ")}${labels.length > 30 ? ", and more components" : ""}` : "Architecture drawing";
   }, [board]);
-  return <div className="board-preview">
+  return <div ref={surface} className="board-preview">
     <div className="board-preview-controls" role="group" aria-label="Drawing preview zoom">
       <button disabled={zoom <= 1} aria-label="Zoom out preview" onClick={() => setZoom((z) => Math.max(1, z - .5))}>−</button>
       <button onClick={() => setZoom(1)}>Fit</button>

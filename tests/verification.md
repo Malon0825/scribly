@@ -1,5 +1,51 @@
 # Verification history
 
+## Version 1.5.0 installer rebuild, 2026-10-08
+
+Working tree on `3155ff1`. Updated npm, Tauri and Cargo application manifests/lock entries from 1.4.2 to 1.5.0 without changing dependency versions. The initial packaging attempt was deliberately stopped before completion to incorporate the user's toolbar icon correction. The final `npm.cmd run package` passed frontend TypeScript/Vite (Vite 1m 1s; existing large-chunk advisory), optimized native release compilation (15m 38s), NSIS packaging and release copy. Installer: `release/Scribly_1.5.0_x64-setup.exe`, 68,794,380 bytes (65.61 MiB), modified 2026-10-08 11:12:46 Asia/Singapore. SHA-256: `1169840d2feb28c729e1dc9683ba7dfe924c8893fd6aeb845ea6d64b9ac5747f`. The release copy matches the NSIS bundle byte-for-byte; the bundled application reports ProductVersion/FileVersion 1.5.0. All application version entries agree. Source/whitespace review passed.
+
+This installer contains the current working tree, including follow-up answer routing, input focus borders, larger red meeting dots, action-specific AI loading states and the suggestions icon correction. Earlier entries noting these changes were absent from an installer describe older builds. No automated tests, inference calls, installation or native runtime acceptance were performed; the existing behavior-specific limits above/below remain. The installer was not launched or installed.
+
+## Suggestions toolbar icon correction, 2026-10-08
+
+Working tree on `3155ff1`, version 1.5.0. Replaced the nested Aa/arrow text in NoteEditor's Next word suggestions toggle with the existing Phosphor TextAa SVG (22px), removing obsolete text-marker styles. The icon cannot wrap onto a second line; labels, pressed state, tooltip and prediction behavior are retained. Scoped source/whitespace review passed; Impeccable detector returned `[]` for NoteEditor. The packaging frontend build passed TypeScript/Vite (Vite 1m 1s; existing large-chunk advisory). Browser preview in its light theme confirmed a single aligned icon and successful off/on pressed-state toggling; the original setting was restored. No automated tests or provider calls. Native appearance remains unverified; packaging outcome is recorded separately.
+
+## Action-specific meeting AI loading states, 2026-10-08
+
+Working tree on `3155ff1`, version 1.4.2. Scope: useMeetings AI task ownership, MeetingAIControls request/catalog states, MeetingStreamPreview, MeetingPanel placement, scoped App generation routing and meetings CSS. Transcript, recap, summary, action items, key points, study notes, quiz, flashcards, question and resumed requests expose an immediate action-specific status until the controller refreshes the result or handles failure. A shared compact solid status surface displays the current phase; multipart progress represents completed transcript parts, without fabricated percentages. Cancellation displays Stopping while awaiting termination and reports invocation failures inline with retry available. Live draft content remains in an optional Preview draft disclosure. The panel owns the visible status when open; other AI generation falls back to the document when the panel is hidden. Question status sits directly under its input, remains excluded from the summary, and keeps the question selectable. Connected model-catalog loading has explicit feedback. Non-AI busy messages retain their actual action label.
+
+Validation: `npm.cmd run build` passed TypeScript/Vite (Vite 59.04s; existing large-chunk advisory); scoped source/whitespace review passed. Impeccable detector returned `[]` for the changed meeting UI targets. Disposable local browser fixtures inspected at panel widths in notebook, light and dark themes covered every action label, multipart/start/combine/resume/update phases, stopping feedback and a rejected cancellation. The fixture called no services and was removed. Reduced motion retains labels and uses the existing spinner-off media rule; no new entry/layout animation or translucent material. No automated tests or live inference under the recorded manual-testing preference. Real provider-event timing, completion/error clearing, cancellation and Windows WebView2 remain unverified; fixtures validate rendering, not native services. Installer unchanged.
+
+## Input focus borders and meeting options dots, 2026-10-08
+
+Working tree on `3155ff1`, version 1.4.2. Scope: focused Find/Replace inputs in `styles.css`, meeting-panel text input/textarea/select focus in `meetings.css`, and the MeetingPanel options trigger. Focus uses the existing border plus an inset 1px accent ring, avoiding doubled outer outlines and disclosure clipping. The options control retains a 44px target and keyboard focus indicator, with a transparent, borderless idle surface and larger bold red dots; hover/open feedback uses existing tokens. Input handlers, editor state, saving and menu actions are unchanged.
+
+Validation: `npm.cmd run build` passed TypeScript/Vite (Vite 58.73s; existing large-chunk advisory). Scoped whitespace/source review passed. Browser preview inspected at 1440x900 in its existing light theme: focused Find and meeting-question fields have continuous borders, red dots have no idle square, menu opens and Escape restores trigger focus. Impeccable detector reported only the existing blockquote accent border in `styles.css:1087`, outside this change. No automated tests or inference calls under the recorded manual-testing preference. Notebook/dark appearance, connected-account Ask-button layout and Windows WebView2 remain unverified. No new animation or material. Installer unchanged.
+
+## Follow-up answers stay in the meeting panel, 2026-10-08
+
+Working tree on `3155ff1`, version 1.4.2. Scope: MeetingAIControls/MeetingPanel, scoped App answer completion/stream routing, appendSummaryResults and meeting answer styles. Questions and stored answers render below the question input, newest first, with current-revision source timestamp controls and an explicit unsupported-answer message. Earlier transcript responses are labeled and do not expose stale citations. Answer completion/resume retains the current document and editor; answer progress is excluded from the main summary stream surface. Earlier versions routes question results to their panel answer, while other result kinds keep their existing document route. appendSummaryResults excludes question records and returns the same note object when there are no fresh non-question results, preserving content, metadata and update time for question-only completions. Existing stored answer blocks are retained; new questions remain in the meeting record rather than being appended to notes.
+
+Validation: source review and scoped whitespace check passed; Impeccable detector returned `[]`. `npm.cmd run build` passed TypeScript/Vite (1m 47s; existing large-chunk advisory). No tests or inference calls under the recorded manual-testing preference. Native question completion/resume, transcript links and runtime panel layout remain unverified. No new animation or material; existing tokens and solid surfaces reused. The delivered 1.4.2 installer predates this change.
+
+## Version 1.4.2 installer rebuild, 2026-10-08
+
+Updated the application version from 1.4.1 to 1.4.2 in the npm, Tauri and Cargo manifests/lockfiles. `npm.cmd run package` passed: frontend build, optimized native release compilation, NSIS packaging and release copy. Installer: `release/Scribly_1.4.2_x64-setup.exe`, 68,798,709 bytes (65.61 MiB), modified 2026-10-08 00:16:15 Asia/Singapore. SHA-256: `07245441A9C53FCC02C8690DE3B150F2162A3E9B513437A332D3C87E8C6B4A94`. The release copy matches the NSIS bundle byte-for-byte. Installer was not launched or installed; no tests or live provider calls were run.
+
+## Meeting edit save-state follow-up, 2026-10-07
+
+Working tree on `3155ff1`; additional scope: `MeetingPanel.tsx` MeetingEdit controls and `MeetingAIControls.tsx` catalog/resume messages. Transcript/title/speaker text becomes read-only and selectors disabled while the controller saves, preventing post-submit edits from disappearing when the successful save closes the dialog. Text remains selectable; existing Cancel/close guards remain. Saving has a status label, and failure text is visible inside the dialog while the draft remains available for retry. An empty connected-account model catalog now explains why generation is unavailable. Resume progress names the actual result kind.
+
+Validation: scoped source/diff review and whitespace check passed; Impeccable detector returned `[]`. `npm.cmd run build` passed TypeScript/Vite (1m 10s; existing large-chunk advisory). No tests or live inference, honoring the manual-testing preference. Native delayed-save/failure interaction and account responses remain unverified; earlier browser sample inspection does not validate these new branches. No new materials, motion or shared layout changes; installer unchanged.
+
+## Meeting recovery, error feedback and Key points prompt, 2026-10-07
+
+Working tree on `3155ff1`; scope: `MeetingAIControls.tsx`, `MeetingPanel.tsx`, and `meeting_providers.rs`. Actual errors are available in a native disclosure; catalog errors are displayed instead of misreported as a missing account. Recovery availability now shares the handler's model/revision guard and respects analysis permissions; its label identifies the unfinished result kind. Partially completed current-revision recaps expose the existing missing-sections request path without regenerating completed sections. The `minutes` prompt now matches the Key points surface: at most 12 chronological discussion points, no duplicate timestamp prefix, unchanged evidence/JSON requirements. Stored analyses are not rewritten. Recovery checkpoint hashes include instructions, so unfinished Key points work from the old prompt may require fresh requests when explicitly resumed.
+
+Validation: `npm.cmd run build` passed TypeScript/Vite (1m 2s; existing large-chunk advisory); `cargo check --manifest-path src-tauri/Cargo.toml --locked` passed with bundled MSVC/SDK environment (3.99s). Scoped whitespace/diff review passed. Impeccable detector returned `[]` for both changed UI files. Browser sample inspected at 1440x900 in its existing dark notebook theme: transcript, options menu, Escape dismissal and Summary navigation remain usable. No tests or live inference calls, following the handoff's manual-testing preference. Error/recovery/partial-result branches were source-reviewed, not exercised against native services; generated-output quality, light theme and WebView2 remain unverified. Installer not rebuilt.
+
+**A:** Directness 3/5 and materials 4/5 for the observed sample navigation/menu; response latency, reversal, spring behavior and reduced-motion runtime [NEEDS INPUT]; custom gestures N/A. **B:** Open Error details to read failures; finish missing sections explicitly; resume only with a compatible model/revision. **C:** No new motion, keyframes, physics or layout animation. **D:** Existing solid surfaces, theme tokens and native disclosure retained. **E:** Reused request/controller/menu guards; compilation and bounded browser inspection above. **F:** Preserve writing, prior results and native scrolling; no automatic inference, provider switching or animation-dependent writes.
+
 ## Scoped meeting commit preparation, 2026-10-07
 
 Staged working-tree scope on HEAD `54a8b0ec998aa6ffc84cb74b1ba2c8e944bc3a86`: meeting backend/providers, linked editable meeting documents, compact transcript and 80ch reader, meeting options with shared folder menu components, their required motion helpers, native dependencies/notices and meeting documentation. Shared App/editor/settings/styles/metadata/history files were staged selectively; unrelated sidebar ordering, capture, support-card and broader motion integrations remain in the working tree.
@@ -140,15 +186,33 @@ Error parsing now accepts direct-admission `detail`, string errors and bounded t
 
 Validation: native development watcher rebuilt successfully in 38.18s and reopened the updated Scribly window; `cargo check --manifest-path src-tauri/Cargo.toml --locked` passed (7.12s). Native module formatted; source and documentation reviewed. Frontend unchanged, so no frontend build repeated. No tests, inference calls or installer packaging performed. Left development session 11538 running; user retry is required to verify live generation and any remaining provider error.
 
+## Direct desktop development launch, 2026-10-07
+
+User closed the installed app and authorized launching development mode for manual provider feedback. Ran `npm.cmd run tauri -- dev` with the existing bundled MSVC/Windows SDK environment and Cargo caches. Vite started at port 1420; the native debug build passed in 1m 15s and launched `src-tauri/target/debug/scribly.exe` with a Scribly window. Uses the normal application data directory and protected accounts, without diagnostic profile arguments or installer packaging. Left the development server/native watcher running for user testing. No test suites, automated app interactions or inference requests performed. Process/window presence establishes launch only; the ChatGPT HTTP 400 and actual notebook/provider behavior remain for the user's explicit retry.
+
 ## ChatGPT selected-model clarity and HTTP 400 diagnostics, 2026-10-07
 
 Working-tree scope on HEAD `54a8b0ec998aa6ffc84cb74b1ba2c8e944bc3a86`: `src/MeetingAIControls.tsx`, `src-tauri/src/meeting_providers.rs`, and the meeting handoff context. User screenshot shows GPT-5.6-Sol selected, an unrelated GPT-6.1-Sol catalog notice, and a generic HTTP 400. Source review confirms explicit study/recap requests and speaker review pass the selected model unchanged to Responses; the catalog sentence did not identify the request. Removed the hard-coded missing-model sentence, persisted dropdown choices through existing protected preferences, and narrowed catalog dependencies to the connection flag instead of the entire connections object. HTTP failures now consume at most 64 KiB of structured error data and display requested model, provider message/code/parameter, and speaker-review/output-generation stage. Stream failures retain structured errors or incomplete reasons. Tokens are redacted before displayed details are capped at 1,200 characters. Request payload/model reasoning/full-transcript behavior, existing results and persistence boundaries remain unchanged.
 
 Validation: `cargo check --manifest-path src-tauri/Cargo.toml --locked` passed (15.54s); changed native module formatted with Rustfmt. `npm run build` passed (TypeScript/Vite; existing large-chunk advisory). Source review followed dropdown → IPC → provider request and preference → new-recording model ownership. No tests, live provider calls, browser/native runtime interaction or installer rebuild performed, retaining the manual-testing preference. The original HTTP 400 cause is **unresolved** because the delivered installer discarded OpenAI's explanation. The current installer does not include these changes; actual error details and selection persistence need a fresh build and explicit user retry. UI geometry, motion, materials and editor/focus ownership are unchanged.
 
+## Focus/panel jitter correction from recording, 2026-10-07
+
+Working-tree scope: `useWorkspaceMotion.ts`, `useTopbarMotion.ts`, `MotionDisclosure.tsx`, formatting disclosure in `NoteEditor.tsx`, heading/meeting-control ownership in `App.tsx`, `motion.css`, and the focus-only rule in `meetings.css`. Evidence: supplied `20261007-0909-12.7849962.mp4`, particularly 7.7–9.0 seconds, shows instant disappearance/return of Meeting AI controls, changing document wraps during panel movement, and crossing topbar labels. Video frames were inspected without operating the app.
+
+### A–F. Focused motion decisions
+
+A: Recording/source evidence identifies abrupt control removal (`display:none`), repeated width-dependent layout and individually positioned topbar buttons. Post-change runtime feel scores remain `[NEEDS INPUT]`; custom gestures are unchanged/N/A. B: Focus commits immediately, moves focus out of the meeting controls before making the heading group inert, collapses heading and meeting controls together, and accepts reversal. The active editor/canvas is retained. C: Heading, formatting disclosure, panel grid/reveal, and header height/group opacity use the existing critically damped controller at frequency √300 (mass 1/stiffness 300/damping approximately 34.64); no bounce or canned position reset on reversal. Topbar controls use their final natural flex layout with one group opacity reveal rather than crossing absolute-position paths. Panel grid sizing remains an isolated layout exception: destination reading widths are measured in one batch and held during shell motion, then restored; text is never scaled. Stable scrollbar space and temporary anchoring/horizontal-overflow handling prevent additional content shifts. Panel springs retain live pixel/second velocities and runtime reduced motion snaps to the destination with cleanup. D: Existing solid paper, theme tokens and depth remain unchanged. E: Reused hooks and DOM nodes, cleaned up temporary widths/scroll state/opacity, preserved native scrolling and data callbacks; no new dependency. F: No remount, persistence mutation, delayed command or custom scroll physics introduced. Board canvases are excluded from reading-width holds.
+
+Validation: `npm run build` passed (TypeScript and Vite; existing large-chunk advisory). No tests, browser interactions, performance profile or native WebView2 checks run, per user request. Manual verification remains for rapid Focus/Dictionary/Reference toggles, long-note scrolling/selection, meeting controls, different widths/themes, and native appearance; do not treat the source correction as measured runtime smoothness.
+
 ## Meeting agent handoff document, 2026-10-07
 
 Created `docs/meeting-agent-handoff.md` at the user's request. Captures working-tree/branch context, latest installer size/hash, provider separation and limits, recovery implementation, standing no-tests preference, key files, unresolved original error causes and unverified runtime behavior. Reviewed content against current implementation constants/routing, verification history and the delivered installer metadata. Documentation only; no app builds, tests or inference requests performed.
+
+## Latest Windows installer for manual testing, 2026-10-07
+
+User requested the fastest installer rebuild for manual testing; no-tests preference retained. `npm run package` passed using existing dependency/build caches: TypeScript/Vite frontend build, optimized native Windows build (11m 48s) and NSIS packaging. Includes the 65,000-token OpenRouter allowance, durable checkpoint/resume and bounded token-limit recovery, speaker-name failure fallback, and full-transcript ChatGPT/Gemini requests without OpenRouter partition/output caps. Fresh output `release/Scribly_1.4.1_x64-setup.exe` (65.57 MiB) replaces the earlier file with the same version/name. SHA-256 of the release copy matches the new NSIS bundle. Existing frontend large-chunk advisory remains. No tests, real-provider requests, installer launch or installation performed; user will install and test.
 
 ## Gemini analysis uses full transcript context, 2026-10-07
 
@@ -188,6 +252,14 @@ Validation: final `cargo check --manifest-path src-tauri/Cargo.toml --locked` pa
 
 Working-tree scope: `src-tauri/src/meeting_gemini.rs` only. Replaced generic Google HTTP errors with operation-specific upload/setup/preparation, recorded transcription and Flash analysis errors containing Google's structured `error.message`. Error bodies are bounded to 64 KiB; displayed explanations are limited to 1,200 characters with the supplied key redacted before persistence/UI. Successful response limits and request payloads are unchanged. Reviewed the automatic batch path: recorded Gemini transcription must finish before summary/minutes/actions. Google's current pricing lists free-tier access for both selected models; the user dashboard's 400 chart does not establish a billing or payload cause. The installed build discarded the original explanation, so the reported failure remains unresolved pending that detail. `cargo check --manifest-path src-tauri/Cargo.toml --locked` passed; changed Rust module formatted. No tests or real provider requests performed, per user instruction. Existing installer was not rebuilt and does not contain this diagnostic change.
 
+## Latest Windows installer build, 2026-10-07
+
+User requested packaging only, with no tests. `npm run package` passed: TypeScript/Vite frontend build, optimized Windows native build and NSIS packaging. Output copied to `release/Scribly_1.4.1_x64-setup.exe` (65.48 MiB). Includes the current working-tree meeting/Gemini integration and parallel live-session renewal. Existing version 1.4.1 retained; the freshly built installer replaces the earlier file of that name. No test suites, installer execution, installation or feature runtime checks were performed. User will install and test. Existing Vite large-chunk advisory remains.
+
+## Trash document notice alignment, 2026-10-07
+
+Working-tree scope: Trash notice markup in `App.tsx` and `.trash-banner` rules in `styles.css`. Constrained the note notice to the same centered 80ch measure, note font and sizing used by the document heading/editor. Kept its status/action text at control size through separate wrappers. Restore and permanent-delete actions stay together and wrap independently from the status at narrow widths. Board notice layout remains full width. Existing callbacks, confirmation, read-only behavior, editor instance and focus-mode visibility remain unchanged. Validation: `npm run build` passed (TypeScript and Vite; existing large-chunk advisory); source-reviewed the matching document measure. No tests or browser/native checks run, per user request.
+
 ## Gemini meeting providers and parallel live renewal, 2026-10-07
 
 Working-tree scope: meeting auth/preferences, recorder/provider/live/backup modules and new `meeting_gemini.rs`; `MeetingSettings`, `MeetingPanel`, `MeetingAIControls`, meeting types/controller and existing meeting tests/docs. Independent transcription choices: Deepgram Nova-3, Gemini 3.5 Transcribe Live and Gemini 3.5 Transcribe. Request handling: ChatGPT subscription/account models or Gemini 3.8 Flash. Windows-protected credentials store the Gemini key and defaults without exposing keys in status/exports. Recordings capture provider choices; transcription/model provenance survives backups. Gemini batch capture transcribes after stop, before the automatic three-section recap. All output kinds reuse shared evidence prompts and source validation. Nondiarized live audio stays unknown rather than assigning one inferred name to multiple voices.
@@ -206,6 +278,22 @@ Validation:
 - `npx --yes @21st-dev/cli review src/MeetingSettings.tsx src/MeetingPanel.tsx src/MeetingAIControls.tsx`: 3 files, zero findings. Existing design-context schema prevents `search --context auto`; plain Select catalog search succeeded and existing controls were reused. No catalog component/dependency copied. Source/documentation review completed.
 - No real Google upload/inference, long-session acceptance, native WebView2 provider UI or acoustic accuracy evaluation. Live renewal requires testing a real meeting longer than ten minutes with an authorized Gemini key. File deletion is best-effort; interrupted/unacknowledged uploads or failed cleanup can remain until provider expiry. Installed app and installer were not rebuilt by this task.
 
+## Trash back-arrow distinction, 2026-10-07
+
+Working-tree scope: `AnimatedIcon.tsx` and Trash Go back icon in `App.tsx`. Go back now uses the installed animated library's straight `ArrowLeftIcon`; Restore retains its curved Undo icon. Existing hover/reduced-motion handling and navigation callbacks are unchanged. `npm run build` passed (TypeScript and Vite; existing large-chunk advisory). No tests or runtime interaction checks run, per user request.
+
+## Trash sidebar organization, 2026-10-07
+
+Working-tree scope: Trash presentation/navigation in `App.tsx` and scoped Trash selectors in `styles.css`. Removed the duplicate Trash location strip, added Go back, an item count and concise guidance, deletion-date subtitles, visible per-item restore controls, and compact folder restore headings. Clear Trash is separated below the list with its permanent-deletion explanation; the existing confirmation remains required. Added a clearer empty/search-filter state. Clicking the bottom Trash button again returns to the folders view via the same Go back handler; native drag/drop remains unchanged and the toggle exposes `aria-pressed`.
+
+Existing item selection, restore callbacks, popup actions, navigation motion, reduced-motion support and persistence ownership remain. Row padding reserves space for restore/options controls in every state, avoiding label movement on hover. Reused theme tokens, regular icons and the animated Undo icon; no new dependencies or gesture. Validation: initial `npm run build` passed before the follow-up navigation edit. Final TypeScript passed in `npm run build`; Vite failed clearing `dist/brand-logos/vite` with Windows `EPERM`. `node node_modules/vite/bin/vite.js build --emptyOutDir false` passed and refreshed the final production preview; existing large-chunk advisory remains. No tests or browser/native interactions run, per user request. User verification remains for restore/delete confirmations, rapid navigation, keyboard focus and responsive/theme appearance.
+
+## Support-card layout correction, 2026-10-07
+
+Working-tree scope: support-card selectors in `styles.css`. The supplied current-state screenshot showed the icon above the copy and an oval emblem: the narrow-column container query switched the invitation to a column, changing the flex basis into height while leaving width intrinsic. Replaced that invitation with an explicit icon/copy grid and equal scaled width/height for the circle. Adjusted the main card to a 1.6:1 text/QR ratio, reduced outer padding, gave the QR a white frame and tinted caption, and retained the full-width recipient strip beneath the invitation. Amount choices remain absent; QR pixels and icon motion are unchanged. Kept mobile stacking and a smaller circular emblem at phone widths.
+
+Validation: `npm run build` passed (TypeScript and Vite; existing large-chunk advisory). Source/screenshot comparison only; no tests, runtime interaction checks or QR scanning run, per user request. Layout across themes and element/text scales remains for user verification.
+
 ## Meeting model default and reasoning policy, 2026-10-07
 
 Working-tree scope: `MeetingAIControls.tsx`, shared Responses request construction in `meeting_providers.rs`, one focused Rust regression, the existing model-refresh browser case and meeting feature documentation. Preserved server catalog order and first-entry default selection for both automatic recaps and AI options. The picker now labels that entry Default and displays the selected model's reasoning policy. Every meeting AI request (including speaker identification and consolidation) sends low reasoning for `gpt-6-astra`, high for `gpt-5.6-sol`; other models omit an override. No new motion, dependency or persistence field.
@@ -214,6 +302,29 @@ Working-tree scope: `MeetingAIControls.tsx`, shared Responses request constructi
 - `cargo check --manifest-path src-tauri/Cargo.toml --locked`: passed. `cargo test --manifest-path src-tauri/Cargo.toml --locked meeting_requests_apply_model_reasoning -- --nocapture`: 1 passed; validates outgoing reasoning, input/instructions, non-storage and streaming behavior. Changed Rust file formatted with Rustfmt.
 - `npx playwright test tests/meetings.spec.ts --grep 'model refresh' --workers=1 --timeout=90000 --reporter=line`: 1 passed; verifies default/low-reasoning presentation, catalog refresh and preserved manual selection, plus the existing recap recovery and saved-note behavior.
 - No real inference or native WebView2 interaction; provider acceptance/quality at these efforts remains unverified. Installed application and installer were not rebuilt by this task.
+
+## Reference support-card styling, 2026-10-07
+
+Working-tree scope: `SettingsContent.tsx`, `AnimatedIcon.tsx`, and support-card rules in `styles.css`. Adapted the supplied card with a support badge, coffee emblem, recipient strip, and framed QR/caption; omitted donation amounts. Added the installed library's `CoffeeIcon` to the existing `AnimatedIcon` wrapper. Card hover triggers the decorative icon through the existing owner, with pointer-leave/window-blur cleanup and runtime reduced-motion support. Kept the original QR asset and account metadata unchanged. Reused theme tokens and responsive stacking; a container query adapts the invitation to available column width. No extra dependency, clipboard action or payment operation.
+
+Validation: `npm run build` passed (TypeScript and Vite; existing large-chunk advisory). Source-reviewed the installed coffee icon API and existing motion wrapper. No tests, browser interaction checks or QR scanning run, per user request. Native/theme appearance and responsive layout remain for user verification.
+
+## Live subscription model catalog diagnosis, 2026-10-07
+
+Scope: installed Scribly's existing Windows-protected sign-in session and the unchanged `meeting_models` catalog path in `meeting_auth.rs`; no application source changes. An in-memory PowerShell diagnostic requested `GET https://api.openai.com/v1/models` with the same OAuth account and user agent as Scribly. The saved access token was expired and initially returned HTTP 401. OAuth refresh succeeded; refreshed identity was verified and credentials were atomically saved using Windows user protection. A local atomic-replacement probe passed before the successful save.
+
+- Authenticated catalog retry: HTTP 200, seven total entries, four with `visibility: list`: `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`. `gpt-6.1-sol` was absent from the entire response, rather than excluded by Scribly's visibility filter.
+- Credentials and personal account fields were excluded from diagnostic output. No inference, meeting-media upload, build, browser test or native UI interaction was performed. This verifies this session's live catalog at the time of the request; it does not establish why OpenAI omitted that model, or whether a direct inference request would accept it.
+
+## Settings simplification and support layout, 2026-10-07
+
+Working-tree scope: `SettingsContent.tsx`, `BackupSettings.tsx`, `MeetingSettings.tsx`, `FolderOptions.tsx`, `App.tsx`, `styles.css`, and `src/assets/coffee-qr-code.png`. Removed Windows Notepad/Notepad++ entry points and their unused app dialog wiring. File import remains available directly in folder options and Settings. Backup, transcription, summaries, and About now use shorter labels and grouped actions; longer backup/privacy details are expandable. Existing provider, backup, restore, error, and cancellation callbacks remain unchanged.
+
+### A–F. Focused interaction decisions
+
+A: Source and supplied screenshots showed long introductory copy and competing import buttons; runtime feel scores are `[NEEDS INPUT]` (no app interactions performed). B: Keep primary commands visible; optional details use native keyboard-accessible disclosure. C: Existing settings-tab/page spring and menu motion remain the only motion owners, including runtime reduced-motion behavior; no new positional animation or gesture added. D: Retained theme surfaces, borders and restrained depth. Coffee support has a responsive inset surface, recipient label, and black original QR with a white quiet border. Cropped the original QR pixel region `(257,289,821,853)` and added 42px white border without resampling/recreating the code; original source asset retained. E: Provider credentials, busy/error states, sign-in cancellation and restore previews retained. F: No editor remount, new persistence operation, external payment request or added dependency.
+
+Validation: `npm run build` passed (TypeScript and Vite; existing large-chunk advisory). Vite output was refreshed again after the final QR border cleanup. No tests, browser interactions, native WebView2 checks or QR decoding/scanning performed, per user request. Payment-app scanning, responsive layout, theme appearance and provider interactions remain for user verification.
 
 ## Contextual speaker names before meeting analysis, 2026-10-07
 
@@ -238,6 +349,64 @@ Working-tree scope based on `54a8b0e`: `meeting_providers.rs`, `meetings.rs`, `m
 
 Interpret conversation context without promoting guesses to established identity. Keep caller/addressee/mentioned people distinct, retain explicit team qualifiers and human corrections, and allow unknown voices. Name review belongs in existing details with one summary entry point; do not add another transcript reader to the settings panel.
 
+## Note menu organization follow-up, 2026-10-07
+
+Working-tree scope: `NoteOptions.tsx`, `MenuAction.tsx`, `FolderOptions.tsx`, `folder-options.css` and note-menu integration in `App.tsx`. Organized active note/board options into navigation, organization, export/history and Trash groups. Move-to-folder and note export formats use short views in the same popover, with Back/Escape/Left navigation and return focus. Retained the existing move, duplicate, template, formatted/plain/drawing export, history, restore and Trash handlers and their visibility conditions. Boards retain a direct drawing export action. Sidebar note menus now use the same grouped rows and appropriate regular-weight icons.
+
+### A–F. Focused interaction decisions
+
+Source/screenshot evidence: inline folder controls, separated export choices and unlabelled/missing icons made the original list difficult to scan. Runtime feel/theme scores remain `[NEEDS INPUT]` because no app interactions were performed. Common commands remain direct; secondary views focus Back and restore focus to their entry row. Existing ActionPopover arrow-key, dismissal, placement and selection ownership remain.
+
+Extracted the existing folder-row motion into shared `MenuAction`, preserving 0–2 CSS px icon translation with mass 1/stiffness 625/damping 50, live reversal, cleanup, runtime reduced motion and immediate native press highlighting. Pages retain the shared .65–1 opacity spring; existing popover entry/exit remains its spatial owner. Reused solid theme surfaces, aligned row geometry, separators, semantic danger styling and restrained shadows. No new dependencies, blur, text scaling, delayed commands or persistence behavior. User verification remains for keyboard navigation, Focus/editor selection, responsive placement, themes and native WebView2.
+
+- Validation: TypeScript passed in `npm run build`; Vite then failed clearing `dist/brand-logos` with Windows `ENOTEMPTY`. Final `node node_modules/vite/bin/vite.js build --emptyOutDir false` passed without clearing the output folder; existing large-chunk advisory remains. Production preview rebuilt. No tests or runtime interaction checks run, as requested. Source review confirms the existing text export payload, folder expansion and confirmation callbacks are preserved.
+
+## About support QR section, 2026-10-07
+
+Working-tree scope: `SettingsContent.tsx`, `styles.css` and `src/assets/coffee-qr.png`. Added Buy me a coffee to Settings → About with a regular Coffee icon, brief support text and the user's original MariBank/InstaPay QR image. The image is bundled locally without editing, has descriptive alternative text and reserved aspect ratio, and uses a responsive two-column/stacked layout inside the existing scrolling settings page. Existing settings-page motion and footer remain the owners of navigation and layout. No payment integration, external requests or notebook persistence changes added.
+
+- Final `npm run build`: passed after referencing the bundled PNG through Vite's static `new URL` asset pattern; the initial import failed because this project has no PNG module declaration. Existing Vite large-chunk advisory remains. Production preview rebuilt. No tests or runtime interaction checks run, as requested. Layout across themes/window sizes and payment-app scanning remain for user verification.
+
+## Automatic recap, optional learning tools and evidence prompts, 2026-10-07
+
+Working-tree scope based on `54a8b0e`: `MeetingAIControls.tsx`, `MeetingNoteStatus.tsx`, `meetings.css`, `meeting_providers.rs`, focused meeting cases, feature documentation and the local design decision. The summary document shows one recap status for Summary / Meeting minutes / Action items. Existing automatic recording-stop processing remains the owner of those three requests. Partial or outdated recaps expose one recovery action that skips current sections and reloads each successful result before requesting the next. Imports or recordings without a transcript still require transcription/preparation. Four optional tools reveal a contextual form; selection alone never runs inference. Generated content continues to save once in the separate summary note.
+
+The provider now builds separate prompts for all seven tasks, with explicit output limits, evidence boundaries, language rules and a common JSON contract. Summary distinguishes discussion from decisions; minutes use supplied timestamps; actions require commitments/assignments and explicit owner/deadline evidence. Study tools require answerable recorded material; missing evidence produces empty results. Title, transcript and notes are source data rather than instructions. Long-recording consolidation preserves proposals, uncertainty and source references. Per-part results now validate citations against the supplied part, rather than accepting any recording-wide ID. The prompts were reviewed against official OpenAI prompt-engineering guidance; no new API schema parameter or provider dependency was introduced.
+
+### A. Feel audit
+
+Response/directness 4/5: native button activation, selected tool states, question focus, Escape dismissal and trigger-focus restoration verified in focused browser checks. Materials 4/5: production Notebook/dark layouts visually inspected at 1100×800 with reduced motion. Reduced motion 3/5: final layout and disclosures checked; no new animation. Native frame timing, inherited spring behavior and rapid panel reversal remain `[NEEDS INPUT]` for a native motion audit. Custom gestures: N/A.
+
+### B. Interaction behavior
+
+Read the automatic recap's section status in the summary document; activate Complete meeting recap only if recovery is needed. Activate one optional study/question button, review its short explanation or enter a question, then explicitly Generate/Get answer. Empty questions cannot submit. Escape or Close dismisses the form and returns focus to its selected trigger. AI options discloses model/context controls. Users can switch tools immediately; busy state prevents duplicate provider submission. No drag or rubber-banding introduced.
+
+### C. Motion specification
+
+No new spring, keyframe, velocity handoff, animation owner or layout animation. Tool forms and native details commit directly; existing panel/editor controllers remain intact. Press/focus/selected feedback reuses the application's controls. Reduced motion requires no new JavaScript controller.
+
+### D. Materials and hierarchy
+
+Solid main-document surface remains primary; the side panel retains recording/settings/playback/transcription/export only. Recap status and optional actions reuse `--text`, `--muted`, `--line`, `--accent`, `--active`, `--green`, existing 9px controls and Phosphor icons. No blur, sound, scrim or dependency added. Optional forms stay collapsed until requested, and model/context options are secondary.
+
+### E. Implementation and validation
+
+- Final `npm run build`: passed after all frontend edits; existing Vite large-chunk advisory remains. Rust-only prompt edits followed. No installer rebuilt.
+- Six distinct affected development cases passed across overlapping focused runs: `npx playwright test tests/meetings.spec.ts --grep 'model refresh|folder meeting|meeting results stay|speaker and transcript' --workers=2 --timeout=90000 --reporter=line` (6); final keyboard/recovery harness changes rerun with `--grep 'model refresh|folder meeting'` (3). The mocked native case confirms partial recap requests only minutes/actions when summary is current, durable reload, GPT-6.1-Sol model retention, no inference on tool selection, question submission and output saved in the main summary. Unchanged editing/save/focus paths reuse the earlier six-case result and the prior entry's evidence.
+- Production preview: `PLAYWRIGHT_PREVIEW=1 npx playwright test tests/meetings.spec.ts --grep 'folder meeting' --workers=2 --timeout=90000 --reporter=line`: 2 passed. Narrow Notebook/dark, reduced motion, four tool actions, question autofocus/disabled empty submission/Escape focus restoration, control bounds, separate saved summary and personal writing were checked. Screenshots reviewed and their temporary calls/files removed. These overlap the development cases; totals are not added together.
+- `cargo check --manifest-path src-tauri/Cargo.toml --locked`: passed. `cargo test --manifest-path src-tauri/Cargo.toml --locked meeting_providers -- --nocapture`: 2 passed, including rejecting a valid recording-wide source ID absent from the supplied part and streamed UTF-8/completion handling. Used the repository's existing portable MSVC/toolchain paths after bare Cargo/rustfmt were unavailable on PATH. Changed provider file formatted with Rustfmt.
+- `21st review src/MeetingAIControls.tsx src/MeetingNoteStatus.tsx src/meetings.css`: one informational existing black video-player background, retained; no new findings. Documentation and diff review passed. Real Deepgram, ChatGPT inference/catalog, native WebView2 and generated-result quality were not exercised. Output correctness still needs connected-account evaluation on representative recordings; prompts and parser checks alone do not establish it.
+
+### F. Screen-specific decisions
+
+Keep the three expected outputs automatic and together; expose learning tools only through explicit actions. Retry missing/current-revision sections without duplicating already prepared results. Keep AI content in the summary document and controls out of the settings reader. Do not manufacture commitments, fill unanswered questions with outside knowledge or rewrite personal notes when results arrive.
+
+## Note heading and toolbar overlap correction, 2026-10-07
+
+Working-tree scope: `motion.css`. The animated heading wrapper was a shrinkable child of the note's flex-column scroll viewport. Long note content could compress its reserved height while the revealed title remained visible, pulling the following sticky formatting strip over the title/date. Set `flex-shrink: 0` on the heading disclosure so both its live animated height and settled content height remain reserved. Existing native scrolling, Focus reveal, editor state and toolbar ownership remain unchanged.
+
+- `npm run build`: passed; existing Vite large-chunk advisory remains. Production preview rebuilt. No tests or runtime interaction checks run, as requested. Long notes, Focus reversal, title wrapping and native WebView2 remain for user verification.
+
 ## Folder options organization and feedback, 2026-10-07
 
 Working-tree scope: `FolderOptions.tsx`, `folder-options.css`, `App.tsx` and obsolete folder-option rules in `styles.css`. Replaced the long mixed list with compact creation, import/export, folder settings and Trash groups. Import sources and new-note defaults use short views inside the same anchored popover, with Back and Escape/Left navigation and focus returned to the originating row. Added New note alongside the existing creation commands. Default-template and Copy last note updates remain immediate and now keep the defaults view open; existing import, export, creation, rename and Trash handlers remain the action owners.
@@ -252,6 +421,12 @@ Working-tree scope: `FolderOptions.tsx`, `folder-options.css`, `App.tsx` and obs
 - Screen choices: common actions stay directly available; alternate import paths and defaults are disclosed on demand. No label-heavy section headers, simultaneous nested popovers, bouncing rows or destructive action delays.
 
 - Final build retry (`npm run build -- --emptyOutDir=false`): passed; existing Vite large-chunk advisory remains. The initial `npm run build` completed TypeScript/module transformation but failed clearing `dist/brand-logos/perfecto` with Windows `EPERM`; no source repair was needed. Production preview rebuilt. No tests or runtime interaction checks run, as requested.
+
+## Consistent notebook paper scrolling, 2026-10-07
+
+Working-tree scope: `App.tsx` and `notebook.css`. The main note's paper uses native local-background scrolling, but the inset Reference viewport previously scrolled independently of its outer paper. A passive, notebook-only scroll listener now offsets the outer paper texture, margin mask and ruling by the Reference viewport's actual scroll position. The mask spans the complete scrollable paper height so its bottom margin stays at the document end. Existing panel padding, clipping, native scrolling and inset scrollbar geometry remain. No React renders, synthetic scrolling or animation timing are tied to scrolling; listener and CSS overrides clean up on theme change/unmount. Applies to Reference, Dictionary and Meetings in the shared side panel.
+
+- `npm run build`: passed; existing Vite large-chunk advisory remains. Production preview rebuilt. No tests or runtime interaction checks run, as requested. Main/side paper scrolling, content changes, themes and native WebView2 remain for user verification.
 
 ## Meeting documents and AI-note destination, 2026-10-07
 
@@ -283,6 +458,18 @@ Reuse solid document/settings surfaces, semantic `--panel`, `--text`, `--muted`,
 
 Do keep reading and generation in linked main notes, settings on the right, normal editor save/Undo ownership, speaker corrections, explicit processing errors and permanent-delete confirmation. Do not repeat results in the side panel, automatically insert AI sections into transcripts, rewrite personal text or tie data writes to motion completion. Real provider quality, native motion/recording acceptance and packaging remain limited as described below.
 
+## Focus Dictionary chrome cleanup, 2026-10-07
+
+Working-tree scope: `App.tsx`, `styles.css` and `motion.css`. Focus hides the Meetings topbar action and the right panel's Reference/Dictionary/Meetings tab strip. Dictionary has a proper 18px scaled semantic heading aligned with its search field and close control. Normal-mode tabs remain mounted and retain their existing behavior. Hidden controls become inert immediately; Focus entry moves keyboard focus off the newly hidden Meetings action. Existing topbar motion owns its exit/re-entry.
+
+- `npm run build`: passed; existing Vite large-chunk advisory remains. Production preview rebuilt. No tests or runtime interaction checks run, as requested. Themes, Focus reversal, Dictionary opening/dismissal and keyboard focus remain for user verification.
+
+## Focus main-panel width feedback correction, 2026-10-07
+
+Working-tree scope: `PanelResize.tsx`. Reviewed frames from the supplied second recording, which shows the main panel moving side to side during Focus exit. Source tracing found each resize handle observing panel/workspace height changes and unconditionally reapplying stored widths, dispatching `notify:panel-size` to restart workspace target measurement during header/disclosure motion. Resize observers now compare workspace and panel widths only; unchanged preferred widths no longer write CSS or dispatch layout events. Resize bounds use the destination 10px scaled gap instead of the animated intermediate gap. Width reset still dispatches when it removes an actual override. Existing pointer/keyboard resizing, stored preference, focus and cancellation behavior remain.
+
+- Final `npm run build`: passed; existing Vite large-chunk advisory remains. Production preview rebuilt. No tests or app interaction checks run, as requested. Corrected transition, stored widths, pointer/keyboard resizing, responsive breakpoints and native WebView2 remain for user verification. Recording frames reuse the previously retained system-temporary analysis directory.
+
 ## Transcript synchronization and model refresh, 2026-10-07
 
 Working-tree scope based on `54a8b0e`: `meetings.ts`, `meetingNotes.ts`, `MeetingTranscript.ts`, `useMeetingNoteWriter.ts`, `NoteEditor.tsx`, `MeetingPanel.tsx`, focused meeting tests and feature documentation. Speaker IDs now display consistently from Speaker 1 in notes, panel, dialogs, evidence and Markdown. Generated transcript paragraphs retain session/segment provenance and their original HTML. Segment corrections, speaker renaming and retranscription update those paragraphs through granular editor transactions or inactive-note HTML edits, preserving personal writing and normal undo/save ownership. Manually edited generated paragraphs are retained as personal writing beside corrections. Exactly matching legacy paragraphs are adopted; unmatched older text remains untouched. Model refresh uses the existing account-specific catalog endpoint, retains eligible selections and explains missing GPT-6.1-Sol availability without inventing access.
@@ -305,6 +492,72 @@ Working-tree scope based on `54a8b0e`: folder **Start meeting**, dated blank tra
 - Native `scripts/test-native-meetings.ps1 -Silence` capture/recovery stages passed: actual loopback/video capture, playback, UI pause/resume/end, editable writing/autosave, restart, forced-termination PCM recovery and independent deletion. Initial silence checks corrected collapsed controls and harness label/initial-save timing. A later timeout failed because two short OS notification tones were classified as speech; captured PCM and a temporary VAD diagnostic established that cause. Aggressive classification, a 400 ms sustained-speech threshold and silent-gap input corrected it. Final isolated `-SilenceOnly`: passed at **180.008625 seconds of unpaused audio**, including final WAV, pause exclusion, persistent reminder, supplied sound materialization, preserved writing, dated linked same-folder summary and retained audio without a provider transcript. Finalization has explicit ownership to prevent shutdown being mistaken for a crash and block concurrent recovery/edit/transcription/deletion. The final short native capture/recovery rerun also passed. Task-owned apps/databases and preview were stopped. Temporary VAD source/executable/debug symbols were removed.
 - Limits: no real provider requests or production accounts used. Live network finalization/diarization quality, subscription sign-in/refresh/model access and generated output quality need connected-account validation. Microphone/echo/long-session behavior and notification audibility/OS policy require hardware acceptance testing. Diagnostic profiles remain in ignored `test-results/`; the cleanup-policy limitation recorded in the earlier meeting entry remains. No installer or publication produced.
 
+## Focus transition sequencing correction, 2026-10-07
+
+Working-tree scope: `App.tsx`, `useTopbarMotion.ts`, `styles.css` and `motion.css`. Reviewed the supplied recording by extracting temporary frames; no app interactions or tests initiated. The recording shows the restored document heading appearing at full height before formatting expands, shifting the content in separate steps. Replaced the heading's focus `display: none` with a mounted, inert-when-closed spring disclosure (height, opacity and -4–0 CSS px translation; mass 1/stiffness 400/damping 40), so heading and formatting now reveal together. Topbar breadcrumb is managed as one group and fades at its destination alignment, avoiding independently travelling title fragments across brand/actions. Editor instance and save ownership remain unchanged; reduced motion commits final geometry instantly. Compact formatting disclosure retains full available width.
+
+- Final `npm run build`: passed; existing Vite large-chunk advisory remains. Production preview rebuilt. Runtime reversal, selection/scroll preservation, responsive layouts, themes and native WebView2 remain for user verification; no tests run, as requested. Automatic approval review rejected guarded removal of the task-created `%TEMP%/codex-focus-frames` and `%TEMP%/codex-focus-video-tools` directories, reporting only “blocked by policy”; these disposable artifacts remain outside the repository.
+
+## Dictionary inside Focus follow-up, 2026-10-07
+
+Working-tree scope: `App.tsx`. Dictionary opening no longer clears Focus. Shared panel visibility now permits Dictionary beside the focused document while Sidebar stays hidden; layout motion, resize handle, inert state and Dictionary toggle feedback use that same visibility. Closing via toggle, close button or Escape retains Focus. Document-level Dictionary Escape handling runs in Focus and prevents the global Escape handler from leaving Focus. Existing responsive panel layout and editor ownership remain intact.
+
+- Final `npm run build`: passed; existing Vite large-chunk advisory remains. Production preview rebuilt. No tests or runtime interaction checks run, as requested. Opening/closing Dictionary in Focus, keyboard dismissal, selection preservation, resizing and native WebView2 remain for manual verification.
+
+## Focus formatting reveal follow-up, 2026-10-07
+
+Working-tree scope: `App.tsx`, `NoteEditor.tsx`, `MotionDisclosure.tsx`, `styles.css` and `motion.css`. Removed the focus-mode `display: none` switch for note formatting. A retained disclosure now animates the toolbar and expanded tools together with actual height, opacity 0–1 and translateY -4–0 CSS px, using mass 1/stiffness 400/damping 40 springs. Reversal preserves live values/velocity; hidden controls are inert immediately. Editor and toolbar state remain mounted. Clip is limited to the transition; settled controls allow their popovers to overflow. Runtime reduced motion snaps to the final height/opacity and CSS removes translation. Height is an isolated layout exception; target measurements follow disclosure content resize.
+
+- Final `npm run build`: passed; existing Vite large-chunk advisory remains. Production preview rebuilt. No tests or runtime interaction checks run, as requested. Focus Formatting reveal/reversal, compact More tools, selection preservation, popovers, reduced motion and native WebView2 behavior remain for manual verification.
+
+## Focus topbar transition follow-up, 2026-10-07
+
+Working-tree scope: `App.tsx`, `useTopbarMotion.ts`, `useWorkspaceMotion.ts` and `motion.css`, atop the shared motion changes. Focus entry/exit coordinates the existing title, brand, action buttons, desktop window controls and header height using mass 1/stiffness 400/damping 40 springs. Controls retain their DOM nodes; outgoing controls become inert immediately and fade while incoming controls reveal from 4 CSS px below. Rapid reversal retains live positions and velocity. Runtime reduced motion commits final geometry instantly. Ordinary title/save updates retain their normal immediate behavior.
+
+Responsive target geometry is measured from the final flex layout on state/width/content changes. Temporarily positioned controls interpolate translation and actual dimensions without scaling text; header height is an isolated layout-animation exception. No geometry reads occur in the animation frame loop. Workspace observation now follows width only, avoiding repeated grid measurements during header height changes. Existing editor instances, focus handlers, save ownership, solid chrome materials and native window actions remain intact.
+
+- Final `npm run build`: passed; existing Vite large-chunk advisory remains. Production preview rebuilt. No tests or runtime interaction checks run, as requested. Rapid Focus reversal, keyboard access, responsive board controls, reduced motion, themes and native WebView2 frame performance remain for manual verification.
+
+## Settings tab transition follow-up, 2026-10-07
+
+Working-tree scope: `SettingsContent.tsx`, `useSettingsMotion.ts` and `motion.css`, atop the shared motion changes. Replaced the subtle container fade with a spring-driven selection highlight and directional page reveal. Highlight uses mass 1/stiffness 400/damping 40; page translation up to 12 CSS px and opacity .35–1 use mass 1/stiffness 484/damping 44. Rapid switches retain live values/velocity; runtime reduced motion commits targets instantly. Highlight measurements follow actual tab geometry, including wrapped tabs. Settings keeps a stable viewport-limited height, preserves mounted form state and keyboard tab semantics, and resets the selected page's scroll to the top independently of animation completion.
+
+- Final `npm run build`: passed after the stable dialog/footer and horizontal overflow refinements; existing Vite large-chunk advisory remains. Production preview rebuilt. Source/diff review only; no tests or runtime interaction checks initiated, as requested. Manual verification of rapid pointer/keyboard tab switching, reduced motion, wrapped tabs, themes and native WebView2 remains pending.
+
+## Shared app state motion, 2026-10-07
+
+Working-tree scope based on `54a8b0e`, alongside existing meeting, scrollbar and ordering changes. Introduced dependency-free, analytic critically damped springs; shared surface/content hooks; folder/tool disclosures and caret rotation; coordinated Sidebar/Reference/Focus layout; and startup/Quick Capture, dialogs, action/select menus, image preview, toast, navigation, settings, note/board, Dictionary and meeting view transitions. Kept the existing editor/canvas state ownership and save actions independent of motion.
+
+### A. Feel audit
+
+Runtime scores for response, directness, interruptibility, spring behavior, spatial consistency, materials and reduced motion: `[NEEDS INPUT]` (no motion interactions observed for this request). Source baseline: immediate `button:active` already removes press-in delay; `.workspace` previously used grid/gap easing; `.sidebar`/`.reference-panel` used small CSS translations; menus/dialogs had starting-style fades; `.quiet-disclosure` used grid-row easing; Toast used an entry keyframe. New managed selectors replace competing property owners. Native sidebar dragging remains browser-owned; custom panel gestures are outside this request.
+
+### B. Interaction behavior
+
+Panel click/keyboard commands commit immediately. Sidebar exits left and Reference exits right; full-width contents are clipped to the changing grid tracks. Second toggles retarget live position and velocity. Existing handlers move focus before hiding panels and `inert` remains tied to semantic state. Menus/dialogs restore focus immediately on close; a temporary inert, aria-hidden visual snapshot carries the exit and is removed on settle. Reopening the same surface resumes the snapshot's live pose. Note/board selection commits without delay and fades incoming content without scaling or introducing another editor/canvas. Disclosures remain inert during closure; retained toolbar/find children preserve their existing refs and state. Reduced motion commits targets instantly, including when changed during a running spring.
+
+### C. Motion specification
+
+- Layout/reveal/caret: mass 1, stiffness 300, damping `2 * sqrt(300)` (34.641...), no bounce. Panel translation up to 12 CSS px toward its own edge; caret -90 to 0 degrees.
+- Menus/dialogs/disclosures/toast: mass 1, stiffness 400, damping 40. Menu translateY 4 to 0 px, top-side menus reverse that sign; dialog/toast translateY 8 to 0 px. Menus/dialogs scale .98 to 1 about trigger-facing corner/center; toast retains existing horizontal centering.
+- Surface opacity clamps `2 * springProgress` to 0–1 for an early readable arrival. Content changes use opacity .65 to 1 with mass 1, stiffness 625, damping 50. Exit snapshots use stiffness 900/damping 60 with the actual live velocity. Velocity units are px/s, degrees/s or normalized pose units/s according to the spring. Settle thresholds are .001 position units/.01 velocity units/s; these are not fixed-duration claims.
+- One JS owner controls each animated property; managed surfaces disable CSS entry keyframes/transform transitions. Small theme color transitions retain 150ms CSS interpolation; reduced motion removes it. No new blur or spinner behavior.
+- Layout exceptions: measured grid columns/gap resize the editor's actual geometry without scaling text; disclosure height changes are isolated to folder rows/find/formatting controls. Target geometry is read on state/viewport/size changes, not each animation frame. Direct panel resizing snaps to pointer dimensions without spring lag. WebView2 profiling remains unverified.
+
+### D. Materials and hierarchy
+
+Existing theme tokens, solid document/Reference surfaces, menu materials, modal dim/blur layer, restrained shadows and notebook binding remain. No new scrim, transparency, sound or blur animation. Existing reduced-transparency fallback remains applicable to modal snapshots.
+
+### E. Implementation and validation
+
+`npm run build`: passed after correcting two unreachable TypeScript comparisons in the window entrance branch; existing Vite large-chunk advisory remains. Production preview rebuilt.
+
+Source review covers shared cleanup, live reversal, runtime motion preferences, responsive overlay breakpoints, inert exits, existing focus handlers, toolbar measurement refs and editor/canvas ownership. No tests, detector runs or browser interaction checks initiated for this motion request, respecting the user's manual-testing preference. Native window animation is Windows-owned; web content startup is animated. Native launch, rapid reversal, keyboard/focus, selection/scroll, themes, resizing/maximized geometry, backup/save behavior and frame performance remain `[NEEDS INPUT]` for manual verification.
+
+### F. Screen-specific choices
+
+Keep toggles usable during motion; preserve trigger-facing menus and immediate Escape; retain formatting selection, truthful save labels, native sidebar dragging and quiet reading surfaces. No document scaling, bouncing, synthetic scrolling, editor/canvas cloning or remounting for animation, or delayed commands/data mutations. Only closed floating surfaces use non-interactive visual copies.
+
 ## Meeting recording and AI notes, 2026-10-07
 
 Working-tree scope based on `54a8b0e`: implemented the local meeting store and managed media, Windows microphone/system capture and optional window/display video, pause/resume/playback and PCM recovery, Deepgram transcription/diarization, public-client ChatGPT OAuth and transcript analysis, speaker/transcript review, source links, insertion with editor Undo/autosave, Markdown export and separate versioned meeting backups. Credentials use Windows DPAPI and are excluded from exports. Provider jobs never retry automatically. Recording controls have separate request state from provider operations. Preserved concurrent scrollbar/sidebar work and the existing notebook persistence format.
@@ -314,6 +567,19 @@ Working-tree scope based on `54a8b0e`: implemented the local meeting store and m
 - `PLAYWRIGHT_PREVIEW=1 npx playwright test tests/meetings.spec.ts --workers=2`: six passed against the final built meeting frontend. Covers light/dark insertion, Undo, autosave/reload and Reference preservation; modal focus and speaker/transcript revision changes; export and confirmed independent deletion; literal insertion of untrusted generated text; damaged meeting storage retaining its data without blocking notebook editing. Earlier failures found and fixed modal focus restoration; later selector failures were corrected to target the unique topbar button. Bounded visual review at light/dark 1440px and light 900px found readable surfaces without document/panel horizontal overflow. The Impeccable detector returned no findings for the new meeting components/CSS.
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-native-meetings.ps1`: passed using the debug executable and a built frontend served at `http://localhost:1420`. Isolated WebView2/PostgreSQL profiles verified actual system-loopback recording, window video capture/playback, UI pause/resume/stop, writing and autosave during capture, missing-provider failures retaining media/transcripts, restart persistence, recovery after launcher-owned forced termination, and independent deletion. No production notebook/accounts or paid providers used. Earlier native failures were harness startup/seed/error-matcher issues; a temporary IPC-stub experiment was removed because Tauri's invoke property cannot be replaced. The isolated apps/databases were stopped. Disposable native profiles remain in ignored `test-results/` because automatic approval review rejected both guarded bulk cleanup and removal of one explicitly verified profile, reporting only "blocked by policy."
 - Limits: live Deepgram transcription, OAuth sign-in/refresh, eligible model discovery/inference and real quota behavior remain unverified without user accounts. Local checks used short loopback capture; microphone quality, speech/diarization accuracy, echo handling, long-session drift and capture on other hardware need acceptance testing. MP4 crash recovery is not guaranteed; PCM audio recovery is supported. No release installer or publication produced.
+
+## Latest sidebar order with manual overrides, 2026-10-07
+
+Working-tree scope based on `54a8b0e`, alongside existing meeting/panel changes: default notes and boards use newest creation time first. New folders record creation time; legacy folders without timestamps use reverse insertion order. Drag/keyboard insertion uses the displayed order and persists a manual override for the affected item group or folder list. Backup parsing preserves and validates the new ordering fields. The existing Manual selector is now labeled Latest / custom; Modified and A–Z remain explicit alternatives.
+
+- `npm run build`: passed; existing Vite large-chunk advisory remains. Updated the production preview for manual testing.
+- No tests or runtime interaction checks run, per the user's manual-testing preference. Existing folders have no historical creation timestamps or explicit manual-order markers; earlier manual rearrangements cannot be reliably distinguished from insertion order. Browser/desktop persistence, backup restoration and drag/keyboard behavior remain for manual verification.
+
+## Right panel scrollbar containment, 2026-10-07
+
+Working-tree scope based on `54a8b0e`, alongside existing meeting feature changes: added an inset native scroll container for Reference, Dictionary and Meetings, keeping the rounded outer panel clipped and reserving scrollbar space inside its existing responsive padding.
+
+- `npm run build`: passed; existing Vite large-chunk advisory remains. Source/diff review only; no tests or runtime interaction checks run, per the user's request. Browser/theme/scrolling and native WebView2 behavior remain for manual verification. Production preview opened for the user.
 
 ## Meeting notes implementation plan, 2026-10-06
 

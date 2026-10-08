@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { Dialog } from "./Dialog";
-import { IconContext, SidebarSimple, FileText, BookOpen, Microphone, X, Check, UploadSimple, Trash, Minus, Square, SpinnerGap, WarningCircle, PushPin, ArrowUUpLeft, ClockCounterClockwise, CaretDown } from "@phosphor-icons/react";
+import { IconContext, SidebarSimple, FileText, BookOpen, Microphone, X, Check, UploadSimple, Trash, Minus, Square, SpinnerGap, WarningCircle, PushPin, PushPinSlash, MagnifyingGlass, ArrowUUpLeft, ClockCounterClockwise, CaretDown } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { NoteEditor } from "./NoteEditor";
@@ -24,14 +24,22 @@ import { drainCaptureForShutdown, openNativeCapture, subscribeCaptureOpen } from
 import { AppSelect } from "./AppSelect";
 import { ActionPopover } from "./ActionPopover";
 import { FolderOptions } from './FolderOptions';
+import { NoteOptions } from './NoteOptions';
+import { MenuAction } from './MenuAction';
 import { AnimatedIcon } from "./AnimatedIcon";
 import { TrashIcon } from "./TrashIcon";
 import { normalizeAppearance, elementSizes, noteFonts } from "./appearance";
 import { useWorkspace } from "./useWorkspace";
 import { useAppIcon } from "./useAppIcon";
 import { useSidebarDrag } from "./useSidebarDrag";
+import { orderFolders } from "./sidebarOrder";
 import { PanelResize } from "./PanelResize";
+import { useWorkspaceMotion } from './useWorkspaceMotion';
+import { useContentMotion, useSurfaceMotion } from './useSurfaceMotion';
+import { MotionDisclosure } from './MotionDisclosure';
 import { MotionToast } from './MotionToast';
+import { DisclosureCaret } from './DisclosureCaret';
+import { useTopbarMotion } from './useTopbarMotion';
 import { defaultNoteTitle, noteTitleFact } from "./noteNaming";
 import { newNoteContent } from "./newNoteContent";
 import { noteSummary } from "./noteSummary";
@@ -50,8 +58,6 @@ import { backlinks, remapItemLinks, safeExternalHref } from "./itemLinks";
 import { instantiateTemplate, templateNote, removeTemplate } from "./noteTemplates";
 import { emptyBoard, portableBoard, validateBoard, type BoardData } from "./boardData";
 import { BoardBoundary } from "./BoardBoundary";
-import { NotepadImportDialog } from "./NotepadImportDialog";
-import { mergeNotepadTabs, notepadSourceName, type NotepadSource, type NotepadTab } from "./notepadImport";
 import { trashItem, trashFolder, restoreTrashItem, restoreTrashFolder, purgeTrash } from "./trash";
 import { checkpointHistory, historyRestoration } from "./history";
 import { HistoryDialog } from "./HistoryDialog";
@@ -180,7 +186,6 @@ export default function App() {
   const [sidebarAnnouncement, setSidebarAnnouncement] = useState("");
   const [importing, setImporting] = useState(false);
   const [importLabel, setImportLabel] = useState("Importing files…");
-  const [notepadImport, setNotepadImport] = useState<{ folderId: string | null; source: NotepadSource; returnTo: HTMLElement | null } | null>(null);
   const [boardCreation, setBoardCreation] = useState<"import" | "template" | null>(null);
   const importBusy = useRef(false);
   const importDestination = useRef<string | null>(null);
@@ -236,6 +241,35 @@ export default function App() {
   const meetingRequests = useMeetingRequests(currentMeeting, meetings, generatedMeeting);
   useEffect(() => { setAnalysisId(null); }, [active?.meeting?.sessionId]);
   useEffect(() => { if (meetings.reminder) notify(meetings.reminder.message); }, [meetings.reminder]);
+  const appMotion = useRef<HTMLDivElement>(null), workspaceMotion = useRef<HTMLDivElement>(null);
+  const documentMotion = useRef<HTMLElement>(null), referenceMotion = useRef<HTMLDivElement>(null);
+  const navigationMotion = useRef<HTMLDivElement>(null), chromeMotion = useRef<HTMLElement>(null);
+  useSurfaceMotion(appMotion, 'window', `notebook-${!!workspace}`);
+  const referenceVisible = reference && (!focus || dictionary);
+  useWorkspaceMotion(workspaceMotion, !!workspace, sidebar && !focus, referenceVisible, `${focus}-${workspace?.theme}-${appearance.elementSize}-${isBoard(active)}`);
+  useContentMotion(documentMotion, active?.id || 'empty');
+  useContentMotion(referenceMotion, `${dictionary}-${meetingOpen}-${workspace?.referenceId}`);
+  useContentMotion(navigationMotion, `${view}-${notebookView.filter}-${notebookView.sort}`);
+  useTopbarMotion(chromeMotion, !!workspace, focus, `${isBoard(active)}-${appearance.elementSize}-${workspace?.theme}`);
+  useLayoutEffect(() => {
+    const scroll = referenceMotion.current;
+    const panel = scroll?.closest<HTMLElement>('.reference-panel');
+    if (!scroll || !panel || workspace?.theme !== 'notebook') return;
+    // The inset viewport owns native scrolling; its paper spans the outer frame.
+    // Move that paper by the same offset without changing scroll or React state.
+    const syncPaper = () => {
+      const paperHeight = scroll.scrollHeight + panel.clientHeight - scroll.clientHeight;
+      panel.style.setProperty('--reference-paper-offset', `${-scroll.scrollTop}px`);
+      panel.style.setProperty('--reference-paper-height', `${paperHeight}px`);
+    };
+    syncPaper();
+    scroll.addEventListener('scroll', syncPaper, { passive: true });
+    return () => {
+      scroll.removeEventListener('scroll', syncPaper);
+      panel.style.removeProperty('--reference-paper-offset');
+      panel.style.removeProperty('--reference-paper-height');
+    };
+  }, [workspace?.theme]);
   useEffect(() => {
     setFindFor(current => current?.id === active?.id ? current : null);
     setBoardSearch(current => current?.id === active?.id ? current : null);
@@ -303,36 +337,6 @@ export default function App() {
     setNoteMenuId(null);
     setMenu(false);
     importRef.current?.click();
-  }
-  function chooseNotepadImport(folderId: string | null, source: NotepadSource = "notepad") {
-    if (importBusy.current) { notify("An import is already in progress. Please wait."); return; }
-    setFolderMenu(null); setNoteMenuId(null); setMenu(false); setModal(null);
-    setNotepadImport({ folderId, source, returnTo: folderId ? actionAnchor.current : document.querySelector('button[aria-label="Settings"]') });
-  }
-  async function importNotepadTabs(tabs: NotepadTab[], destination: string) {
-    if (importBusy.current) throw Error("An import is already in progress. Please wait.");
-    importBusy.current = true;
-    const source = notepadImport?.source ?? "notepad", name = source === "notepad" ? "Notepad" : notepadSourceName(source);
-    setImporting(true); setImportLabel(`Importing ${name} tabs…`);
-    let imported = 0;
-    let duplicates = 0;
-    let folderId: string | null = null;
-    try {
-      mutate((w) => {
-        const result = mergeNotepadTabs(w, tabs, destination, source);
-        imported = result.imported; duplicates = result.duplicates; folderId = result.folderId;
-        return result.workspace;
-      });
-      setNotepadImport(null);
-      if (imported) {
-        setView(folderId ? "notes" : "unfiled"); setQuery("");
-        if (folderId) setExpanded((s) => new Set([...s, folderId!]));
-        setImportLabel(`Saving imported ${name} notes…`);
-        try { await flush(); }
-        catch { notify(`${name} notes were added, but saving failed. Keep Scribly open and use Retry to save them.`); return; }
-      }
-      notify(`${imported} ${imported === 1 ? "note" : "notes"} imported from ${name}.${duplicates ? ` ${duplicates} matching notes skipped.` : ""}`);
-    } finally { importBusy.current = false; setImporting(false); }
   }
   function preserveDocumentFocus(event: MouseEvent<HTMLButtonElement>) {
     if (event.button === 0 && document.activeElement?.closest(".document-panel")) event.preventDefault();
@@ -604,6 +608,7 @@ export default function App() {
     meetings.select(meeting.id); setQuery(''); selectNote(destination,false);
   }
   function generatedMeeting(meeting:Meeting, kind?:MeetingKind) {
+    if (kind === 'question') return;
     openMeetingDocument(meeting,true);
     if (kind && !['summary','actions','minutes'].includes(kind)) setAnalysisId(meeting.analyses.filter(analysis => analysis.kind === kind).at(-1)?.id || null);
     else setAnalysisId(null);
@@ -734,7 +739,7 @@ export default function App() {
     setSidebarAnnouncement(`${note.title || "Untitled"} ${note.pinned ? "unpinned" : "pinned"}.`);
   }
   useEffect(() => {
-    if (!dictionary || !reference || focus) return;
+    if (!dictionary || !reference) return;
     const dismiss = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented || (event.target instanceof HTMLElement && event.target.closest('[role="dialog"], .select-popup'))) return;
       event.preventDefault();
@@ -742,11 +747,11 @@ export default function App() {
     };
     document.addEventListener("keydown", dismiss);
     return () => document.removeEventListener("keydown", dismiss);
-  }, [dictionary, reference, focus]);
+  }, [dictionary, reference]);
   function openDictionary(word?: string) {
     if (word) setDictionaryTerm(word);
     moveFocusFromPanels('.reference-panel', 'button[aria-label="Dictionary"]');
-    setDictionary(true); setMeetingOpen(false); setReference(true); setFocus(false);
+    setDictionary(true); setMeetingOpen(false); setReference(true);
   }
   function closeDictionary() {
     moveFocusFromPanels('.reference-panel', 'button[aria-label="Dictionary"]');
@@ -852,6 +857,9 @@ export default function App() {
     setSidebarMenu(null);
     setView("trash"); setQuery(""); setMenu(false); setNoteMenuId(null);
   }
+  function leaveTrash() {
+    setView("notes"); setQuery(""); setSidebarMenu(null); setMenu(false); setNoteMenuId(null);
+  }
   async function openHistory(note: Note) {
     const generation = ++historyGeneration.current;
     setMenu(false); setNoteMenuId(null);
@@ -908,7 +916,7 @@ export default function App() {
       }))) return;
     } else {
       const next = crypto.randomUUID();
-      if (!update((w) => ({ ...w, folders: [...w.folders, { id: next, name }] }))) return;
+      if (!update((w) => ({ ...w, folders: [...w.folders, { id: next, name, createdAt: new Date().toISOString() }] }))) return;
       setExpanded((s) => new Set([...s, next]));
     }
     setModal(null);
@@ -945,7 +953,10 @@ export default function App() {
     ? (active.content.match(/data-checked="true"/g) || []).length
     : 0;
   const matches = (n: Note) => !isTemplate(n) && matchesNote(n, '', notebookView.filter) && notebookMatches(n, query);
+  const trashedFolders = workspace?.folders.filter(folder => folder.deletedAt) || [];
+  const trashedNotes = workspace?.notes.filter(note => note.deletedAt) || [];
   const trashedMeetings = meetings.meetings.filter(meeting => meeting.deletedAt);
+  const trashCount = trashedFolders.length + trashedNotes.length + trashedMeetings.length;
   const visible = (n: Note) => !n.archived && !n.deletedAt && matches(n);
   const renderNote = (n: Note) => (
     <div
@@ -963,7 +974,7 @@ export default function App() {
       <button
         className="note-select"
         {...sidebarDrag.dragProps({ kind: "note", id: n.id }, !n.archived && !n.deletedAt)}
-        title={`${n.title || 'Untitled'}${isLiveItem(n) ? ' · Alt+click to show as reference. Drag to a folder or Trash. Use manual order with All items to reorder.' : ''}`}
+        title={`${n.title || 'Untitled'}${isLiveItem(n) ? ' · Alt+click to show as reference. Drag to a folder or Trash. Use Latest / custom with All items to reorder.' : ''}`}
         aria-current={active?.id === n.id ? "page" : undefined}
         aria-label={n.title || 'Untitled'}
         onMouseDown={event => { if (event.altKey) preserveDocumentFocus(event); }}
@@ -972,13 +983,14 @@ export default function App() {
         <ItemIcon note={n} size={26} />
         <span>
           <span className="note-name">{n.pinned && <PushPin size={13} aria-label="Pinned" />} {n.title || "Untitled"}</span>
-          {query.trim() ? <span className="note-preview search-excerpt">{(() => { const excerpt = matchingExcerpt(noteSummary(n).text, query); return <>{excerpt.before}<mark>{excerpt.match}</mark>{excerpt.after}</>; })()}</span> : rowDensity === 'comfortable' && (
+          {n.deletedAt ? <span className="note-preview">Deleted {new Date(n.deletedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span> : query.trim() ? <span className="note-preview search-excerpt">{(() => { const excerpt = matchingExcerpt(noteSummary(n).text, query); return <>{excerpt.before}<mark>{excerpt.match}</mark>{excerpt.after}</>; })()}</span> : rowDensity === 'comfortable' && (
             <span className="note-preview">
               {notePreview(n) || (isBoard(n) ? 'Board' : 'Start writing…')}
             </span>
           )}
         </span>
       </button>
+      {n.deletedAt && <button className="restore-trash-item" aria-label={`Restore ${n.title || 'Untitled'}`} title="Restore item" onClick={() => restoreFromTrash(n)}><AnimatedIcon kind="undo" size={18} /></button>}
       {isLiveItem(n) && <button className="reference-note" aria-label={`Show ${n.title || 'Untitled'} as reference`}
         title="Show as reference (Alt+click the item)" onMouseDown={preserveDocumentFocus} onClick={() => showReference(n)}>
         <AnimatedIcon kind="reference" size={18} />
@@ -1000,23 +1012,17 @@ export default function App() {
         <AnimatedIcon kind="options" size={20} />
       </button>
       {noteMenuId === n.id && (
-        <ActionPopover anchor={actionAnchor.current} label="Note actions" className="sidebar-note-dropdown" onClose={() => setNoteMenuId(null)}>
-          {!n.archived && !n.deletedAt && <button onClick={() => togglePin(n)}><PushPin size={18} />{n.pinned ? "Unpin item" : "Pin item"}</button>}
-          {!isBoard(n) && <button onClick={() => { selectNote(n); openFind(n); }}>Find in note</button>}
-          {n.deletedAt && <button onClick={() => restoreFromTrash(n)}><AnimatedIcon kind="undo" size={18} />Restore item</button>}
-          {!n.archived && !n.deletedAt && (
-            <button
-              onClick={() => showReference(n)}
-            >
-              <AnimatedIcon kind="reference" size={18} />
-              Show as reference
-            </button>
-          )}
-          {!n.deletedAt && <button onClick={() => void openHistory(n)}>Version history</button>}
-          <button className="danger-text" onClick={() => n.deletedAt ? confirmDelete(n) : moveToTrash(n)}>
-            <Trash size={18} />
-            {n.deletedAt ? "Delete permanently" : "Move to Trash"}
-          </button>
+        <ActionPopover anchor={actionAnchor.current} label={isBoard(n) ? 'Board actions' : 'Note actions'} className="sidebar-note-dropdown item-options" onClose={() => setNoteMenuId(null)}>
+          {(!n.archived && !n.deletedAt || !isBoard(n)) && <div className="folder-action-group" role="group" aria-label="Navigation">
+            {!n.archived && !n.deletedAt && <MenuAction icon={n.pinned ? PushPinSlash : PushPin} onClick={() => togglePin(n)}>{n.pinned ? 'Unpin' : 'Pin'} {isBoard(n) ? 'board' : 'note'}</MenuAction>}
+            {!isBoard(n) && <MenuAction icon={MagnifyingGlass} onClick={() => { selectNote(n); openFind(n); }}>Find in note</MenuAction>}
+            {!n.archived && !n.deletedAt && <MenuAction icon={BookOpen} onClick={() => showReference(n)}>Show as reference</MenuAction>}
+          </div>}
+          {!n.deletedAt && <div className="folder-action-group"><MenuAction icon={ClockCounterClockwise} onClick={() => void openHistory(n)}>Version history</MenuAction></div>}
+          <div className="folder-action-group" role="group" aria-label="Trash actions">
+            {n.deletedAt && <MenuAction icon={ArrowUUpLeft} onClick={() => restoreFromTrash(n)}>Restore {isBoard(n) ? 'board' : 'note'}</MenuAction>}
+            <MenuAction icon={Trash} className="danger-text" onClick={() => n.deletedAt ? confirmDelete(n) : moveToTrash(n)}>{n.deletedAt ? 'Delete permanently…' : 'Move to Trash'}</MenuAction>
+          </div>
         </ActionPopover>
       )}
     </div>
@@ -1026,7 +1032,7 @@ export default function App() {
     0;
   if (!workspace)
     return (
-      <div className="startup">
+      <div ref={appMotion} className="startup">
         <SidebarSimple size={45} />
         <h1>Scribly</h1>
         {status === "loading" ? (
@@ -1080,9 +1086,9 @@ export default function App() {
 
   return (
     <IconContext.Provider value={{ weight: "regular" }}>
-      <div className={`app ${isBoard(active) ? 'board-mode' : ''} ${focus ? "focus-mode" : ""} ${focus && focusTools ? "focus-tools-visible" : ""}`} {...fileDrop.props}>
-        <header className="topbar">
-          <div className="brand">
+      <div ref={appMotion} className={`app ${isBoard(active) ? 'board-mode' : ''} ${focus ? "focus-mode" : ""} ${focus && focusTools ? "focus-tools-visible" : ""}`} {...fileDrop.props}>
+        <header ref={chromeMotion} className="topbar">
+          <div className="brand" inert={focus}>
             <button
               className="icon-button"
               aria-label="Toggle sidebar"
@@ -1110,11 +1116,11 @@ export default function App() {
               if (desktop) void windowAction(() => getCurrentWindow().toggleMaximize());
             }}
           >
-            <span>
+            <span aria-hidden={focus}>
               {workspace.folders.find((f) => f.id === active?.folderId)?.name ||
                 "Unfiled"}
             </span>
-            <span className="slash">/</span>
+            <span className="slash" aria-hidden={focus}>/</span>
             <span>{active?.title || "Your notebook"}</span>
           </div>
           <div className="board-command-host" ref={setBoardControlsHost} />
@@ -1124,20 +1130,21 @@ export default function App() {
               onClick={() => { moveFocusFromPanels('.reference-panel', 'button[aria-label="Meetings"]'); setReference(value => !meetingOpen || !value || focus); setMeetingOpen(true); setDictionary(false); setFocus(false); }}>
               <Microphone size={21} /><span>{meetings.recording ? `${meetings.recording.recording === 'paused' ? 'Paused' : 'Recording'} ${meetings.feedback?.id === meetings.recording.id ? Math.floor(meetings.feedback.duration / 60) + ':' + String(Math.floor(meetings.feedback.duration % 60)).padStart(2, '0') : ''}` : 'Meetings'}</span>
             </button>
-            {focus && !isBoard(active) && <button className={`pill focus-tools-toggle ${focusTools ? 'selected' : ''}`} aria-pressed={focusTools} aria-expanded={focusTools} aria-controls={isBoard(active) ? 'board-secondary-controls' : 'note-formatting-controls'} onMouseDown={preserveDocumentFocus}
+            <button hidden={!focus || isBoard(active)} inert={!focus || isBoard(active)} className={`pill focus-tools-toggle ${focusTools ? 'selected' : ''}`} aria-pressed={focusTools} aria-expanded={focusTools} aria-controls={isBoard(active) ? 'board-secondary-controls' : 'note-formatting-controls'} onMouseDown={preserveDocumentFocus}
               onClick={() => {
                 if (focusTools) moveFocusFromPanels('.board-top-controls, .editor-toolbar, .excalidraw .layer-ui__wrapper__top-right, .excalidraw .sidebar', '.focus-tools-toggle');
                 setFocusTools(value => !value);
-              }}><AnimatedIcon kind="tools" size={21} /><span>{isBoard(active) ? 'Board actions' : 'Formatting'}</span></button>}
-            <button className={`pill dictionary-toggle ${dictionary && reference && !focus ? "selected" : ""}`}
-              aria-label="Dictionary" aria-pressed={dictionary && reference && !focus} aria-controls="reference-panel"
+              }}><AnimatedIcon kind="tools" size={21} /><span>{isBoard(active) ? 'Board actions' : 'Formatting'}</span></button>
+            <button className={`pill dictionary-toggle ${dictionary && referenceVisible ? "selected" : ""}`}
+              aria-label="Dictionary" aria-pressed={dictionary && referenceVisible} aria-controls="reference-panel"
               title="Dictionary · Select a word to look it up" onMouseDown={preserveDocumentFocus}
-              onClick={() => dictionary && reference && !focus ? closeDictionary() : openDictionary()}>
+              onClick={() => dictionary && referenceVisible ? closeDictionary() : openDictionary()}>
               <BookOpen size={21} /><span>Dictionary</span>
             </button>
             <button
               className={`pill ${reference && !dictionary && !meetingOpen && !focus ? "selected" : ""}`}
               aria-label="Reference"
+              inert={focus}
               title="Reference (Ctrl+Shift+R)"
               aria-pressed={reference && !dictionary && !meetingOpen && !focus}
               onMouseDown={preserveDocumentFocus}
@@ -1159,6 +1166,7 @@ export default function App() {
             </button>
             <button
               ref={themeAnchor} className="icon-button theme-toggle"
+              inert={focus}
               aria-label="Appearance" aria-haspopup="dialog" aria-expanded={chromeMenu === 'theme'}
               title={`Appearance: ${workspace.theme}`}
               onClick={() => setChromeMenu(value => value === 'theme' ? null : 'theme')}
@@ -1209,7 +1217,8 @@ export default function App() {
           </div>
         </header>
         <div
-          className={`workspace ${sidebar && !focus ? "with-sidebar" : ""} ${reference && !focus ? "with-reference" : ""} ${dictionary ? "dictionary-layout" : ""}`}
+          ref={workspaceMotion}
+          className={`workspace ${sidebar && !focus ? "with-sidebar" : ""} ${referenceVisible ? "with-reference" : ""} ${dictionary ? "dictionary-layout" : ""}`}
         >
           {(fileDrop.target || importing) && (
             <div className="file-drop-hint" role="status" aria-live="polite">
@@ -1266,19 +1275,19 @@ export default function App() {
               <AppSelect label="Filter items" value={notebookView.filter} onChange={filter => changeNotebookView({ filter: filter as NotebookView['filter'] })}
                 options={[{ value: 'all', label: 'All items' }, { value: 'notes', label: 'Notes' }, { value: 'boards', label: 'Boards' }]} />
               <AppSelect className="sort-picker" label="Sort items" value={notebookView.sort} onChange={sort => changeNotebookView({ sort: sort as NotebookView['sort'] })}
-                options={[{ value: 'manual', label: 'Manual' }, { value: 'updated', label: 'Modified' }, { value: 'title', label: 'A–Z' }]} />
+                options={[{ value: 'manual', label: 'Latest / custom' }, { value: 'updated', label: 'Modified' }, { value: 'title', label: 'A–Z' }]} />
               <button aria-label="Compact note rows" aria-pressed={rowDensity === 'compact'} title={rowDensity === 'compact' ? 'Compact rows · switch to comfortable rows' : 'Comfortable rows · switch to compact rows'}
                 onClick={() => changeNotebookView({ density: rowDensity === 'compact' ? 'comfortable' : 'compact' })}>
                 <AnimatedIcon kind="list" size={18} />
               </button>
             </div>
-            {(notebookView.sort !== 'manual' || notebookView.filter !== 'all') && <p className="navigation-hint">Use All items and Manual order to reorder notes.</p>}
+            {(notebookView.sort !== 'manual' || notebookView.filter !== 'all') && <p className="navigation-hint">Use All items and Latest / custom to reorder notes.</p>}
             <p id="sidebar-drag-help" className="sr-only">
               Drag folders to reorder. Drag notes between notes or onto a folder to move them. Drop a note or folder on Trash to keep it there until restored or cleared.
               Use Alt plus Up or Down to reorder; on notes, Alt plus Shift plus Up or Down changes folder.
             </p>
             <div className="sr-only" role="status" aria-live="polite">{sidebarAnnouncement}</div>
-            <div className="sidebar-scroll"
+            <div ref={navigationMotion} className="sidebar-scroll"
               onDragOverCapture={sidebarDrag.scrollOnDrag}
               onDragLeave={sidebarDrag.leaveScroll}
             >
@@ -1321,18 +1330,19 @@ export default function App() {
                   {!(workspace.recentIds || []).some(id => workspace.notes.some(note => note.id === id && isLiveItem(note))) && <p className="shortcut-empty">Open a note to find it here.</p>}
                 </div>}
               </ActionPopover>}
-              {(view === "unfiled" || view === "trash") && <div className="sidebar-location"><span>{view === "unfiled" ? "Unfiled notes" : "Trash"}</span><button onClick={() => { setView("notes"); setQuery(""); }}>All folders</button></div>}
+              {view === "unfiled" && <div className="sidebar-location"><span>Unfiled notes</span><button onClick={() => { setView("notes"); setQuery(""); }}>All folders</button></div>}
               {view === "trash" ? (
-                <div className="loose-notes">
-                  <p className="empty-search">Restore items anytime, or clear Trash to delete them permanently.</p>
-                  <button className="danger-text" disabled={!workspace.notes.some(note => note.deletedAt) && !workspace.folders.some(folder => folder.deletedAt) && !trashedMeetings.length} onClick={() => setModal({ kind: "emptyTrash" })}>Clear Trash…</button>
-                  {workspace.folders.filter(folder => folder.deletedAt).map(folder => <div className="trash-folder" key={folder.id}>
-                    <div className="trash-folder-heading"><AnimatedIcon kind="folder" size={20} /><span>{folder.name}</span><button onClick={() => restoreFolder(folder.id)}>Restore folder</button></div>
+                <div className="loose-notes trash-items">
+                  <button className="trash-back" onClick={leaveTrash}><AnimatedIcon kind="back" size={17} />Go back</button>
+                  <div className="trash-summary"><strong>{trashCount} {trashCount === 1 ? 'item' : 'items'}</strong><p>Restore what you need. Clear what you don’t.</p></div>
+                  {trashedFolders.map(folder => <div className="trash-folder" key={folder.id}>
+                    <div className="trash-folder-heading"><AnimatedIcon kind="folder" size={20} /><span className="trash-folder-name" title={folder.name}>{folder.name}</span><button aria-label={`Restore folder ${folder.name}`} title="Restore folder" onClick={() => restoreFolder(folder.id)}><AnimatedIcon kind="undo" size={17} /></button></div>
                     {workspace.notes.filter(note => note.folderId === folder.id && note.deletedAt && matches(note)).map(renderNote)}
                   </div>)}
-                  {trashedMeetings.map(meeting => <div className="trash-folder-heading" key={meeting.id}><Microphone size={20} /><span>{meeting.title} · Recording</span><button aria-label={`Restore meeting ${meeting.title}`} onClick={() => restoreMeeting(meeting)}><ArrowUUpLeft size={18} /></button></div>)}
-                  {workspace.notes.filter(note => note.deletedAt && !workspace.folders.some(folder => folder.id === note.folderId && folder.deletedAt) && matches(note)).map(renderNote)}
-                  {!workspace.notes.some(note => note.deletedAt && matches(note)) && !workspace.folders.some(folder => folder.deletedAt) && !trashedMeetings.length && <p className="empty-search">{query ? "No Trash items match your search." : "Trash is empty."}</p>}
+                  {trashedMeetings.map(meeting => <div className="trash-folder-heading" key={meeting.id}><Microphone size={20} /><span className="trash-folder-name">{meeting.title} · Recording</span><button aria-label={`Restore meeting ${meeting.title}`} onClick={() => restoreMeeting(meeting)}><ArrowUUpLeft size={18} /></button></div>)}
+                  {trashedNotes.filter(note => !trashedFolders.some(folder => folder.id === note.folderId) && matches(note)).map(renderNote)}
+                  {!trashedNotes.some(matches) && !trashedFolders.length && !trashedMeetings.length && <div className="trash-empty"><Trash size={32} weight="regular" aria-hidden="true" /><strong>{query || notebookView.filter !== 'all' ? "No matching items" : "Trash is empty"}</strong><p>{query || notebookView.filter !== 'all' ? 'Try another search or filter.' : 'Deleted notes and folders appear here.'}</p></div>}
+                  {trashCount > 0 && <div className="trash-clear"><button className="danger-text" onClick={() => setModal({ kind: "emptyTrash" })}><Trash size={18} weight="regular" aria-hidden="true" />Clear Trash…</button><p>Permanently deletes everything in Trash.</p></div>}
                 </div>
               ) : query ? (
                 <div className="search-results">
@@ -1342,7 +1352,7 @@ export default function App() {
                   )}
                 </div>
               ) : (
-                workspace.folders.filter(folder => !folder.deletedAt).map((folder) => (
+                orderFolders(workspace.folders.filter(folder => !folder.deletedAt)).map((folder) => (
                   <div
                     data-file-folder={folder.id}
                     className={`folder-group${sidebarDrag.dropClass("folder-order", folder.id)}${sidebarDrag.dropClass("folder", folder.id)}${!fileDrop.target?.note && fileDrop.target?.folder === folder.id ? " drop-folder" : ""}`}
@@ -1364,11 +1374,7 @@ export default function App() {
                           setView("notes");
                         }}
                       >
-                        {expanded.has(folder.id) ? (
-                          <AnimatedIcon kind="down" size={16} />
-                        ) : (
-                          <AnimatedIcon kind="right" size={16} />
-                        )}
+                        <DisclosureCaret open={expanded.has(folder.id)} />
                         <AnimatedIcon kind="folder" size={27} />
                         <span>{folder.name}</span>
                       </button>
@@ -1414,7 +1420,7 @@ export default function App() {
                         )}
                       </div>
                     </div>
-                    {expanded.has(folder.id) && (
+                    <MotionDisclosure open={expanded.has(folder.id)}>
                       <div className="folder-notes">
                         {orderNotes(workspace.notes
                           .filter((n) => n.folderId === folder.id && visible(n))
@@ -1429,7 +1435,7 @@ export default function App() {
                           </button>
                         )}
                       </div>
-                    )}
+                    </MotionDisclosure>
                   </div>
                 ))
               )}
@@ -1454,9 +1460,10 @@ export default function App() {
               <button
                 className={`trash-target${view === "trash" ? " nav-active" : ""}${sidebarDrag.dropClass("trash", null)}`}
                 {...sidebarDrag.dropProps({ kind: "trash", id: null })}
-                onClick={openTrash}
-                title={sidebarDrag.dragging ? "Drop to move to Trash" : "Trash"}
+                onClick={view === "trash" ? leaveTrash : openTrash}
+                title={sidebarDrag.dragging ? "Drop to move to Trash" : view === "trash" ? "Go back to folders" : "Trash"}
                 aria-label="Trash"
+                aria-pressed={view === "trash"}
                 onContextMenu={e => { e.preventDefault(); openTrash(); }}
               >
                 <TrashIcon open={sidebarDrag.dragging !== null} />
@@ -1469,12 +1476,13 @@ export default function App() {
               </button>
             </nav>
           </aside>
-          <PanelResize panel="sidebar" visible={sidebar && !focus} layoutKey={`${reference && !focus}-${appearance.elementSize}`} />
-          {workspace.theme === 'notebook' && sidebar && !focus && <div className="notebook-binding" aria-hidden="true" />}
-          <main className={`document-panel panel ${isBoard(active) ? "board-document" : ""} ${active?.meeting ? 'meeting-document' : ''}`}>
+          <PanelResize panel="sidebar" visible={sidebar && !focus} layoutKey={`${referenceVisible}-${appearance.elementSize}`} />
+          {workspace.theme === 'notebook' && <div className="notebook-binding" aria-hidden="true" />}
+          <main ref={documentMotion} className={`document-panel panel ${isBoard(active) ? "board-document" : ""} ${active?.meeting ? 'meeting-document' : ''}`}>
             {active ? (
               <>
                 <div className="document-scroll">
+                  <MotionDisclosure open={!focus} keepMounted reveal frequency={Math.sqrt(300)} className="document-heading-disclosure">
                   <div className="document-head">
                     <div>
                       <textarea
@@ -1527,60 +1535,39 @@ export default function App() {
                         <AnimatedIcon kind="options" size={27} />
                       </button>
                       {menu && (
-                          <ActionPopover anchor={actionAnchor.current} label="Note options" className="note-dropdown" onClose={() => setMenu(false)}>
-                            {!active.archived && !active.deletedAt && <button onClick={() => togglePin(active)}><PushPin size={18} />{active.pinned ? "Unpin item" : "Pin item"}</button>}
-                            {!isBoard(active) && <button onClick={() => openFind(active)}>Find in note</button>}
-                            {!isBoard(active) && <button onClick={() => openFormattedExport(active.id)}><AnimatedIcon kind="download" size={18} />Export formatted…</button>}
-                            {!isBoard(active) && !active.archived && !active.deletedAt && <button onClick={() => openTemplates("save")}>Save as template…</button>}
-                            {!active.deletedAt && <><span className="menu-label">MOVE TO FOLDER</span>
-                            <AppSelect
-                              label="Move note to folder" className="move-folder-picker"
-                              value={active.folderId || ""}
-                              onChange={(value) => {
-                                patchNote(active.id, {
-                                  folderId: value || null,
-                                });
-                                if (value)
-                                  setExpanded(
-                                    (s) => new Set([...s, value]),
-                                  );
+<ActionPopover anchor={actionAnchor.current} label={isBoard(active) ? 'Board options' : 'Note options'} className="note-dropdown item-options" onClose={() => setMenu(false)}>
+                            <NoteOptions key={active.id} note={active} folders={workspace.folders.filter(folder => !folder.deletedAt)}
+                              onPin={() => togglePin(active)} onFind={() => openFind(active)}
+                              onDuplicate={() => { duplicateItem(active); setMenu(false); }}
+                              onTemplate={() => openTemplates('save')}
+                              onMove={value => {
+                                patchNote(active.id, { folderId: value || null });
+                                if (value) setExpanded(s => new Set([...s, value]));
                                 setMenu(false);
                               }}
-                              onCloseFocus={() => (document.querySelector<HTMLElement>('.move-folder-picker') || actionAnchor.current)?.focus({ preventScroll: true })}
-                              options={[{ value: "", label: "Unfiled notes" }, ...workspace.folders.filter(folder => !folder.deletedAt).map((folder) => ({ value: folder.id, label: folder.name }))]} /></>}
-                            <button
-                              onClick={() => {
-                                duplicateItem(active);
-                                setMenu(false);
-                              }}
-                            >
-                              <AnimatedIcon kind="copy" size={18} />
-                              Duplicate {isBoard(active) ? "board" : "note"}
-                            </button>
-                            <button
-                              onClick={() => {
+                              onMoveCloseFocus={() => (document.querySelector<HTMLElement>('.move-folder-picker') || actionAnchor.current)?.focus({ preventScroll: true })}
+                              onFormattedExport={() => openFormattedExport(active.id)}
+                              onRawExport={() => {
                                 void exportData(
-                                  `${safeFilename(active.title)}.${isBoard(active) ? "excalidraw" : "txt"}`,
-                                  () => isBoard(active) ? JSON.stringify(portableBoard((checkpoint()?.notes.find((n) => n.id === active.id) as typeof active).board), null, 2) : `${active.title}\n\n${textExport(active.content)}`,
-                                  isBoard(active) ? "application/json" : "text/plain",
+                                  `${safeFilename(active.title)}.${isBoard(active) ? 'excalidraw' : 'txt'}`,
+                                  () => isBoard(active) ? JSON.stringify(portableBoard((checkpoint()?.notes.find(n => n.id === active.id) as typeof active).board), null, 2) : `${active.title}\n\n${textExport(active.content)}`,
+                                  isBoard(active) ? 'application/json' : 'text/plain',
                                 );
                                 setMenu(false);
                               }}
-                            >
-                              <AnimatedIcon kind="download" size={18} />
-                              Export {isBoard(active) ? "drawing" : "as text"}
-                            </button>
-                            {active.deletedAt && <button onClick={() => restoreFromTrash(active)}><AnimatedIcon kind="undo" size={18} />Restore item</button>}
-                            <button className="danger-text" onClick={() => active.deletedAt ? confirmDelete(active) : moveToTrash(active)}><Trash size={18} />{active.deletedAt ? "Delete permanently" : "Move to Trash"}</button>
-                            {!active.deletedAt && <button onClick={() => void openHistory(active)}>Version history</button>}
+                              onHistory={() => void openHistory(active)} onRestore={() => restoreFromTrash(active)}
+                              onTrash={() => active.deletedAt ? confirmDelete(active) : moveToTrash(active)} />
                           </ActionPopover>
                       )}
                     </div>
                   </div>
+                  </MotionDisclosure>
                   {(active.archived || active.deletedAt) && (
                     <div className="trash-banner">
-                      <Trash size={18} />
-                      <span>This {isBoard(active) ? "board" : "note"} is in Trash.</span>
+                      <div className="trash-banner-status"><Trash size={18} aria-hidden="true" />
+                        <span>This {isBoard(active) ? "board" : "note"} is in Trash.</span>
+                      </div>
+                      <div className="trash-banner-actions">
                       <button onClick={() => restoreFromTrash(active)}>
                         <AnimatedIcon kind="undo" size={16} />
                         {active.deletedAt ? "Restore item" : `Restore ${isBoard(active) ? "board" : "note"}`}
@@ -1592,9 +1579,10 @@ export default function App() {
                         <Trash size={16} />
                         Delete permanently
                       </button>
+                      </div>
                     </div>
                   )}
-                  {active.meeting?.role === 'summary' && activeMeeting && !active.archived && !active.deletedAt && <MeetingStreamPreview meeting={activeMeeting} stream={meetings.streams[activeMeeting.id]} onCancel={() => void invoke('meeting_cancel', {id:activeMeeting.id}).catch(reason => meetings.setError(String(reason)))} />}
+                  {activeMeeting && !(meetingOpen && referenceVisible) && !meetingRequests.questionPending && meetings.streams[activeMeeting.id]?.kind !== 'question' && !active.archived && !active.deletedAt && <MeetingStreamPreview key={activeMeeting.id} meeting={activeMeeting} stream={meetings.streams[activeMeeting.id]} task={meetings.aiTask} onCancel={() => invoke<void>('meeting_cancel', {id:activeMeeting.id})} />}
                   {activeMeeting && active.meeting ? <MeetingDocument key={active.id} meeting={activeMeeting} transcript={active.meeting.role === 'transcript'} content={active.content} editedAnalysisIds={active.meeting.editedAnalysisIds || []} formattingVisible={!focus || focusTools} player={meetingPlayer} c={meetings} requests={meetingRequests} analysisId={analysisId} seekRequest={seekRequest} onSeek={seekMeeting}
                     onFix={segment => setReviewMeeting({meeting:activeMeeting,segment})} onSettings={() => setModal({kind:'settings',section:'meetings'})}
                     onSummary={() => { setAnalysisId(null); openMeetingDocument(activeMeeting,true); }} readOnly={active.archived || !!active.deletedAt || !!activeMeeting.deletedAt}
@@ -1602,6 +1590,7 @@ export default function App() {
                     onPersonalChange={html => patchNote(active.id,{content:replaceMeetingPersonalContent(active.content,activeMeeting,html)})} /> : isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} notebook={workspace.theme === "notebook"} readOnly={active.archived || !!active.deletedAt} focusMode={focus} controlsHost={boardControlsHost} searchTarget={boardSearch?.id === active.id ? boardSearch : undefined} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} onLinkRequest={requestLink} onLinkReady={fn => { insertItemLink.current = fn; }} onItemLink={openLinkedItem} onExternalLink={openExternalLink} /></Suspense></BoardBoundary> : <NoteEditor
                     key={active.id}
                     content={active.content}
+                    formattingVisible={!focus || focusTools}
                     onWordSelected={word => { if (!focus) openDictionary(word); }}
                     onDictionaryReplaceReady={replace => { replaceDictionaryWord.current = replace; }}
                     findRequest={findFor?.id === active.id ? findFor : undefined}
@@ -1687,16 +1676,18 @@ export default function App() {
               </div>
             )}
           </main>
-          <PanelResize panel="reference" visible={reference && !focus} layoutKey={`${sidebar && !focus}-${appearance.elementSize}`} />
+          <PanelResize panel="reference" visible={referenceVisible} layoutKey={`${sidebar && !focus}-${appearance.elementSize}`} />
           <aside
             id="reference-panel"
             className="reference-panel panel"
             aria-label={meetingOpen ? 'Meeting panel' : dictionary ? "Dictionary panel" : "Reference panel"}
             onKeyDown={event => { if (dictionary && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeDictionary(); } }}
-            inert={!reference || focus}
+            inert={!referenceVisible}
           >
+            <div ref={referenceMotion} className="reference-scroll">
             <div className="reference-label">
-              <h2 className="meeting-panel-label">{meetingOpen ? 'Meeting' : dictionary ? 'Dictionary' : 'Reference'}</h2>
+              <h2 className="dictionary-panel-title" hidden={!focus}>Dictionary</h2>
+              <h2 className="meeting-panel-label" hidden={focus}>{meetingOpen ? 'Meeting' : dictionary ? 'Dictionary' : 'Reference'}</h2>
               <button
                 className="icon-button"
                 aria-label={meetingOpen ? 'Close meetings' : dictionary ? "Close dictionary" : "Close reference"}
@@ -1709,6 +1700,7 @@ export default function App() {
               meetingNote={active?.meeting?.role === 'transcript'} meetingSessionId={active?.meeting?.sessionId} onPrepareMeeting={prepareMeetingNote} onOpenMeeting={openMeetingDocument}
               allowAnalysis={!active?.meeting || (!active.archived && !active.deletedAt && !isBoard(active))}
               requests={meetingRequests} player={meetingPlayer} transcript={active?.meeting?.role === 'transcript'}
+              onSeek={seekMeeting}
               onView={transcript => { if (currentMeeting) { setAnalysisId(null); openMeetingDocument(currentMeeting,!transcript); } }}
               onAnalysis={id => { if (currentMeeting) { openMeetingDocument(currentMeeting,true); setAnalysisId(id); } }} onDelete={trashMeeting}
               onExport={(meeting,returnTo) => {
@@ -1776,6 +1768,7 @@ export default function App() {
               </div>
             )}
             </>}
+            </div>
           </aside>
         </div>
         {toast && (
@@ -1785,8 +1778,7 @@ export default function App() {
           </MotionToast>
         )}
         {boardCreation && <BoardBoundary onClose={() => setBoardCreation(null)}><Suspense fallback={<div role="status" className="toast">Opening board import…</div>}><CreateBoardDialog mode={boardCreation} dark={dark} returnFocus={() => document.getElementById('board-insert-trigger')} onClose={() => setBoardCreation(null)} onCreate={(title: string, board: BoardData) => createBoard(active?.folderId ?? null, title, board, true)} /></Suspense></BoardBoundary>}
-        {notepadImport && <NotepadImportDialog workspace={workspace} folderId={notepadImport.folderId} source={notepadImport.source} onClose={() => setNotepadImport(null)} returnFocus={() => notepadImport.returnTo}
-          onImport={importNotepadTabs} onImportFiles={() => { setNotepadImport(null); chooseImport(notepadImport.folderId); }} />}
+
         {historyId && workspace.notes.find(note => note.id === historyId) && <HistoryDialog item={workspace.notes.find(note => note.id === historyId)!} dark={dark} onClose={() => { historyGeneration.current++; setHistoryId(null); }} onRestore={async version => {
           const generation = historyGeneration.current; await flush();
           const before = checkpoint(), current = before?.notes.find(note => note.id === historyId);
@@ -1841,12 +1833,6 @@ export default function App() {
                 appearanceExtras={<button className="notepad-settings-import" onClick={() => openTemplates("manage")}>Manage note templates…</button>}
                 backupExtras={<>
                   <h4>Meeting copies</h4><button disabled={!desktop || !!meetings.busy} onClick={() => void meetings.run('Restoring a meeting copy', () => invoke<Meeting | null>('meeting_restore'), meeting => { if (meeting) { setModal(null); openMeetingDocument(meeting,true); } })}>Restore a meeting backup</button>
-                  <button className="notepad-settings-import" disabled={importing} onClick={() => chooseNotepadImport(null)}>
-                    <AnimatedIcon kind="upload" size={21} />Import from Windows Notepad…
-                  </button>
-                  <button className="notepad-settings-import" disabled={importing} onClick={() => chooseNotepadImport(null, "notepadPlus")}>
-                    <AnimatedIcon kind="upload" size={21} />Import from Notepad++…
-                  </button>
                   <BackupSettings config={backups.config} busy={backups.busy} error={backups.error}
                     onEnable={enabled => { void backups.enable(enabled).catch(reason => notify(String(reason))); }}
                     onChoose={() => { void backups.choose().catch(reason => notify(String(reason))); }}

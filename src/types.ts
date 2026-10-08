@@ -10,6 +10,7 @@ type ItemBase = {
   archived: boolean;
   deletedAt?: string;
   pinned?: boolean;
+  sidebarManual?: boolean;
   template?: { titlePattern: string; resetChecklist: boolean };
   autoTitle?: { folderId: string | null; day: string; ordinal: number };
   meeting?: MeetingNote;
@@ -25,7 +26,7 @@ export type Board = Extract<Note, { kind: "board" }>;
 export const isBoard = (item: Note | undefined | null): item is Board => item?.kind === "board";
 export const isTemplate = (item: Note | undefined | null) => item?.kind === "template";
 export const isLiveItem = (item: Note) => !isTemplate(item) && !item.archived && !item.deletedAt;
-export type Folder = { id: string; name: string; copyLastNote?: boolean; templateId?: string; deletedAt?: string };
+export type Folder = { id: string; name: string; createdAt?: string; sidebarManual?: boolean; copyLastNote?: boolean; templateId?: string; deletedAt?: string };
 export type Workspace = {
   schemaVersion?: 2 | 3 | 4 | 5;
   folders: Folder[];

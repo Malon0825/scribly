@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useContentMotion } from './useSurfaceMotion';
 import { BookOpen, MagnifyingGlass, ArrowClockwise } from "@phosphor-icons/react";
 import { dictionaryWord, lookupWord, type DictionaryEntry } from "./dictionary";
 
@@ -22,11 +23,13 @@ export function DictionaryPanel({ word, onWord, onRelatedWord, onExternalLink }:
     return () => { live = false; controller.abort(); window.clearTimeout(timeout); };
   }, [word, retry]);
   const current: Result = result.word === word ? result : { word, status: "loading", entries: [] };
+  const content = useRef<HTMLDivElement>(null);
+  useContentMotion(content, `${current.word}-${current.status}`);
   function related(label: string, words: string[]) {
     const unique = [...new Set(words)].filter(value => value.toLowerCase() !== word);
     return <section className="dictionary-related"><h4>{label}</h4>{unique.length ? <div className="dictionary-words">{unique.map(value => <button key={value} disabled={!dictionaryWord(value)} title="Replace the selected word, or look up this word" onMouseDown={event => event.preventDefault()} onClick={() => onRelatedWord(dictionaryWord(value)!)}>{value}</button>)}</div> : <p className="dictionary-muted">No {label.toLowerCase()} listed.</p>}</section>;
   }
-  return <div className="dictionary-content">
+  return <div ref={content} className="dictionary-content">
     <form className="dictionary-search" onSubmit={event => { event.preventDefault(); const next = dictionaryWord(query); setInvalid(!next); if (next) { onWord(next); if (next === word) setRetry(value => value + 1); } }}>
       <MagnifyingGlass size={18} aria-hidden="true" />
       <input aria-label="Dictionary word" placeholder="Look up a word" value={query} onChange={event => { setQuery(event.target.value); setInvalid(false); }} aria-invalid={invalid} aria-describedby={invalid ? "dictionary-invalid" : undefined} maxLength={80} />

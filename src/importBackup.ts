@@ -113,12 +113,16 @@ export function parseBackup(
       typeof f.name !== "string" ||
       (f.copyLastNote !== undefined && typeof f.copyLastNote !== "boolean") ||
       (f.templateId !== undefined && typeof f.templateId !== "string") ||
+      (f.sidebarManual !== undefined && typeof f.sidebarManual !== "boolean") ||
+      (f.createdAt !== undefined && (typeof f.createdAt !== "string" || !Number.isFinite(Date.parse(f.createdAt)))) ||
       (f.deletedAt !== undefined && (v.schemaVersion !== 5 || typeof f.deletedAt !== "string" || !Number.isFinite(Date.parse(f.deletedAt)))) ||
       folderIds.has(f.id)
     )
       throw Error("Invalid folder in backup.");
     folderIds.add(f.id);
     return { id: f.id, name: f.name,
+      ...(f.sidebarManual !== undefined ? { sidebarManual: f.sidebarManual } : {}),
+      ...(f.createdAt !== undefined ? { createdAt: f.createdAt } : {}),
       ...(f.deletedAt !== undefined ? { deletedAt: f.deletedAt } : {}),
       ...(f.copyLastNote !== undefined ? { copyLastNote: f.copyLastNote } : {}),
       ...(f.templateId !== undefined ? { templateId:f.templateId } : {}),
@@ -132,6 +136,7 @@ export function parseBackup(
       typeof n.content !== "string" ||
       typeof n.archived !== "boolean" ||
       (n.pinned !== undefined && typeof n.pinned !== "boolean") ||
+      (n.sidebarManual !== undefined && typeof n.sidebarManual !== "boolean") ||
       (n.deletedAt !== undefined && (v.schemaVersion !== 5 || typeof n.deletedAt !== "string" || !Number.isFinite(Date.parse(n.deletedAt)))) ||
       !Number.isFinite(Date.parse(n.createdAt)) ||
       !Number.isFinite(Date.parse(n.updatedAt))

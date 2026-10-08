@@ -30,22 +30,32 @@ export function PanelResize({ panel, visible, layoutKey }: { panel: "sidebar" | 
       const reserved = otherVisible && other && getComputedStyle(other).position !== "absolute"
         ? other.getBoundingClientRect().width : 0;
       const overlay = getComputedStyle(surface!).position === "absolute";
+      // Bounds use the destination gap, not the spring's intermediate value.
+      // Otherwise a panel toggle changes its own resize constraints each frame.
+      const gap = workspace!.matches('.with-sidebar, .with-reference') ? 10 * scale : 0;
       const available = overlay ? workspace!.clientWidth - 32 * scale :
-        workspace!.clientWidth - reserved - 2 * parseFloat(styles.columnGap || "0") - 360 * scale;
+        workspace!.clientWidth - reserved - 2 * gap - 360 * scale;
       const min = Math.min((panel === "sidebar" ? 220 : 260) * scale, workspace!.clientWidth - 32 * scale);
       bounds = { min, max: Math.max(min, Math.min((panel === "sidebar" ? 480 : 600) * scale, available)) };
     }
     function apply(width: number) {
       const clamped = Math.min(bounds.max, Math.max(bounds.min, width));
-      workspace!.style.setProperty(`--${panel}-width`, `${clamped}px`);
+      const current = Number.parseFloat(workspace!.style.getPropertyValue(`--${panel}-width`));
+      const changed = !Number.isFinite(current) || Math.abs(current - clamped) > .01;
+      if (changed) workspace!.style.setProperty(`--${panel}-width`, `${clamped}px`);
       handle!.setAttribute("aria-valuenow", String(Math.round(clamped)));
       handle!.setAttribute("aria-valuetext", `${Math.round(clamped)} pixels`);
+      if (changed) workspace!.dispatchEvent(new Event('notify:panel-size'));
       return clamped;
     }
     function sync() {
       if (gesture) return;
       measure();
-      if (preferred === null) workspace!.style.removeProperty(`--${panel}-width`);
+      if (preferred === null) {
+        const hadWidth = !!workspace!.style.getPropertyValue(`--${panel}-width`);
+        workspace!.style.removeProperty(`--${panel}-width`);
+        if (hadWidth) workspace!.dispatchEvent(new Event('notify:panel-size'));
+      }
       else apply(preferred);
       handle!.setAttribute("aria-valuemin", String(Math.round(bounds.min)));
       handle!.setAttribute("aria-valuemax", String(Math.round(bounds.max)));
@@ -128,8 +138,15 @@ export function PanelResize({ panel, visible, layoutKey }: { panel: "sidebar" | 
       workspace.removeAttribute(`data-${panel}-resizing`);
     };
     const reset = () => { cancel(); preferred = null; persist(); sync(); };
-    const observer = new ResizeObserver(sync);
     sync();
+    const widths = () => [workspace.clientWidth, surface.offsetWidth, other?.offsetWidth || 0];
+    let previousWidths = widths();
+    const observer = new ResizeObserver(() => {
+      const next = widths();
+      if (next.every((width, index) => width === previousWidths[index])) return;
+      previousWidths = next;
+      sync();
+    });
     observer.observe(workspace);
     observer.observe(surface);
     if (other) observer.observe(other);

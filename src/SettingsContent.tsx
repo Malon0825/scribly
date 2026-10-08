@@ -1,5 +1,6 @@
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
-import { Check } from '@phosphor-icons/react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useSettingsMotion } from './useSettingsMotion';
+import { Check, Heart, Keyboard, Scan, User } from '@phosphor-icons/react';
 import { AnimatedIcon } from './AnimatedIcon';
 import { AppearanceSettings } from './AppearanceSettings';
 import { StartupSettings } from './StartupSettings';
@@ -8,6 +9,7 @@ import type { Workspace } from './types';
 import { backupStatus, type BackupRecord } from './backupHistory';
 import { desktop } from './storage';
 import { version } from '../package.json';
+const coffeeQr = new URL('./assets/coffee-qr-code.png', import.meta.url).href;
 
 export type SettingsSection = 'appearance' | 'startup' | 'backup' | 'meetings' | 'about';
 const sections: { id: SettingsSection; label: string }[] = [
@@ -23,6 +25,8 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
   onExport: () => void; onImport: () => void; onUpdates: () => void; onShortcuts: () => void; onDone: () => void;
 }) {
   const [section, setSection] = useState(initialSection);
+  const pages = useRef<HTMLDivElement>(null), tabs = useRef<HTMLDivElement>(null);
+  useSettingsMotion(tabs, pages, section, sections.findIndex(item => item.id === section));
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
@@ -33,12 +37,13 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
   }
   return <>
     <p className="settings-intro">Make yourself at home.</p>
-    <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+    <div ref={tabs} className="settings-tabs" role="tablist" aria-label="Settings sections">
+      <span className="settings-tab-highlight" aria-hidden="true" hidden />
       {sections.map((item, index) => <button key={item.id} id={`settings-tab-${item.id}`} role="tab"
         aria-selected={section === item.id} aria-controls={`settings-page-${item.id}`} tabIndex={section === item.id ? 0 : -1}
         onClick={() => setSection(item.id)} onKeyDown={event => navigate(event, index)}>{item.label}</button>)}
     </div>
-    <div className="settings-pages">
+    <div ref={pages} className="settings-pages">
       <section className="settings-page" role="tabpanel" id="settings-page-appearance" aria-labelledby="settings-tab-appearance" hidden={section !== 'appearance'}>
         <span className="field-label">Theme</span>
         <div className="theme-options">
@@ -56,27 +61,40 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
         {startupExtras}
       </section>
       <section className="settings-page" role="tabpanel" id="settings-page-backup" aria-labelledby="settings-tab-backup" hidden={section !== 'backup'}>
-        <h3>Keep a separate copy</h3>
-        <p className="setting-hint">Export your notebook regularly and before updates. Local saving does not create a backup; copying the live database folder is not supported.</p>
+        <h3>Your notebook, backed up</h3>
+        <p className="setting-hint">Save a separate copy before updates or moving devices.</p>
         <div className="backup-summary"><strong>{backupStatus(backup)}</strong>
           {backup?.downloaded && <p className="setting-hint">Check Downloads to confirm the file was saved.</p>}
           {(!backup || Date.now() - backup.at >= 7 * 86400000) && <p className="backup-reminder">{backup ? 'Your last export was at least a week ago.' : 'Your first backup is ready to export.'}</p>}
         </div>
         <div className="settings-actions">
-          <button className="primary" disabled={backupBusy} onClick={onExport}><AnimatedIcon kind="download" size={20} />{backupBusy ? 'Exporting backup…' : 'Export notebook backup'}</button>
-          <button disabled={importing} onClick={onImport}><AnimatedIcon kind="upload" size={20} />Import notes & backup</button>
+          <button className="primary" disabled={backupBusy} onClick={onExport}><AnimatedIcon kind="download" size={20} />{backupBusy ? 'Exporting…' : 'Export backup'}</button>
+          <button disabled={importing} onClick={onImport}><AnimatedIcon kind="upload" size={20} />Import notes or backup</button>
         </div>
         {backupExtras}
       </section>
       <section className="settings-page" role="tabpanel" id="settings-page-meetings" aria-labelledby="settings-tab-meetings" hidden={section !== 'meetings'}>{meetingExtras}</section>
       <section className="settings-page" role="tabpanel" id="settings-page-about" aria-labelledby="settings-tab-about" hidden={section !== 'about'}>
         <h3>Scribly <span className="about-version">{version}</span></h3>
-        <p className="setting-hint">A personal notebook for writing and drawing. No cloud sync or account required.</p>
+        <p className="setting-hint">A little space to write, draw, and think.</p>
         <div className="about-actions">
-          <button className="link-button" onClick={onShortcuts}>Keyboard shortcuts <kbd>Ctrl /</kbd></button>
+          <button className="link-button" onClick={onShortcuts}><Keyboard size={18} aria-hidden="true" />Shortcuts <kbd>Ctrl /</kbd></button>
           <button className="link-button" onClick={onUpdates}>Check for updates <AnimatedIcon kind="open" size={17} /></button>
-          <p className="setting-hint">Opens the release page. Export a backup before installing an update manually.</p>
         </div>
+        <section className="about-support" aria-labelledby="coffee-heading" data-icon-owner>
+          <div className="coffee-message">
+            <div className="coffee-invitation">
+              <span className="coffee-emblem"><AnimatedIcon kind="coffee" size={48} /></span>
+              <div className="coffee-copy">
+                <span className="coffee-support-label"><Heart size={15} weight="regular" aria-hidden="true" />Support Scribly</span>
+                <h4 id="coffee-heading">Buy me a coffee</h4>
+                <p className="setting-hint">If Scribly makes your day a little easier, a coffee helps keep it growing.</p>
+              </div>
+            </div>
+            <div className="coffee-payee"><span className="coffee-payee-icon" aria-hidden="true"><User size={22} weight="regular" /></span><p>Mark Malon Catunao<span>MariBank · ending 8886</span></p></div>
+          </div>
+          <figure className="coffee-code"><img src={coffeeQr} width={648} height={648} loading="lazy" alt="MariBank InstaPay QR code for Mark Malon Catunao, account ending in 8886" /><figcaption><Scan size={16} weight="regular" aria-hidden="true" /><span>Scan with your banking app · InstaPay</span></figcaption></figure>
+        </section>
         <details className="about-storage"><summary>{desktop ? 'Notebook storage' : 'Browser preview details'}</summary>
           <p className="setting-hint">{desktop ? 'Your notebook is stored in a local PostgreSQL database.' : 'This preview uses browser storage. The installed Windows app uses PostgreSQL.'}</p>
           <p className="storage-path">{dataPath}</p>

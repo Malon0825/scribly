@@ -119,7 +119,8 @@ export function summaryNote(workspace: Workspace, source: Note, meeting: Integra
 export function appendSummaryResults(note: Note, meeting: IntegratedMeeting): Note {
   if (note.meeting?.role !== 'summary' || note.meeting.sessionId !== meeting.id || !note.meeting.sourceNoteId || !isLiveItem(note) || isBoard(note)) return note;
   const written = new Set(note.meeting.analysisIds || []);
-  const fresh = meeting.analyses.filter(analysis => !written.has(analysis.id));
+  const fresh = meeting.analyses.filter(analysis => analysis.kind !== 'question' && !written.has(analysis.id));
+  if (!fresh.length) return note;
   const content = removeModelStamps(note.content,meeting);
   if (!fresh.length && content === note.content) return note;
   return { ...note, content:content + fresh.map(analysis => analysisHtml(meeting,analysis,true) + `<p>Updated ${escape(new Date(analysis.createdAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}))}</p>`).join(''), updatedAt:new Date().toISOString(), meeting:{ ...note.meeting, analysisIds:[...written,...fresh.map(analysis => analysis.id)] } };
