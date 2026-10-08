@@ -1,5 +1,11 @@
 # Verification history
 
+## GitHub 1.5.0 publication, 2026-10-08
+
+Committed the packaged application sources, required imported assets/helpers and release notes as `43ba431dd15ef282d4b0fae9a9cb66c66a12a924` (`Release Scribly 1.5.0`). Staged whitespace and credential-pattern checks passed. Pushed main and annotated tag `v1.5.0`; the remote tag resolves to that commit. Local tool output, unused imagery and build-cache files were excluded.
+
+Published https://github.com/Malon0825/scribly/releases/tag/v1.5.0 at 2026-10-08 12:26:45 Asia/Singapore. GitHub's latest-release API confirms tag v1.5.0, draft=false and prerelease=false. Uploaded `Scribly_1.5.0_x64-setup.exe`, `SHA256SUMS-release.txt` and `LICENSE`; all three uploaded sizes and SHA-256 digests match the local files. Installer digest remains `1169840d2feb28c729e1dc9683ba7dfe924c8893fd6aeb845ea6d64b9ac5747f`. The release notes disclose unsigned installation, backup guidance and the recorded native/provider validation limits. No additional builds, tests, inference or installation ran for publication.
+
 ## Version 1.5.0 installer rebuild, 2026-10-08
 
 Working tree on `3155ff1`. Updated npm, Tauri and Cargo application manifests/lock entries from 1.4.2 to 1.5.0 without changing dependency versions. The initial packaging attempt was deliberately stopped before completion to incorporate the user's toolbar icon correction. The final `npm.cmd run package` passed frontend TypeScript/Vite (Vite 1m 1s; existing large-chunk advisory), optimized native release compilation (15m 38s), NSIS packaging and release copy. Installer: `release/Scribly_1.5.0_x64-setup.exe`, 68,794,380 bytes (65.61 MiB), modified 2026-10-08 11:12:46 Asia/Singapore. SHA-256: `1169840d2feb28c729e1dc9683ba7dfe924c8893fd6aeb845ea6d64b9ac5747f`. The release copy matches the NSIS bundle byte-for-byte; the bundled application reports ProductVersion/FileVersion 1.5.0. All application version entries agree. Source/whitespace review passed.

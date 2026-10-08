@@ -6,6 +6,10 @@ Branch: `main`; HEAD: `54a8b0ec998aa6ffc84cb74b1ba2c8e944bc3a86`.
 
 ## Current state
 
+### GitHub 1.5.0 publication, 2026-10-08
+
+Published [Scribly 1.5.0](https://github.com/Malon0825/scribly/releases/tag/v1.5.0) as the latest stable release. Annotated tag `v1.5.0` resolves to source commit `43ba431dd15ef282d4b0fae9a9cb66c66a12a924`. Installer, checksum file and MIT license are uploaded; GitHub asset sizes/digests match local files. Release notes include installation/backup guidance and current runtime validation limits. See `docs/releases/v1.5.0.md` and `tests/verification.md`. Local tool artifacts, unused imagery and build cache were excluded from the source commit.
+
 ### Version 1.5.0 installer, 2026-10-08
 
 The user's requested 1.5.0 rebuild completed successfully. npm/Tauri/Cargo application versions and the generated executable's ProductVersion/FileVersion agree on 1.5.0. Installer: `release/Scribly_1.5.0_x64-setup.exe`, SHA-256 `1169840d2feb28c729e1dc9683ba7dfe924c8893fd6aeb845ea6d64b9ac5747f`; the release copy matches the NSIS bundle. It includes the current working tree, including follow-up answers under the question, input focus corrections, larger red meeting dots, action-specific AI loading states, and the single TextAa suggestions icon that fixes toolbar wrapping. This supersedes older statements below that these changes are absent from the installer. Build and browser icon-toggle checks passed; no tests, provider calls, installation or native runtime acceptance were performed. See `tests/verification.md` for evidence and limits.
