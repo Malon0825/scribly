@@ -1,5 +1,11 @@
 # Verification history
 
+## Post-publication CI selector correction, 2026-10-08
+
+GitHub runs `37727340847` (release source `43ba431`) and `37727550548` (publication record `4687353`) failed the browser stale-save conflict case before exercising conflict recovery: the test expected a successful-save button that the current note footer intentionally hides. The latter run passed the production build and reported 26 passed, 4 skipped and 1 failed browser case; these runs overlap and are not added together.
+
+Updated only the affected case in `tests/finalization.spec.ts`: removed its obsolete saved-button visibility requirement and invoked the supported Ctrl+S shortcut for the conflicting window. Existing assertions still require the first saved copy and second unsaved draft to be retained. Source/whitespace review passed. No app code, installer, release assets or tag changed, and no local tests/builds or provider requests ran under the recorded manual-testing preference. The existing GitHub workflow will validate the pushed correction; its result is pending.
+
 ## GitHub 1.5.0 publication, 2026-10-08
 
 Committed the packaged application sources, required imported assets/helpers and release notes as `43ba431dd15ef282d4b0fae9a9cb66c66a12a924` (`Release Scribly 1.5.0`). Staged whitespace and credential-pattern checks passed. Pushed main and annotated tag `v1.5.0`; the remote tag resolves to that commit. Local tool output, unused imagery and build-cache files were excluded.
