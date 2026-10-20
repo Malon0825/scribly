@@ -17,12 +17,13 @@ const sections: { id: SettingsSection; label: string }[] = [
   { id: 'backup', label: 'Backup & restore' }, { id: 'meetings', label: 'Accounts & Advanced' }, { id: 'about', label: 'About' },
 ];
 export function SettingsContent({ theme, appearance, backup, backupBusy, importing, dataPath,
-  initialSection = 'appearance', startupExtras, appearanceExtras, backupExtras, meetingExtras, onTheme, onAppearance, onExport, onImport, onUpdates, onShortcuts, onDone }: {
+  initialSection = 'appearance', startupExtras, appearanceExtras, backupExtras, meetingExtras, writingHelpEnabled, onWritingHelp, onTheme, onAppearance, onExport, onImport, onUpdates, onShortcuts, onDone }: {
   startupExtras?: ReactNode; appearanceExtras?: ReactNode; backupExtras?: ReactNode; meetingExtras?: ReactNode;
   theme: Workspace['theme']; appearance: Appearance; backup: BackupRecord | null;
   backupBusy: boolean; importing: boolean; dataPath: string; initialSection?: SettingsSection;
   onTheme: (value: Workspace['theme']) => void; onAppearance: (value: Appearance) => void;
   onExport: () => void; onImport: () => void; onUpdates: () => void; onShortcuts: () => void; onDone: () => void;
+  writingHelpEnabled: boolean; onWritingHelp: (enabled: boolean) => void;
 }) {
   const [section, setSection] = useState(initialSection);
   const pages = useRef<HTMLDivElement>(null), tabs = useRef<HTMLDivElement>(null);
@@ -73,7 +74,20 @@ export function SettingsContent({ theme, appearance, backup, backupBusy, importi
         </div>
         {backupExtras}
       </section>
-      <section className="settings-page" role="tabpanel" id="settings-page-meetings" aria-labelledby="settings-tab-meetings" hidden={section !== 'meetings'}>{meetingExtras}</section>
+      <section className="settings-page accounts-settings" role="tabpanel" id="settings-page-meetings" aria-labelledby="settings-tab-meetings" hidden={section !== 'meetings'}>
+        <section className="settings-group" aria-labelledby="writing-settings-title">
+          <h3 id="writing-settings-title">Writing</h3>
+          <div className="startup-setting-row writing-setting-row">
+            <div><label id="writing-help-label" htmlFor="writing-help-switch">Local writing help</label>
+              <p className="setting-hint" id="writing-help-description">Rewrite or continue selected prose. Review every suggestion before applying it.</p>
+              <p className="setting-hint">{desktop ? 'Uses your local text model below.' : 'Generation is available in the Windows app.'} This preference is saved on this device.</p></div>
+            <button id="writing-help-switch" type="button" className="settings-switch" role="switch"
+              aria-checked={writingHelpEnabled} aria-labelledby="writing-help-label" aria-describedby="writing-help-description"
+              onClick={() => onWritingHelp(!writingHelpEnabled)}><span style={{ transform: writingHelpEnabled ? 'translateX(calc(18px * var(--element-scale)))' : 'translateX(0)' }} /></button>
+          </div>
+        </section>
+        {meetingExtras}
+      </section>
       <section className="settings-page" role="tabpanel" id="settings-page-about" aria-labelledby="settings-tab-about" hidden={section !== 'about'}>
         <h3>Scribly <span className="about-version">{version}</span></h3>
         <p className="setting-hint">A little space to write, draw, and think.</p>

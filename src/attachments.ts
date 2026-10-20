@@ -2,6 +2,7 @@ import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import type { Workspace } from "./types";
 import { safeInlineImageSource } from "./rasterImages";
 import { browserDatabase, requestValue } from "./browserData";
+import { pruneConversationImports } from './localAI';
 
 export const ATTACHMENT_ID = /^[a-f0-9]{64}\.(png|jpeg|gif|webp)$/;
 const prefix = "notify-attachment:";
@@ -59,6 +60,7 @@ export async function compactImages<T extends { notes: Workspace["notes"] }>(doc
   return changed ? { ...document, notes, schemaVersion: (document as { schemaVersion?: number }).schemaVersion === 5 ? 5 : (document as { schemaVersion?: number }).schemaVersion === 4 ? 4 : 3 } : document;
 }
 export function attachmentSchema(document: Workspace): Workspace {
+  document=pruneConversationImports(document);
   if (document.schemaVersion === 5 || document.notes.some(n => n.deletedAt) || document.folders.some(folder => folder.deletedAt)) return document.schemaVersion === 5 ? document : { ...document, schemaVersion: 5 };
   if (document.notes.some(n => n.content.includes("data-notify-source"))) return document.schemaVersion === 4 ? document : { ...document, schemaVersion: 4 };
   if (document.schemaVersion === 4) return document;
@@ -86,7 +88,8 @@ export async function portableBackup(document: Workspace): Promise<string> {
     notes.push({ ...note, content: dom.innerHTML });
   }
   const originals = notes.some(note => note.content.includes("data-notify-source"));
-  return JSON.stringify({ ...document, ...(!originals && document.schemaVersion !== 5 && (document.schemaVersion === 3 || document.schemaVersion === 4) ? { schemaVersion: 2 } : {}), notes });
+  const conversations=isTauri() ? await invoke<import('./localAI').Conversation[]>('ai_conversation_backup',{noteIds:notes.map(note=>note.id)}) : document.aiConversations || [];
+  return JSON.stringify({ ...document, aiVersion:1, aiConversations:conversations, ...(!originals && document.schemaVersion !== 5 && (document.schemaVersion === 3 || document.schemaVersion === 4) ? { schemaVersion: 2 } : {}), notes });
 }
 export async function pruneAttachments(document: Workspace) {
   if (!isTauri()) return;

@@ -1,0 +1,16 @@
+{
+  "name": "scribly",
+  "version": "0.1.2",
+  "description": "Read shared notes, meeting transcripts and summaries; edit ordinary notes in local Scribly.",
+  "author": { "name": "Scribly" },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Scribly",
+    "shortDescription": "Your local folders and notes",
+    "developerName": "Scribly",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Find my latest task report in Scribly.", "Create a note in my shared Scribly folder."]
+  }
+}

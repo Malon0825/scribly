@@ -1,6 +1,6 @@
 [package]
 name = "scribly"
-version = "1.5.0"
+version = "1.5.4"
 description = "A calm, local-first notebook"
 authors = ["Scribly"]
 edition = "2021"
@@ -26,7 +26,9 @@ sha2 = "0.10"
 crc32fast = "1"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
-tokio = { version = "1", features = ["time", "sync", "macros", "fs", "io-util"] }
+tokio = { version = "1", features = ["time", "sync", "macros", "fs", "io-util", "process", "net"] }
+rmcp = { version = "=3.5.1", default-features = false, features = ["server", "transport-streamable-http-server"] }
+axum = "0.8"
 tokio-util = { version = "0.7", features = ["io"] }
 base64 = "0.22"
 jsonwebtoken = "9"
@@ -38,10 +40,11 @@ tauri-plugin-notification = "2"
 tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(windows)'.dependencies]
+webview2-com = "=0.39.1"
 wasapi = "0.25"
 webrtc-vad = "0.4"
 windows-capture = "2.0.1"
-windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_Security_Cryptography", "Win32_System_Memory"] }
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_Security_Cryptography", "Win32_System_Memory", "Win32_System_SystemInformation"] }
 windows = { version = "0.62", features = ["Win32_UI_Shell_PropertiesSystem", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_Storage_EnhancedStorage", "Win32_System_Performance", "Win32_Media_Multimedia"] }
 
 [profile.release]

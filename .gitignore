@@ -2,6 +2,7 @@ node_modules/
 dist/
 src-tauri/target/
 src-tauri/resources/postgres/
+src-tauri/resources/moonshine/
 tools/
 release/
 test-results/

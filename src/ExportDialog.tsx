@@ -11,7 +11,7 @@ export function ExportDialog({ notes, scope, onClose, onNotice, returnFocus }: {
   const [prepared, setPrepared] = useState<PreparedNoteExport | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState<"prepare" | "markdown" | "html" | "print" | null>("prepare");
+  const [busy, setBusy] = useState<"prepare" | "markdown" | "html" | "print" | "pdf" | null>("prepare");
   const [attempt, setAttempt] = useState(0);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -24,12 +24,19 @@ export function ExportDialog({ notes, scope, onClose, onNotice, returnFocus }: {
     return () => operation.abort();
   }, [notes, attempt]);
   const close = () => { controller.current?.abort(); onClose(); };
-  async function run(format: "markdown" | "html" | "print") {
+  async function run(format: "markdown" | "html" | "print" | "pdf") {
     if (!prepared || busy) return;
     const signal = controller.current!.signal;
     setBusy(format); setError(""); setMessage("");
     try {
-      if (format === "print") {
+      if (format === "pdf") {
+        const { exportNotePdf } = await import("./pdfNoteExport");
+        const result = await exportNotePdf(prepared.html, prepared.htmlName.replace(/\.html$/, ".pdf"), signal);
+        if (!signal.aborted) {
+          if (result === "saved") onNotice("PDF export saved.");
+          else setMessage(result === "canceled" ? "Save canceled." : "Choose Save as PDF in the print dialog. Scribly cannot confirm whether the PDF was saved.");
+        }
+      } else if (format === "print") {
         const { printNoteExport } = await import("./printNoteExport");
         await printNoteExport(prepared.html, signal);
         if (!signal.aborted) setMessage("Print dialog requested. Choose Save as PDF or a printer there; Scribly cannot confirm the result.");
@@ -46,7 +53,7 @@ export function ExportDialog({ notes, scope, onClose, onNotice, returnFocus }: {
   }
   return <Dialog title="Export notes" onClose={close} className="workflow-dialog export-dialog" returnFocus={returnFocus}>
     <p className="modal-subtitle">{scope} · {notes.length} {notes.length === 1 ? "note" : "notes"}. This export uses the draft captured when you opened it.</p>
-    <p className="workflow-hint">Markdown downloads as a ZIP with image files. Print uses a light reading layout; choose Save as PDF in the print dialog. HTML opens in any browser.</p>
+    <p className="workflow-hint">PDF uses a light reading layout{desktop ? "." : "; choose Save as PDF in the print dialog."} Markdown downloads as a ZIP with image files. HTML opens in any browser.</p>
     {busy === "prepare" && <p role="status">Preparing export… You can cancel while it is preparing.</p>}
     {prepared && <>
       {!!prepared.warnings.length && <div className="export-warnings" aria-label="Export format differences"><ul>{prepared.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></div>}
@@ -58,8 +65,9 @@ export function ExportDialog({ notes, scope, onClose, onNotice, returnFocus }: {
     <div className="dialog-actions">
       <button onClick={close}>Cancel</button>
       <button disabled={!prepared || !!busy} onClick={() => void run("html")}>{busy === "html" ? "Saving HTML…" : "Save HTML"}</button>
-      <button disabled={!prepared || !!busy} onClick={() => void run("print")}>{busy === "print" ? "Opening print…" : "Print / Save as PDF"}</button>
-      <button className="primary" disabled={!prepared || !!busy} onClick={() => void run("markdown")}>{busy === "markdown" ? "Exporting Markdown…" : "Export Markdown (.zip)"}</button>
+      <button disabled={!prepared || !!busy} onClick={() => void run("print")}>{busy === "print" ? "Opening print…" : "Print"}</button>
+      <button disabled={!prepared || !!busy} onClick={() => void run("markdown")}>{busy === "markdown" ? "Exporting Markdown…" : "Export Markdown (.zip)"}</button>
+      <button className="primary" disabled={!prepared || !!busy} onClick={() => void run("pdf")}>{busy === "pdf" ? "Preparing PDF…" : "Export PDF"}</button>
     </div>
   </Dialog>;
 }

@@ -9,6 +9,7 @@ type Manifest = {
   format: 2; revision: number; dirty: boolean;
   metadata: Omit<Workspace, "notes">;
   notes: { id: string; key: string }[];
+  integrationReceiptIds?: string[];
 };
 const recordPrefix = `${RECOVERY_KEY}:note:`;
 const filePrefix = `${RECOVERY_KEY}:file:`;
@@ -77,7 +78,7 @@ export class RecoveryJournal {
       || new Set(value.notes.map((n) => n.id)).size !== value.notes.length) throw Error("Invalid recovery manifest");
     return value;
   }
-  restore(base: Workspace | null, revision: number): { document: Workspace | null; warning: string } {
+  restore(base: Workspace | null, revision: number): { document: Workspace | null; warning: string; integrationReceiptIds?: string[] } {
     const raw = this.storage.getItem(RECOVERY_KEY);
     if (!raw) return { document: base, warning: "" };
     try { return this.restoreManifest(raw, base, revision); }
@@ -135,11 +136,13 @@ export class RecoveryJournal {
     });
     const document = { ...manifest.metadata, notes };
     validateWorkspace(document);
-    return { document, warning: "" };
+    const receipts = manifest.integrationReceiptIds;
+    if (receipts !== undefined && (!Array.isArray(receipts) || receipts.length > 32 || !receipts.every(id => typeof id === 'string' && /^[a-f0-9-]{36}:[a-f0-9-]{36}$/i.test(id)))) throw Error("Invalid integration recovery receipts");
+    return { document, warning: "", integrationReceiptIds: receipts };
   }
-  write(workspace: Workspace, revision: number, dirty: boolean) {
+  write(workspace: Workspace, revision: number, dirty: boolean, integrationReceiptIds: string[] = []) {
     if (this.preservationFailed) throw Error("Recovery storage cannot preserve an existing draft");
-    try { this.commit(workspace, revision, dirty); }
+    try { this.commit(workspace, revision, dirty, integrationReceiptIds); }
     catch (error) {
       if (dirty) throw error;
       // The caller has a database acknowledgement for this exact snapshot.
@@ -149,10 +152,10 @@ export class RecoveryJournal {
       const { notes: _notes, ...metadata } = workspace;
       this.storage.setItem(RECOVERY_KEY, JSON.stringify({ format: 2, revision, dirty: false, metadata, notes: [] }));
       this.reclaim(new Set(this.pinned));
-      this.commit(workspace, revision, false);
+      this.commit(workspace, revision, false, integrationReceiptIds);
     }
   }
-  private commit(workspace: Workspace, revision: number, dirty: boolean) {
+  private commit(workspace: Workspace, revision: number, dirty: boolean, integrationReceiptIds: string[] = []) {
     const { notes, ...metadata } = workspace;
     const entries = notes.map((note) => {
       let key = this.records.get(note);
@@ -184,7 +187,7 @@ export class RecoveryJournal {
       }
       return { id: note.id, key };
     });
-    const manifest: Manifest = { format: 2, revision, dirty, metadata, notes: entries };
+    const manifest: Manifest = { format: 2, revision, dirty, metadata, notes: entries, ...(integrationReceiptIds.length ? { integrationReceiptIds: [...integrationReceiptIds] } : {}) };
     this.storage.setItem(RECOVERY_KEY, JSON.stringify(manifest));
     // Reclaim only after the new manifest commits. Conflict snapshots are pinned.
     const live = new Set([...entries.map((n) => n.key), ...this.pinned]);

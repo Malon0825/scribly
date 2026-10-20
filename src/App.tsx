@@ -4,6 +4,9 @@ import { IconContext, SidebarSimple, FileText, BookOpen, Microphone, X, Check, U
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { NoteEditor } from "./NoteEditor";
+import { IntegrationSettings } from './IntegrationSettings';
+import { useIntegration } from './useIntegration';
+import type { ActiveIntegrationEditor } from './integration';
 import { DictionaryPanel } from "./DictionaryPanel";
 import { MeetingPanel, MeetingEdit } from './MeetingPanel';
 import { MeetingStreamPreview } from './MeetingStreamPreview';
@@ -103,10 +106,15 @@ const safeFilename = (s: string) =>
   s.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 100) || "Untitled";
 
 export default function App() {
-  const { workspace, update: mutate, status, error, dataPath, flush, reload, checkpoint, registerBoardDraft, boardChanged, savedRevision } =
+  const { workspace, update: mutate, status, error, dataPath, flush, reload, checkpoint, registerBoardDraft, boardChanged, savedRevision, enqueueIntegration, isDirty } =
     useWorkspace();
+  const integrationEditor = useRef<ActiveIntegrationEditor | null>(null);
   const meetings = useMeetings(!!workspace && status !== 'loading');
+  useIntegration({ ready: !!workspace && status !== 'loading', checkpoint, isDirty, savedRevision, enqueueIntegration, activeEditor: () => integrationEditor.current, meetings: () => meetings.loaded ? meetings.meetings : null });
   const [meetingOpen, setMeetingOpen] = useState(false);
+  const [writingHelpEnabled, setWritingHelpEnabled] = useState(() => {
+    try { return localStorage.getItem('scribly-writing-help') !== 'false'; } catch { return true; }
+  });
   useCaptureWriter({ ready: !!workspace && status !== "loading", update: mutate, checkpoint, flush });
   const [captureOpen, setCaptureOpen] = useState(false);
   const captureReturnTo = useRef<HTMLElement | null>(null);
@@ -136,7 +144,7 @@ export default function App() {
   const [templatesDialog,setTemplatesDialog] = useState<{ mode: "save" | "manage" | "choose"; source?: Note; folderId: string | null } | null>(null);
   const [formattedExport, setFormattedExport] = useState<{ notes: Note[]; scope: string; returnTo: HTMLElement | null } | null>(null);
   const insertItemLink = useRef<() => void>(() => {});
-  const [restorePreview, setRestorePreview] = useState<Pick<Workspace, "notes" | "folders"> | null>(null);
+  const [restorePreview, setRestorePreview] = useState<Pick<Workspace, "notes" | "folders" | "aiVersion" | "aiConversations"> | null>(null);
   const restoreGeneration = useRef(0), historyGeneration = useRef(0);
   const [sidebar, setSidebar] = useState(true),
     [reference, setReference] = useState(false),
@@ -884,7 +892,7 @@ export default function App() {
     if (replace) await backups.run(true);
     if (generation !== restoreGeneration.current) return;
     if (checkpoint() !== before) throw Error("The notebook changed while preparing the restore. Reopen the backup preview.");
-    const next = replace ? { ...before, schemaVersion: 5 as const, folders: preview.folders, notes: preview.notes, recentIds: [],
+    const next = replace ? { ...before, aiVersion:preview.aiVersion,aiConversations:preview.aiConversations, schemaVersion: 5 as const, folders: preview.folders, notes: preview.notes, recentIds: [],
       activeId: preview.notes.find(isLiveItem)?.id || "", referenceId: null } : mergeBackup(before,preview);
     if (!update(() => next)) throw Error("The backup could not be adopted.");
     const adopted = checkpoint();
@@ -1589,6 +1597,8 @@ export default function App() {
                     onSummaryChange={(html,ids) => patchNote(active.id,{content:replaceMeetingSummaryContent(active.content,activeMeeting,ids,html),meeting:{...active.meeting,role:'summary',editedAnalysisIds:[...new Set([...(active.meeting?.editedAnalysisIds || []),...ids])]}})}
                     onPersonalChange={html => patchNote(active.id,{content:replaceMeetingPersonalContent(active.content,activeMeeting,html)})} /> : isBoard(active) ? <BoardBoundary key={active.id} board={active.board}><Suspense fallback={<div className="board-loading" role="status">Opening drawing tools…</div>}><BoardEditor id={active.id} title={active.title} board={active.board} dark={dark} notebook={workspace.theme === "notebook"} readOnly={active.archived || !!active.deletedAt} focusMode={focus} controlsHost={boardControlsHost} searchTarget={boardSearch?.id === active.id ? boardSearch : undefined} checkpoint={checkpoint} registerDraft={registerBoardDraft} onDirty={boardChanged} onShowTools={() => setFocusTools(true)} onCreateBoard={(mode) => setBoardCreation(mode)} onLinkRequest={requestLink} onLinkReady={fn => { insertItemLink.current = fn; }} onItemLink={openLinkedItem} onExternalLink={openExternalLink} /></Suspense></BoardBoundary> : <NoteEditor
                     key={active.id}
+                    noteId={active.id}
+                    writingHelpEnabled={writingHelpEnabled}
                     content={active.content}
                     formattingVisible={!focus || focusTools}
                     onWordSelected={word => { if (!focus) openDictionary(word); }}
@@ -1600,6 +1610,7 @@ export default function App() {
                     onItemLink={activateLink} onExternalLink={openExternalLink}
                     readOnly={active.archived || !!active.deletedAt}
                     onChange={(html) => patchNote(active.id, { content: html })}
+                    onIntegrationEditorReady={value => { integrationEditor.current = value; }}
                     onImagesReady={(fn) => { insertImages.current = fn; }}
                     onAppendReady={(fn) => {
                       append.current = fn;
@@ -1792,7 +1803,7 @@ export default function App() {
           setHistoryId(null); notify("Version restored. The previous content remains in history.");
         }} />}
         {restorePreview && <BackupRestoreDialog backup={restorePreview} onClose={() => { restoreGeneration.current++; setRestorePreview(null); }} onRestore={restoreNotebook} />}
-        {reviewMeeting && <MeetingEdit value={reviewMeeting} c={meetings} onClose={() => setReviewMeeting(null)} />}
+        {reviewMeeting && <MeetingEdit value={reviewMeeting} c={meetings} onListen={segment=>meetingPlayer.seek(reviewMeeting.meeting.segments.find(item=>item.id===segment)?.start || 0,true)} onClose={() => setReviewMeeting(null)} />}
         {linkPicker && <ItemLinkPicker notes={workspace.notes} onClose={closeLinkPicker} onInsert={note => { const pending = linkPicker; setLinkPicker(null); pending.insert(note); }} onOpen={(id,reference) => { closeLinkPicker(); openLinkedItem(id,reference); }} />}
         {linkAction && (() => { const target = workspace.notes.find(note => note.id === linkAction.id && !isTemplate(note)); const close = () => { const restore = linkAction.restore; setLinkAction(null); restore(); }; return <ActionPopover anchor={linkAction.anchor} label="Item link options" className="note-dropdown" onClose={close}><span className="menu-label">{target?.title || "Missing item"}{target?.deletedAt ? " · In Trash" : ""}</span><button disabled={!target} onClick={() => { const id = linkAction.id; setLinkAction(null); openLinkedItem(id); }}>Open</button><button disabled={!target || !isLiveItem(target)} onClick={() => { const id = linkAction.id; close(); openLinkedItem(id,true); }}>Open in Reference</button>{(!target || !isLiveItem(target)) && <span className="menu-label">{target ? "Restore before opening in Reference." : "Target unavailable. The link is retained."}</span>}</ActionPopover>; })()}
         {templatesDialog && <TemplateDialog mode={templatesDialog.mode} source={templatesDialog.source} notes={workspace.notes} onClose={() => setTemplatesDialog(null)} onSave={saveTemplate} onDelete={id => { update(w => removeTemplate(w,id)); notify("Template deleted. Existing notes are unchanged."); }} onCreate={(id,title,reset) => { createNote(templatesDialog.folderId,undefined,undefined,undefined,{ id,title,reset }); setTemplatesDialog(null); }} />}
@@ -1829,7 +1840,13 @@ export default function App() {
                 onAppearance={appearance => update(w => ({ ...w, appearance }))}
                 onExport={() => void exportBackup()} onImport={() => chooseImport(null)}
                 startupExtras={<QuickCaptureSettings onOpen={openCapture} />}
-                meetingExtras={<MeetingSettings controller={meetings} />}
+                writingHelpEnabled={writingHelpEnabled} onWritingHelp={enabled => {
+                  try {
+                    localStorage.setItem('scribly-writing-help', String(enabled));
+                    setWritingHelpEnabled(enabled);
+                  } catch { notify('Could not save the Writing help setting. Please try again.'); }
+                }}
+                meetingExtras={<><MeetingSettings controller={meetings} /><IntegrationSettings folders={workspace.folders} /></>}
                 appearanceExtras={<button className="notepad-settings-import" onClick={() => openTemplates("manage")}>Manage note templates…</button>}
                 backupExtras={<>
                   <h4>Meeting copies</h4><button disabled={!desktop || !!meetings.busy} onClick={() => void meetings.run('Restoring a meeting copy', () => invoke<Meeting | null>('meeting_restore'), meeting => { if (meeting) { setModal(null); openMeetingDocument(meeting,true); } })}>Restore a meeting backup</button>

@@ -9,6 +9,7 @@ import { inkAttributes } from "./inkData";
 import { itemHref, itemIdFromHref, validItemId, safeExternalHref, remapItemLinks } from "./itemLinks";
 import { isTemplate, isLiveItem } from "./types";
 import { validateMeetingNote } from './meetingNotes';
+import { validateConversations, remapConversations } from './localAI';
 // Imported documents are limited to the formatting supported by our editor.
 function cleanHtml(html: string, allowSources = false): string {
   const doc = document.createElement("template"); doc.innerHTML = html;
@@ -98,7 +99,7 @@ function cleanHtml(html: string, allowSources = false): string {
 export function parseBackup(
   value: unknown,
   allowSources = false,
-): Pick<Workspace, "notes" | "folders"> {
+): Pick<Workspace, "notes" | "folders" | "aiVersion" | "aiConversations"> {
   if (!value || typeof value !== "object")
     throw Error("This is not a Scribly backup.");
   const v = value as Workspace;
@@ -168,11 +169,13 @@ export function parseBackup(
     return { ...n, content: cleanHtml(n.content, allowSources) };
   });
   for (const folder of folders) if (folder.templateId !== undefined && !notes.some(note => note.id === folder.templateId && isTemplate(note))) throw Error("A backup folder has a missing note template.");
-  return { notes, folders };
+  if(v.aiConversations!==undefined && v.aiVersion!==1)throw Error('Unsupported conversation backup version.');
+  const conversations=v.aiConversations===undefined ? [] : validateConversations(v.aiConversations,new Set(notes.map(note=>note.id)));
+  return { notes, folders,aiVersion:1,aiConversations:remapConversations(conversations,new Map()) };
 }
 export function mergeBackup(
   current: Workspace,
-  backup: Pick<Workspace, "notes" | "folders">,
+  backup: Pick<Workspace, "notes" | "folders" | "aiVersion" | "aiConversations">,
 ): Workspace {
   const folderMap = new Map<string, string>(), itemMap = new Map(backup.notes.map(note => [note.id,crypto.randomUUID()])),
     folders = [...current.folders];
@@ -194,6 +197,8 @@ export function mergeBackup(
   },itemMap));
   return attachmentSchema({
     ...current,
+    aiVersion:1,
+    aiConversations:[...(current.aiConversations || []),...remapConversations(backup.aiConversations || [],itemMap)],
     ...(backup.notes.some(isBoard) ? { schemaVersion: current.schemaVersion || 2 as const } : {}),
     folders,
     notes: [...current.notes, ...notes],

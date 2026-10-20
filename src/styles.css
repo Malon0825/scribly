@@ -1527,6 +1527,78 @@ kbd {
   display: flex;
   gap: calc(8px * var(--element-scale));
 }
+.integration-settings { color: var(--text); }
+.integration-permissions { margin-block: calc(18px * var(--element-scale)); }
+.integration-permission, .integration-folder {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(12px * var(--element-scale));
+  min-height: 44px;
+  padding: calc(12px * var(--element-scale)) calc(8px * var(--element-scale));
+  border-radius: calc(6px * var(--element-scale));
+  font-size: calc(14px * var(--text-scale));
+  line-height: 1.5;
+  cursor: pointer;
+}
+.integration-permission + .integration-permission { border-top: 1px solid var(--line); }
+.integration-permission > span, .integration-folder > span { min-width: 0; overflow-wrap: anywhere; }
+.integration-permission .setting-hint { display: block; margin: calc(3px * var(--element-scale)) 0 0; }
+.integration-settings input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: calc((21px * var(--text-scale) - 18px) / 2) 0 0;
+  accent-color: var(--accent);
+}
+.integration-permission:has(input:enabled):hover, .integration-folder:has(input:enabled):hover { background: var(--hover); }
+.integration-permission:has(input:enabled):active, .integration-folder:has(input:enabled):active { background: var(--active); }
+.integration-permission:has(input:disabled), .integration-folders:disabled .integration-folder { cursor: default; }
+.integration-folders { min-width: 0; margin: 0; padding: calc(12px * var(--element-scale)); border: 1px solid var(--line); border-radius: calc(9px * var(--element-scale)); }
+.integration-folders legend { padding-inline: calc(5px * var(--element-scale)); font-size: calc(14px * var(--text-scale)); font-weight: 600; }
+.integration-folders > .setting-hint { margin: 0 0 calc(8px * var(--element-scale)); }
+.integration-folder-list { max-height: calc(220px * var(--element-scale)); overflow-y: auto; scrollbar-gutter: stable; padding: 3px; }
+.integration-folder { padding-block: calc(10px * var(--element-scale)); }
+.integration-address { margin-bottom: calc(16px * var(--element-scale)); }
+.integration-address .setting-hint { overflow-wrap: anywhere; }
+.integration-port { display: flex; align-items: flex-end; gap: calc(12px * var(--element-scale)); flex-wrap: wrap; padding-block: calc(8px * var(--element-scale)); }
+.integration-port .meeting-field { flex: 0 1 180px; margin: 0; }
+.integration-port > button, .integration-client > button { min-height: 44px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 9px; font-size: calc(13px * var(--text-scale)); }
+.integration-actions { flex-wrap: wrap; }
+.settings-actions.integration-actions > button { flex: 0 1 auto; min-height: 44px; padding-inline: calc(16px * var(--element-scale)); white-space: normal; }
+.integration-client { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.integration-client > span { min-width: 0; overflow-wrap: anywhere; }
+.accounts-settings .settings-group { margin-top: calc(28px * var(--element-scale)); padding-top: calc(24px * var(--element-scale)); border-top: 1px solid var(--line); }
+.accounts-settings > .settings-group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.writing-setting-row { align-items: flex-start; }
+.writing-setting-row label { font-size: calc(14px * var(--text-scale)); font-weight: 600; cursor: pointer; }
+.writing-setting-row .setting-hint { margin-block: 5px 0; }
+.writing-setting-row .settings-switch { margin-top: 2px; }
+.writing-setting-row .settings-switch:active { transform: none; transition: none; }
+.settings-disclosure { border-top: 1px solid var(--line); color: var(--text); }
+.settings-disclosure > summary {
+  display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center;
+  gap: calc(12px * var(--element-scale)); min-height: 44px; padding: calc(14px * var(--element-scale)) calc(4px * var(--element-scale));
+  list-style: none; cursor: pointer; border-radius: 6px; font-size: calc(14px * var(--text-scale)); font-weight: 500; line-height: 1.5;
+}
+.settings-disclosure > summary::-webkit-details-marker { display: none; }
+.settings-disclosure > summary::before { content: ''; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+.settings-disclosure[open] > summary::before { transform: rotate(45deg); }
+.settings-disclosure > summary > span { min-width: 0; overflow-wrap: anywhere; }
+.settings-disclosure > summary .setting-hint { display: block; margin: 2px 0 0; font-weight: 400; }
+.settings-disclosure > summary:hover { background: var(--hover); }
+.settings-disclosure > summary:active { background: var(--active); }
+.accounts-settings :is(summary, .settings-switch):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-account-status { color: var(--muted); font-size: calc(13px * var(--text-scale)); font-weight: 400; text-align: right; }
+.settings-account-status.connected { color: color-mix(in srgb, var(--green) 80%, var(--fg)); }
+.settings-disclosure-content, .accounts-settings .settings-disclosure > form { padding: 4px 4px 16px; margin: 0; border: 0; }
+.accounts-settings .settings-actions { flex-wrap: wrap; }
+.accounts-settings .settings-actions > button { white-space: normal; }
+.accounts-settings .meeting-recording-reminder { margin-top: 0; padding-top: 8px; border-top: 0; }
+.accounts-settings .integration-permissions { margin-block: 12px; }
+@media (max-width: 500px) {
+  .settings-disclosure > summary { grid-template-columns: 12px minmax(0, 1fr); }
+  .settings-disclosure > summary .settings-account-status { grid-column: 2; text-align: left; }
+}
 .preference-heading {
   display: flex;
   align-items: center;

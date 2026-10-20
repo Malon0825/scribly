@@ -7,6 +7,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::Manager;
+mod ai_conversations;
+mod ai_writing;
 mod app_icon;
 mod attachments;
 mod backups;
@@ -15,21 +17,26 @@ mod database;
 mod diagnostics;
 mod files;
 mod history;
+mod integration;
 mod json_size;
+mod local_ai_resources;
+mod local_model_setup;
 mod meeting_audio;
 mod meeting_auth;
-mod meeting_gemini;
-mod meeting_openrouter;
-mod meeting_recovery;
 mod meeting_backup;
 mod meeting_live;
+mod meeting_local_speakers;
+mod meeting_moonshine;
+mod meeting_ollama;
 mod meeting_providers;
 mod meeting_recorder;
+mod meeting_recovery;
 mod meeting_silence;
 mod meeting_video;
 mod meetings;
 mod notepad;
 mod notepad_plus;
+mod pdf_export;
 mod quick_capture;
 mod sources;
 mod startup;
@@ -162,7 +169,9 @@ pub fn run() {
             }
         }).build())
         .manage(DatabaseState(Mutex::new(None)))
+        .manage(integration::IntegrationState::default())
         .manage(meetings::MeetingState::default())
+        .manage(local_model_setup::SetupState::default())
         .plugin(tauri_plugin_notification::init())
         .manage(StartupTiming { started, benchmark_root, database_ready_ms: Mutex::new(None), reported: Mutex::new(false) })
         .setup(move |app| {
@@ -224,9 +233,20 @@ pub fn run() {
             }
             let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
             commands::open_external_link,
+            integration::integration_status,
+            integration::integration_set_config,
+            integration::integration_revoke,
+            integration::integration_ready,
+            integration::integration_detach,
+            integration::integration_reply,
+            integration::integration_stage,
+            integration::integration_operation_status,
+            integration::integration_install_plugin,
+            integration::integration_remove_plugin,
             meetings::meeting_list,
             meetings::meeting_import,
             meetings::meeting_update,
+            meetings::meeting_review_replay,
             meetings::meeting_media,
             meetings::meeting_cancel,
             meetings::meeting_delete,
@@ -236,8 +256,6 @@ pub fn run() {
             meetings::meeting_restore,
             meeting_auth::meeting_connections,
             meeting_auth::meeting_set_deepgram,
-            meeting_auth::meeting_set_gemini,
-            meeting_auth::meeting_set_openrouter,
             meeting_auth::meeting_set_preferences,
             meeting_auth::meeting_signin,
             meeting_auth::meeting_cancel_signin,
@@ -245,6 +263,21 @@ pub fn run() {
             meeting_auth::meeting_models,
             meeting_providers::meeting_transcribe,
             meeting_providers::meeting_analyze,
+            meeting_ollama::local_ai_status,
+            local_model_setup::local_model_setup,
+            local_model_setup::local_model_setup_status,
+            local_model_setup::local_model_setup_cancel,
+            meeting_ollama::local_ai_test,
+            meeting_ollama::meeting_cleanup_suggest,
+            meeting_local_speakers::meeting_name_speakers,
+            meeting_moonshine::local_speech_status,
+            meeting_moonshine::local_speech_setup,
+            ai_conversations::ai_conversation_list,
+            ai_conversations::ai_conversation_new,
+            ai_conversations::ai_conversation_clear,
+            ai_conversations::ai_conversation_backup,
+            ai_writing::ai_writing_request,
+            ai_writing::ai_writing_cancel,
             meeting_recorder::meeting_devices,
             meeting_recorder::meeting_start,
             meeting_recorder::meeting_pause,
@@ -266,6 +299,7 @@ pub fn run() {
             export_attachment,
             prune_attachments,
             export_file,
+            pdf_export::render_note_pdf,
             open_releases,
             export_binary_file,
             begin_source,
@@ -313,6 +347,7 @@ pub fn run() {
             app.exit(0);
         }
         if matches!(event, tauri::RunEvent::Exit) {
+            integration::stop(app);
             if let Err(error) = meeting_recorder::stop(app) {
                 eprintln!("Meeting recording shutdown failed: {error}");
             }

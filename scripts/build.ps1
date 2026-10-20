@@ -21,6 +21,8 @@ if ($env:VCToolsRedistDir) { $runtimeSearch += "$env:VCToolsRedistDir\x64\Micros
 $runtimeFolder = Get-Item -Path $runtimeSearch -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
 if ($runtimeFolder) { Get-ChildItem -LiteralPath $runtimeFolder.FullName -Filter '*.dll' | Copy-Item -Destination src-tauri\resources\postgres\bin -Force }
 if (!(Test-Path -LiteralPath 'src-tauri\resources\postgres\bin\vcruntime140.dll')) { throw 'The Visual C++ x64 redistributable DLLs are missing. Install the Visual Studio C++ build tools before packaging.' }
+& powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-local-ai.ps1
+if ($LASTEXITCODE -ne 0) { throw 'Local speech runtime preparation failed.' }
 & npm.cmd run tauri -- build
 if ($LASTEXITCODE -ne 0) { throw 'Tauri build failed.' }
 New-Item -ItemType Directory -Force -Path release | Out-Null

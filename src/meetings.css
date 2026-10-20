@@ -9,6 +9,9 @@
 .meeting-field :is(input,select,textarea), .meeting-search, .meeting-settings input, .meeting-transcript-edit { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--text); font: inherit; }
 .meeting-field textarea { min-height: 80px; resize: vertical; }
 .meeting-transcript-edit { min-height: 180px; resize: vertical; }
+.meeting-cleanup { margin-block: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.meeting-cleanup-review { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--text); }
+.meeting-cleanup-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
 .meeting-check { display: flex; align-items: flex-start; gap: 8px; font-size: calc(13px * var(--text-scale)); line-height: 1.5; margin-block: 13px; }
 .meeting-check input { flex: 0 0 auto; margin-top: 3px; accent-color: var(--accent); }
 .meeting-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
@@ -199,3 +202,16 @@
 .meeting-inline-name button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; }
 .reference-panel .reference-label .icon-button { min-height: 44px; min-width: 44px; }
 .meeting-document .item-backlinks :is(button,summary) { min-height: 44px; font-size: max(13px, calc(13px * var(--text-scale))); }
+/* Local assistance inherits the existing solid settings/dialog surfaces. */
+.meeting-conversation-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-block:8px; }
+.meeting-conversation-controls span { color:var(--muted); font-size:13px; }
+.writing-assist-control { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.writing-assist-control > button { display:inline-flex; align-items:center; gap:6px; }
+.writing-assist-control > span { color:var(--danger); font-size:13px; }
+.writing-assist-dialog { width:min(800px,calc(100vw - 40px)); max-height:calc(100vh - 48px); overflow:auto; }
+.writing-assist-dialog textarea { min-height:72px; width:100%; resize:vertical; }
+.writing-assist-review { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-block:16px; }
+.writing-assist-review section { background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:14px; min-width:0; }
+.writing-assist-review h3 { font-size:14px; margin:0 0 8px; }
+.writing-assist-review p { white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; line-height:1.6; margin:0; }
+@media (max-width:900px) { .writing-assist-review { grid-template-columns:1fr; } }

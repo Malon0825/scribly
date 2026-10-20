@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { PencilSimple } from '@phosphor-icons/react';
-import { meetingTime, setMeetingAction, speakerLabel, updateMeeting, type Meeting, type MeetingAnalysis, type MeetingSegment } from './meetings';
+import { meetingTime, setMeetingAction, speakerLabel, speakerTurns, updateMeeting, type Meeting, type MeetingAnalysis, type MeetingSegment } from './meetings';
 import { meetingPersonalContent, meetingSummaryContent } from './meetingNotes';
 import { NoteEditor } from './NoteEditor';
 import { MeetingPlayer } from './MeetingPlayer';
@@ -19,7 +19,15 @@ export function MeetingDocument({meeting,transcript,content,editedAnalysisIds,fo
   const actionWrites = useRef<Promise<void>>(Promise.resolve());
   const [away, setAway] = useState(false);
   const [naming, setNaming] = useState('');
+  const namingTrigger = useRef<HTMLButtonElement | null>(null);
+  const returnNamingFocus = useRef(false);
   const [name, setName] = useState('');
+  useEffect(() => {
+    if (!c.busy && !naming && returnNamingFocus.current) {
+      returnNamingFocus.current = false;
+      namingTrigger.current?.focus();
+    }
+  }, [c.busy,naming]);
   const personal = useMemo(() => meetingPersonalContent(content,meeting), [content,meeting]);
   const hasPersonal = useMemo(() => {
     const doc = new DOMParser().parseFromString(personal,'text/html');
@@ -38,13 +46,13 @@ export function MeetingDocument({meeting,transcript,content,editedAnalysisIds,fo
     const observer = new IntersectionObserver(entries => setAway(!entries[0].isIntersecting), {root:root.current?.closest('.document-scroll') || null,threshold:.3});
     observer.observe(line); return () => observer.disconnect();
   }, [current,transcript]);
-  const groups = meeting.segments.reduce<MeetingSegment[][]>((groups,segment) => {
+  const groups = meeting.segments.flatMap(speakerTurns).reduce<MeetingSegment[][]>((groups,segment) => {
     const last = groups[groups.length - 1];
     if (last?.[0].speaker === segment.speaker) last.push(segment); else groups.push([segment]);
     return groups;
   }, []);
   function passage(segment:MeetingSegment):ReactNode {
-    const words = segment.words?.filter(word => word.confidence < .8) || [];
+    const words = segment.words?.filter(word => word.confidence !== undefined && word.confidence < .8) || [];
     const fragments:ReactNode[] = []; let offset = 0;
     for (const word of words) {
       const index = segment.text.toLocaleLowerCase().indexOf(word.text.toLocaleLowerCase(),offset);
@@ -58,16 +66,21 @@ export function MeetingDocument({meeting,transcript,content,editedAnalysisIds,fo
     {!transcript && <p className="meeting-ai-caption">Made with AI · tap a time to check the original{updated && <span>Updated {new Date(updated).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>}</p>}
     {transcript ? <>
       <div className="meeting-transcript-heading"><h2>Transcript</h2><button disabled={readOnly || !!c.busy || requests.processing || meeting.recording !== 'saved'} onClick={() => onFix(current ?? meeting.segments[0]?.id ?? null)}>Fix</button></div>
+      {meeting.diarizationWarning && <p className="meeting-notice" role="status">{meeting.diarizationWarning}</p>}
+      {meeting.speakerWarning && <p className="meeting-notice" role="status">{meeting.speakerWarning}</p>}
       {!meeting.segments.length && <p className="meeting-empty">{meeting.recording === 'recording' ? 'The conversation will appear here as you speak.' : 'No transcript yet.'}</p>}
       {groups.map(group => {
-        const canName = !meeting.speakers[group[0].speaker] && group === groups.find(item => item[0].speaker === group[0].speaker) && !readOnly;
-        return <section className="meeting-speaker-group" key={group[0].id}>
-        <div className="meeting-speaker-label"><h3>{canName ? <button className="meeting-name-prompt" aria-label={`Who is ${speakerLabel(meeting,group[0].speaker)}?`} title="Name this speaker" disabled={!!c.busy || requests.processing || meeting.recording !== 'saved'} onClick={() => { setNaming(group[0].speaker); setName(''); }}><span className="meeting-speaker-name">{speakerLabel(meeting,group[0].speaker)}<PencilSimple size={14} /></span><span className="meeting-speaker-time">{meetingTime(group[0].start)}</span></button> : speakerLabel(meeting,group[0].speaker)}</h3>{!canName && <span className="meeting-speaker-time">{meetingTime(group[0].start)}</span>}</div>
-        {canName && naming === group[0].speaker && <form className="meeting-inline-name" onSubmit={event => { event.preventDefault(); if (name.trim()) void c.run('Saving name', () => updateMeeting({...meeting,speakers:{...meeting.speakers,[naming]:name.trim()}}), () => { setNaming(''); setName(''); }); }}><label>Who is {speakerLabel(meeting,group[0].speaker)}?<input autoFocus value={name} maxLength={200} onChange={event => setName(event.target.value)} placeholder="Name" /></label><button disabled={!name.trim() || !!c.busy} type="submit">Save</button><button type="button" onClick={() => setNaming('')}>Cancel</button></form>}
-        {group.map(segment => <button key={segment.id} className="meeting-transcript-line" data-first={segment.id === group[0].id} data-segment={segment.id} data-current={(player.available ? current : seekRequest?.id === meeting.id ? seekRequest.segment : undefined) === segment.id} aria-label={`Play ${meetingTime(segment.start)}: ${segment.text}`} onClick={event => {
+        const canName = !readOnly;
+        const nameKey = `${group[0].id}:${group[0].start}:${group[0].speaker}`;
+        const named = !!meeting.speakers[group[0].speaker];
+        const closeName = () => { returnNamingFocus.current = true; setNaming(''); setName(''); };
+        return <section className="meeting-speaker-group" key={`${group[0].id}:${group[0].start}:${group[0].speaker}`}>
+        <div className="meeting-speaker-label"><h3>{canName ? <button className="meeting-name-prompt" aria-label={named ? `Rename ${speakerLabel(meeting,group[0].speaker)}` : `Who is ${speakerLabel(meeting,group[0].speaker)}?`} title={named ? 'Rename this speaker' : 'Name this speaker'} disabled={!!c.busy || requests.processing || meeting.recording !== 'saved'} onClick={event => { namingTrigger.current = event.currentTarget; setNaming(nameKey); setName(meeting.speakers[group[0].speaker] || ''); }}><span className="meeting-speaker-name">{speakerLabel(meeting,group[0].speaker)}<PencilSimple size={14} /></span><span className="meeting-speaker-time">{meetingTime(group[0].start)}</span></button> : speakerLabel(meeting,group[0].speaker)}</h3>{!canName && <span className="meeting-speaker-time">{meetingTime(group[0].start)}</span>}</div>
+        {canName && naming === nameKey && <form className="meeting-inline-name" onKeyDown={event => { if (event.key === 'Escape' && !c.busy) { event.preventDefault(); event.stopPropagation(); closeName(); } }} onSubmit={event => { event.preventDefault(); if (name.trim()) void c.run('Saving name', () => updateMeeting({...meeting,speakers:{...meeting.speakers,[group[0].speaker]:name.trim()}}), closeName); }}><label>{named ? 'Speaker name' : `Who is ${speakerLabel(meeting,group[0].speaker)}?`}<input autoFocus readOnly={!!c.busy} value={name} maxLength={200} onChange={event => setName(event.target.value)} placeholder="Name" /></label><button disabled={!name.trim() || !!c.busy} type="submit">Save</button><button type="button" disabled={!!c.busy} onClick={closeName}>Cancel</button></form>}
+        {group.map((segment,index) => <button key={`${segment.id}:${index}`} className="meeting-transcript-line" data-first={index === 0} data-segment={segment.id} data-current={(player.available ? current : seekRequest?.id === meeting.id ? seekRequest.segment : undefined) === segment.id} aria-label={`Play ${meetingTime(segment.start)}: ${segment.text}`} onClick={event => {
           const unclear = (event.target as HTMLElement).closest<HTMLElement>('[data-word-time]');
           if (unclear && !readOnly && !c.busy && !requests.processing && meeting.recording === 'saved') { player.seek(Number(unclear.dataset.wordTime),true); onFix(segment.id); }
-          else onSeek(segment.id);
+          else player.seek(segment.start,true);
         }}>{group[0].id !== segment.id && <span className="meeting-line-time">{meetingTime(segment.start)}</span>}<span>{passage(segment)}</span></button>)}
       </section>; })}
       <div className="meeting-transcript-dock">{away && player.playing && current !== undefined && <button className="meeting-jump" onClick={() => scrollTo(current)}>Jump to now</button>}<MeetingPlayer player={player} />{!player.available && !player.error && <p className="meeting-secondary">No recording attached</p>}</div>

@@ -6,6 +6,7 @@ import { workspaceDelta } from "./workspaceDelta";
 import { browserDatabase, requestValue, transactionDone } from "./browserData";
 import { exportLargeBlob } from "./sourceFiles";
 import { recordBrowserHistory } from "./history";
+import { consumeConversationImports } from './localAI';
 let acknowledged: { document: Workspace; revision: number } | null = null;
 const KEY = "still-notes-browser-v1";
 const previewSizes = new WeakMap<Workspace["notes"][number], number>();
@@ -44,15 +45,17 @@ export async function loadWorkspace(): Promise<StoredWorkspace> {
 export async function saveWorkspace(
   document: Workspace,
   revision: number,
+  integrationReceipts: string[] = [],
 ): Promise<number> {
   if (desktop) {
     const next = acknowledged && acknowledged.revision === revision
-      ? await invoke<number>("save_workspace_delta", { delta: workspaceDelta(acknowledged.document, document), revision })
-      : await invoke<number>("save_workspace", { document, revision });
-    acknowledged = { document, revision: next };
+      ? await invoke<number>("save_workspace_delta", { delta: workspaceDelta(acknowledged.document, document), revision, integrationReceipts })
+      : await invoke<number>("save_workspace", { document, revision, integrationReceipts });
+    acknowledged = { document: consumeConversationImports(document,document), revision: next };
     return next;
   }
   const persist = async () => {
+    if (integrationReceipts.length) throw Error("Codex integration requires the desktop app.");
     validateWorkspace(document);
     const db = await browserDatabase();
     const state = await requestValue<any>(db.transaction("workspace").objectStore("workspace").get("current"));

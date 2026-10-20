@@ -1,0 +1,34 @@
+Scribly local AI components
+
+Moonshine Voice 0.1.5 Windows x64 wheel:
+https://pypi.org/project/moonshine-voice/0.1.5/
+SHA256 7fc9a84e827360ddb85c2735f44a1502c5575c27dcb476a2555646cd20a70e9d
+SDK/header source: moonshine-ai/moonshine commit
+234f60faa0eb388b01cdf7e60aca232af37aefda. Header/runtime ABI 30000.
+MIT license, with third-party components whose licenses are supplied in licenses/.
+The worker is a Scribly adapter; the vendored header is unchanged.
+
+English Small/Medium streaming speech weights:
+https://download.moonshine.ai/model/small-streaming-en/
+https://download.moonshine.ai/model/medium-streaming-en/
+Pinned SDK manifests specify exact file names, sizes and CRC32C checksums.
+The pinned Moonshine source LICENSE covers English streaming models under MIT.
+Weights are downloaded only by explicit Setup, not included in the installer.
+
+Speaker models: pyannote.ai community-1, converted to ORT by Moonshine AI:
+https://huggingface.co/pyannote/speaker-diarization-community-1
+https://github.com/moonshine-ai/moonshine/blob/234f60faa0eb388b01cdf7e60aca232af37aefda/docs/diarization-models.md
+Creative Commons Attribution 4.0 International. The upstream cpp-annote README
+identifies these models and their license; both README and license are supplied.
+Conversion is by upstream Moonshine; Scribly downloads their converted assets.
+
+ONNX Runtime DLL: 1.23.20251021.3.a83fc4d. Microsoft MIT license and notices
+from a83fc4d are supplied. Moonshine includes Eigen (MPL 2), kaldi-native-fbank
+(Apache 2), kissfft (BSD), UTF libraries and nlohmann JSON; notices are supplied.
+Corresponding unmodified SDK source is available at the pinned GitHub commit.
+
+Ollama and Gemma are independently installed by the user, not redistributed here.
+The inspected gemma4:e4b Q4_K_M package digest is
+dc35e8d9c6061baa6f0fa870975ab6932e2542b579b13ea0f199fa4bb7300c9c.
+Its actual /api/show license is included as GEMMA4-PACKAGE-LICENSE.txt for this
+reference package. Other selected models retain their own package terms.

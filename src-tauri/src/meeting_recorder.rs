@@ -156,6 +156,15 @@ pub(crate) async fn meeting_start(
     if microphone.is_none() && system.is_none() {
         return Err("Choose at least one audio source".into());
     }
+    let resource_app = app.clone();
+    let _capture_priority = resource_app
+        .state::<MeetingState>()
+        .inner()
+        .local_generation
+        .try_lock()
+        .map_err(|_| {
+            "Cancel the running local AI request before recording so capture has priority"
+        })?;
     if model
         .as_ref()
         .is_some_and(|model| model.is_empty() || model.len() > 100)
@@ -172,20 +181,33 @@ pub(crate) async fn meeting_start(
         return Err("Invalid transcription model".into());
     }
     let model = model.or_else(|| {
-        if preferences.request_provider == "gemini" {
-            Some(crate::meeting_gemini::FLASH.into())
-        } else if preferences.request_provider == "openrouter" {
-            Some(crate::meeting_openrouter::MODEL.into())
+        if preferences.request_provider == "ollama" {
+            Some(preferences.ollama_model.clone())
         } else {
             preferences.chatgpt_model
         }
     });
-    if transcription_model == "gemini-3.5-transcribe" {
-        crate::meeting_auth::gemini_key(&app).await?;
+    if let Some(model) = &model {
+        crate::meeting_providers::validate_analysis_provider(
+            model,
+            Some(&preferences.request_provider),
+        )?;
     }
+    let local_worker = if transcription_model.starts_with("moonshine") {
+        if let Some(language) = language.as_deref() {
+            Some(
+                crate::meeting_moonshine::Worker::spawn(&app, &transcription_model, language)
+                    .await?,
+            )
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     let socket = if let Some(language) = language
         .as_deref()
-        .filter(|_| transcription_model != "gemini-3.5-transcribe")
+        .filter(|_| !transcription_model.starts_with("moonshine"))
     {
         Some(crate::meeting_live::connect(&app, language, &transcription_model).await?)
     } else {
@@ -216,9 +238,10 @@ pub(crate) async fn meeting_start(
         let directory = meetings::folder(&crate::commands::attachment_root(&app)?, &meeting.id)?;
         fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
         meeting.recording = "recording".into();
-        meeting.live_transcription = socket.is_some();
+        meeting.live_transcription = socket.is_some() || local_worker.is_some();
         meeting.auto_notes = auto_notes.unwrap_or(false);
         meeting.notes_model = model;
+        meeting.notes_provider = Some(preferences.request_provider);
         meeting.transcription_model = Some(transcription_model);
         meeting.transcription_language = language;
         meetings::save(&app, &meeting)?;
@@ -268,6 +291,22 @@ pub(crate) async fn meeting_start(
         });
         match ready_rx.recv_timeout(Duration::from_secs(30)) {
             Ok(Ok(())) => {
+                if let Some(worker) = local_worker {
+                    if let Some(recorder) = active.as_mut() {
+                        recorder.live = Some(crate::meeting_moonshine::start(
+                            app.clone(),
+                            meeting.id.clone(),
+                            &meetings::folder(
+                                &crate::commands::attachment_root(&app)?,
+                                &meeting.id,
+                            )?,
+                            microphone_enabled,
+                            system_enabled,
+                            recorder.clock.clone(),
+                            worker,
+                        ));
+                    }
+                }
                 if let Some(socket) = socket {
                     if let Some(recorder) = active.as_mut() {
                         recorder.live = Some(crate::meeting_live::start(
@@ -365,7 +404,6 @@ pub(crate) fn stop(app: &tauri::AppHandle) -> Result<Option<Meeting>, String> {
         .thread
         .join()
         .map_err(|_| "Recording thread stopped unexpectedly")?;
-    let live_error = recorder.live.and_then(|live| live.finish().err());
     let mut meeting = meetings::load(app, &recorder.id)?;
     let directory = meetings::folder(&crate::commands::attachment_root(app)?, &recorder.id)?;
     finalize(&directory, &mut meeting)?;
@@ -373,25 +411,49 @@ pub(crate) fn stop(app: &tauri::AppHandle) -> Result<Option<Meeting>, String> {
     if meeting.stop_reason.is_none() {
         meeting.stop_reason = Some("manual".into());
     }
-    if let Some(error) = live_error {
-        meeting.error = Some(error);
-    }
     if let Err(error) = result {
         meeting.error = Some(format!(
             "Recording ended early: {error}. Saved audio is available."
         ));
     }
-    meetings::save(app, &meeting)?;
+    // Publish durable media before inference drains. Do not replace transcript
+    // updates that arrive while WAV finalization reads the retained tracks.
+    meetings::modify(app, &recorder.id, |current| {
+        current.media = meeting.media.clone();
+        current.video = meeting.video.clone();
+        current.duration = meeting.duration;
+        current.recording = "saved".into();
+        current.stop_reason = meeting.stop_reason.clone();
+        if meeting.error.is_some() {
+            current.error = meeting.error.clone();
+        }
+        Ok(())
+    })?;
+    let live_error = recorder.live.and_then(|live| live.finish().err());
+    meeting = meetings::load(app, &recorder.id)?;
+    if let Some(error) = live_error {
+        meeting = meetings::modify(app, &recorder.id, |current| {
+            current.error = Some(error);
+            current.live_complete = false;
+            Ok(())
+        })?;
+    }
     if meeting.stop_reason.as_deref() == Some("silence") {
         crate::meeting_silence::notify(app, &meeting.id);
     }
-    if meeting.auto_notes {
-        if meeting.live_transcription && !meeting.live_complete {
+    if meeting.auto_notes
+        || crate::meeting_providers::needs_final_review(&meeting)
+        || crate::meeting_local_speakers::eligible(&meeting)
+    {
+        if meeting.live_transcription
+            && !meeting.live_complete
+            && !crate::meeting_providers::needs_final_review(&meeting)
+        {
             meeting.notes_status = "failed".into();
             meeting.error = Some("Live transcription was incomplete. Recording retained; transcribe explicitly before generating missing meeting notes.".into());
             meetings::save(app, &meeting)?;
         } else {
-            crate::meeting_providers::launch_notes(app, &meeting.id)?;
+            crate::meeting_providers::launch_completion(app, &meeting.id, true)?;
         }
     }
     Ok(Some(meeting))

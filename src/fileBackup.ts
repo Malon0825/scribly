@@ -50,7 +50,7 @@ export async function fileBackup(workspace: Workspace): Promise<Blob> {
 }
 
 export async function importFileBackup(file: Blob) {
-  let backup: Pick<Workspace, "notes" | "folders"> | null = null;
+  let backup: Pick<Workspace, "notes" | "folders" | "aiVersion" | "aiConversations"> | null = null;
   let manifestSeen = false, failure: Error | null = null;
   let pending: Promise<void>[] = [];
   const expected = new Map<string, SourceFile>(), restored = new Map<string, SourceFile>(), seen = new Set<string>();
@@ -134,7 +134,7 @@ export async function importFileBackup(file: Blob) {
     offset += 46 + nameLength + extra + comment;
   }
   if (verified.size !== seen.size || verified.size !== tail.getUint16(footer + 10, true)) throw Error("The backup directory is incomplete.");
-  const result = backup as Pick<Workspace, "notes" | "folders"> | null;
+  const result = backup as Pick<Workspace, "notes" | "folders" | "aiVersion" | "aiConversations"> | null;
   if (!result || restored.size !== expected.size) throw Error("The Scribly backup is incomplete; some original files are missing.");
   const notes = result.notes.map(note => {
     if (!note.content.includes("data-notify-source")) return note;

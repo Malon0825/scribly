@@ -44,6 +44,13 @@ Keep work proportional to the requested fix or feature. Minimize token use, exec
 - Follow idiomatic practices for the language and framework in use. In TypeScript/React, use precise types, explicit state ownership, correct hook dependencies, and effect cleanup; avoid unnecessary `any`, assertions, and derived state. In Rust, use ownership/borrowing, `Result`/`Option`, and explicit error handling; avoid unnecessary clones and panics on recoverable errors. Prefer standard APIs, existing conventions, and configured formatters/linters over new abstractions or tooling.
 - Report validation briefly: what relevant check ran, its outcome, and any material unverified behavior. Update the relevant entry in `tests/verification.md` with the date, source revision or working-tree scope, command, result, and limits; do not create another report or repeat the full history. Put Playwright output in the existing ignored `test-results/` or `test-results-preview/` directories. Remove disposable task output after summarizing it; retain evidence for unresolved failures until resolved. Do not create a separate audit, checklist, or results document unless requested or required by an existing project workflow.
 
+## Installer versioning
+
+- Before each user-requested installer rebuild, update the application version. Use the user's requested version; otherwise increment the current patch version (for example, `1.5.2` → `1.5.3`). A retry of the same failed build keeps its already updated version.
+- Synchronize `package.json`, both application version entries in `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and the `scribly` package entry in `src-tauri/Cargo.lock` before packaging. Keep dependency versions unchanged. The About screen and integration server version derive from these manifests.
+- Preserve earlier installers. After packaging, verify the new installer's filename and Windows version metadata, compare the release copy with the generated bundle, and write a version-specific SHA-256 sidecar. Record the build outcome and validation limits in `tests/verification.md`.
+- Rebuild only when requested. Building an installer does not authorize installing it or publishing a release.
+
 ## Preserve the current design language
 
 - Keep the three-panel hierarchy: writing is primary, navigation supports it, Reference is secondary. Focus mode removes supporting panels without changing the note.

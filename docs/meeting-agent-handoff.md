@@ -1,5 +1,7 @@
 # Meeting feature: agent handoff
 
+Provider scope update, 2026-10-12: current source supports ChatGPT/Codex subscription and Ollama for meeting notes, and Moonshine Medium/Small or Deepgram for transcription. Gemini and OpenRouter request implementations, account controls and selectors have been removed. Existing results and legacy backup metadata remain readable; retired provider preferences migrate to ChatGPT/Moonshine. The provider descriptions below are historical. See `tests/verification.md` for current validation and desktop rebuild limits.
+
 Prepared: October 7, 2026, Asia/Singapore.
 Workspace: `D:\Projects\work-essential`.
 Branch: `main`; HEAD: `54a8b0ec998aa6ffc84cb74b1ba2c8e944bc3a86`.

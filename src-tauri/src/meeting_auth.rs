@@ -17,11 +17,7 @@ use tauri::Manager;
 pub(crate) struct Credentials {
     pub host: String,
     pub deepgram: String,
-    #[serde(default)]
-    pub gemini: String,
-    #[serde(default)]
-    pub openrouter: String,
-    #[serde(default)]
+    #[serde(default = "legacy_preferences")]
     pub preferences: MeetingPreferences,
     pub account: Option<Account>,
 }
@@ -31,39 +27,73 @@ pub(crate) struct MeetingPreferences {
     pub transcription_model: String,
     pub request_provider: String,
     pub chatgpt_model: Option<String>,
+    #[serde(default = "default_reasoning_effort")]
+    pub chatgpt_reasoning_effort: String,
+    #[serde(default = "default_ollama_model")]
+    pub ollama_model: String,
+    #[serde(default = "default_ollama_endpoint")]
+    pub ollama_endpoint: String,
+}
+pub(crate) fn default_ollama_model() -> String {
+    "gemma4:e4b".into()
+}
+fn default_reasoning_effort() -> String {
+    "auto".into()
+}
+pub(crate) fn reasoning_efforts(model: &str) -> &'static [&'static str] {
+    // Verified model capabilities, independent of the local model settings.
+    match model {
+        "gpt-6-astra" | "gpt-6.1-sol" => &["low", "medium", "high", "xhigh", "max"],
+        "gpt-6-sol" | "gpt-6-luna" | "gpt-5.6" | "gpt-5.6-sol" | "gpt-5.6-terra"
+        | "gpt-5.6-luna" => &["none", "low", "medium", "high", "xhigh", "max"],
+        // Unknown/account-specific models retain provider defaults until their
+        // reasoning controls are verified; never guess an unsupported effort.
+        _ => &[],
+    }
+}
+fn valid_reasoning_effort(effort: &str) -> bool {
+    matches!(
+        effort,
+        "auto" | "none" | "low" | "medium" | "high" | "xhigh" | "max"
+    )
+}
+fn default_ollama_endpoint() -> String {
+    "http://127.0.0.1:11434".into()
+}
+fn legacy_preferences() -> MeetingPreferences {
+    MeetingPreferences {
+        transcription_model: "deepgram".into(),
+        request_provider: "chatgpt".into(),
+        ..MeetingPreferences::default()
+    }
+}
+impl MeetingPreferences {
+    fn normalize(&mut self) {
+        if !valid_transcription_model(&self.transcription_model) {
+            self.transcription_model = "moonshine".into();
+        }
+        if !valid_request_provider(&self.request_provider) {
+            self.request_provider = "chatgpt".into();
+        }
+    }
 }
 impl Default for MeetingPreferences {
     fn default() -> Self {
         Self {
-            transcription_model: "deepgram".into(),
-            request_provider: "chatgpt".into(),
+            transcription_model: "moonshine".into(),
+            request_provider: "ollama".into(),
             chatgpt_model: None,
+            chatgpt_reasoning_effort: default_reasoning_effort(),
+            ollama_model: default_ollama_model(),
+            ollama_endpoint: default_ollama_endpoint(),
         }
     }
 }
 pub(crate) fn valid_transcription_model(model: &str) -> bool {
-    matches!(
-        model,
-        "deepgram" | "gemini-3.5-transcribe-live" | "gemini-3.5-transcribe"
-    )
+    matches!(model, "deepgram" | "moonshine" | "moonshine-small")
 }
-pub(crate) async fn gemini_key(app: &tauri::AppHandle) -> Result<String, String> {
-    let state = app.state::<MeetingState>();
-    let _guard = state.credentials.lock().await;
-    let key = read(app)?.gemini;
-    if key.is_empty() {
-        return Err("Connect Gemini in Meeting AI settings first".into());
-    }
-    Ok(key)
-}
-pub(crate) async fn openrouter_key(app: &tauri::AppHandle) -> Result<String, String> {
-    let state = app.state::<MeetingState>();
-    let _guard = state.credentials.lock().await;
-    let key = read(app)?.openrouter;
-    if key.is_empty() {
-        return Err("Connect OpenRouter in Meeting AI settings first".into());
-    }
-    Ok(key)
+pub(crate) fn valid_request_provider(provider: &str) -> bool {
+    matches!(provider, "chatgpt" | "ollama")
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct Account {
@@ -91,7 +121,7 @@ fn path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(root.join("connections.bin"))
 }
 #[cfg(windows)]
-fn protect(bytes: &[u8], encrypt: bool) -> Result<Vec<u8>, String> {
+pub(crate) fn protect(bytes: &[u8], encrypt: bool) -> Result<Vec<u8>, String> {
     use windows_sys::Win32::{
         Foundation::LocalFree,
         Security::Cryptography::{
@@ -144,7 +174,7 @@ fn protect(bytes: &[u8], encrypt: bool) -> Result<Vec<u8>, String> {
     Ok(result)
 }
 #[cfg(not(windows))]
-fn protect(_: &[u8], _: bool) -> Result<Vec<u8>, String> {
+pub(crate) fn protect(_: &[u8], _: bool) -> Result<Vec<u8>, String> {
     Err("Meeting credentials are supported in the Windows desktop app".into())
 }
 pub(crate) fn read(app: &tauri::AppHandle) -> Result<Credentials, String> {
@@ -152,11 +182,13 @@ pub(crate) fn read(app: &tauri::AppHandle) -> Result<Credentials, String> {
     if !path.exists() {
         return Ok(Credentials::default());
     }
-    serde_json::from_slice(&protect(
+    let mut credentials: Credentials = serde_json::from_slice(&protect(
         &crate::files::read_bounded(&path, 128 * 1024).map_err(|e| e.to_string())?,
         false,
     )?)
-    .map_err(|_| "Meeting credentials are damaged. Reconnect your accounts.".into())
+    .map_err(|_| "Meeting credentials are damaged. Reconnect your accounts.".to_string())?;
+    credentials.preferences.normalize();
+    Ok(credentials)
 }
 pub(crate) fn write(app: &tauri::AppHandle, credentials: &Credentials) -> Result<(), String> {
     crate::files::replace(
@@ -169,88 +201,30 @@ pub(crate) fn write(app: &tauri::AppHandle, credentials: &Credentials) -> Result
     .map_err(|e| e.to_string())
 }
 pub(crate) fn status(credentials: &Credentials) -> Value {
-    json!({"deepgram": !credentials.deepgram.is_empty(), "gemini": !credentials.gemini.is_empty(), "openrouter": !credentials.openrouter.is_empty(), "preferences": credentials.preferences, "email": credentials.account.as_ref().map(|a| &a.email), "chatgpt": credentials.account.as_ref().is_some_and(|a| a.scopes.split_whitespace().any(|s| s == "chatgpt.tokens.use.direct"))})
+    json!({"deepgram": !credentials.deepgram.is_empty(), "preferences": credentials.preferences, "email": credentials.account.as_ref().map(|a| &a.email), "chatgpt": credentials.account.as_ref().is_some_and(|a| a.scopes.split_whitespace().any(|s| s == "chatgpt.tokens.use.direct"))})
 }
 #[tauri::command]
 pub(crate) async fn meeting_set_preferences(
     app: tauri::AppHandle,
     preferences: MeetingPreferences,
 ) -> Result<Value, String> {
-    if !valid_transcription_model(&preferences.transcription_model)
-        || !matches!(
-            preferences.request_provider.as_str(),
-            "chatgpt" | "gemini" | "openrouter"
-        )
+    if !valid_reasoning_effort(&preferences.chatgpt_reasoning_effort)
+        || !valid_transcription_model(&preferences.transcription_model)
+        || !valid_request_provider(&preferences.request_provider)
         || preferences.chatgpt_model.as_ref().is_some_and(|model| {
             model.is_empty() || model.len() > 100 || !model.starts_with("gpt-")
         })
     {
         return Err("Invalid meeting provider selection".into());
     }
+    crate::meeting_ollama::client(&preferences.ollama_endpoint)?;
+    if !crate::meeting_ollama::valid_model(&preferences.ollama_model) {
+        return Err("Invalid local model".into());
+    }
     let state = app.state::<MeetingState>();
     let _guard = state.credentials.lock().await;
     let mut credentials = read(&app)?;
     credentials.preferences = preferences;
-    write(&app, &credentials)?;
-    Ok(status(&credentials))
-}
-#[tauri::command]
-pub(crate) async fn meeting_set_gemini(
-    app: tauri::AppHandle,
-    key: String,
-) -> Result<Value, String> {
-    let key = key.trim().to_string();
-    if key.len() > 512 || key.contains(['\r', '\n', '\0']) {
-        return Err("Invalid Gemini key".into());
-    }
-    if !key.is_empty() {
-        let response = client()?
-            .get("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash")
-            .header("x-goog-api-key", &key)
-            .send()
-            .await
-            .map_err(|_| "Google could not be reached")?;
-        if !response.status().is_success() {
-            return Err(format!(
-                "Google returned HTTP {}. Check your API key and Gemini 3.8 Flash access.",
-                response.status().as_u16()
-            ));
-        }
-    }
-    let state = app.state::<MeetingState>();
-    let _guard = state.credentials.lock().await;
-    let mut credentials = read(&app)?;
-    credentials.gemini = key;
-    write(&app, &credentials)?;
-    Ok(status(&credentials))
-}
-#[tauri::command]
-pub(crate) async fn meeting_set_openrouter(
-    app: tauri::AppHandle,
-    key: String,
-) -> Result<Value, String> {
-    let key = key.trim().to_string();
-    if key.len() > 512 || key.contains(['\r', '\n', '\0']) {
-        return Err("Invalid OpenRouter key".into());
-    }
-    if !key.is_empty() {
-        let response = client()?
-            .get("https://openrouter.ai/api/v1/key")
-            .bearer_auth(&key)
-            .send()
-            .await
-            .map_err(|_| "OpenRouter could not be reached")?;
-        let value =
-            crate::meeting_openrouter::json_response(response, "OpenRouter key check", &key)
-                .await?;
-        if !value["data"].is_object() {
-            return Err("OpenRouter returned an invalid key status".into());
-        }
-    }
-    let state = app.state::<MeetingState>();
-    let _guard = state.credentials.lock().await;
-    let mut credentials = read(&app)?;
-    credentials.openrouter = key;
     write(&app, &credentials)?;
     Ok(status(&credentials))
 }
@@ -681,26 +655,64 @@ pub(crate) async fn meeting_models(app: tauri::AppHandle) -> Result<Value, Strin
     Ok(json!(models
         .iter()
         .filter(|m| m["visibility"] == "list")
-        .filter_map(|m| Some(json!({"id":m["slug"].as_str()?,"name":m["display_name"].as_str()?})))
+        .filter_map(|m| {
+            let id = m["slug"].as_str()?;
+            Some(json!({"id":id,"name":m["display_name"].as_str()?,"reasoningEfforts":reasoning_efforts(id)}))
+        })
         .collect::<Vec<_>>()))
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
+    fn removed_provider_preferences_migrate_without_losing_supported_settings() {
+        for provider in ["gemini", "openrouter"] {
+            for model in ["gemini-3.5-transcribe", "gemini-3.5-transcribe-live"] {
+                let mut credentials: Credentials = serde_json::from_value(json!({
+                    "host":"local","deepgram":"kept-deepgram","gemini":"retired-google-key","openrouter":"retired-router-key","account":null,
+                    "preferences":{"transcriptionModel":model,"requestProvider":provider,"chatgptModel":"gpt-6.1-sol","chatgptReasoningEffort":"high","ollamaModel":"gemma4:e4b","ollamaEndpoint":"http://127.0.0.1:11434"}
+                })).unwrap();
+                credentials.preferences.normalize();
+                assert_eq!(credentials.preferences.transcription_model, "moonshine");
+                assert_eq!(credentials.preferences.request_provider, "chatgpt");
+                assert_eq!(credentials.preferences.chatgpt_reasoning_effort, "high");
+                assert_eq!(
+                    credentials.preferences.chatgpt_model.as_deref(),
+                    Some("gpt-6.1-sol")
+                );
+                assert_eq!(credentials.deepgram, "kept-deepgram");
+                assert_eq!(credentials.preferences.ollama_model, "gemma4:e4b");
+                let stored = serde_json::to_value(&credentials).unwrap();
+                assert!(stored.get("gemini").is_none() && stored.get("openrouter").is_none());
+                assert!(!valid_request_provider(provider));
+                assert!(!valid_transcription_model(model));
+            }
+        }
+        for model in ["moonshine", "moonshine-small", "deepgram"] {
+            let mut preferences = MeetingPreferences {
+                transcription_model: model.into(),
+                ..MeetingPreferences::default()
+            };
+            preferences.normalize();
+            assert_eq!(preferences.transcription_model, model);
+            assert_eq!(preferences.request_provider, "ollama");
+        }
+    }
+    #[test]
     fn older_credentials_keep_provider_defaults_and_never_expose_keys() {
         let mut credentials: Credentials = serde_json::from_value(
             json!({"host":"local","deepgram":"private-deepgram","account":null}),
         )
         .unwrap();
-        assert!(credentials.gemini.is_empty());
         assert_eq!(credentials.preferences.transcription_model, "deepgram");
-        credentials.gemini = "private-gemini".into();
-        credentials.preferences.request_provider = "gemini".into();
-        let visible = status(&credentials).to_string();
-        assert!(!visible.contains("private-deepgram"));
-        assert!(!visible.contains("private-gemini"));
-        assert_eq!(status(&credentials)["gemini"], true);
+        assert_eq!(credentials.preferences.chatgpt_reasoning_effort, "auto");
+        credentials.preferences.chatgpt_reasoning_effort = "high".into();
+        let restored: Credentials =
+            serde_json::from_value(serde_json::to_value(&credentials).unwrap()).unwrap();
+        assert_eq!(restored.preferences.chatgpt_reasoning_effort, "high");
+        assert!(!status(&credentials)
+            .to_string()
+            .contains("private-deepgram"));
     }
     #[test]
     fn oauth_rejects_foreign_state_and_duplicate_parameters() {

@@ -1,3 +1,4 @@
+import { WritingAssist } from "./WritingAssist";
 import { AnimatedIcon } from "./AnimatedIcon";
 import { MotionDisclosure } from './MotionDisclosure';
 import { noteClipboardText } from "./clipboardText";
@@ -6,6 +7,7 @@ import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/r
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import { ListEditing } from "./ListEditing";
 import Placeholder from "@tiptap/extension-placeholder";
 import { NotifyCodeBlock } from "./CodeBlock";
 import { AppSelect } from "./AppSelect";
@@ -36,8 +38,10 @@ import { MeetingSummary, MeetingCitation } from './MeetingSummary';
 import type { MeetingNoteWrite } from './meetingNotes';
 export function NoteEditor({
   content,
+  noteId,
   readOnly = false,
   formattingVisible = true,
+  writingHelpEnabled = true,
   onChange,
   onAppendReady,
   onMeetingAppendReady,
@@ -49,10 +53,13 @@ export function NoteEditor({
   onLinkRequest, onItemLink, onExternalLink, onLinkReady,
   onWordSelected,
   onDictionaryReplaceReady,
+  onIntegrationEditorReady,
 }: {
   content: string;
+  noteId?: string;
   readOnly?: boolean;
   formattingVisible?: boolean;
+  writingHelpEnabled?: boolean;
   onChange?: (html: string) => void;
   onAppendReady?: (append: (html: string) => void) => void;
   onMeetingAppendReady?: (append: ((change: MeetingNoteWrite, commit: (content:string) => boolean) => boolean) | null) => void;
@@ -67,11 +74,13 @@ export function NoteEditor({
   onLinkReady?: (request: () => void) => void;
   onWordSelected?: (word: string) => void;
   onDictionaryReplaceReady?: (replace: (word: string, expected: string) => boolean) => void;
+  onIntegrationEditorReady?: (value: { noteId: string; editor: Editor } | null) => void;
 }) {
   const imageInput = useRef<HTMLInputElement>(null);
   const wordSelected = useRef(onWordSelected); wordSelected.current = onWordSelected;
   const meetingSeek = useRef(onMeetingSeek); meetingSeek.current = onMeetingSeek;
   const dictionaryReplaceReady = useRef(onDictionaryReplaceReady); dictionaryReplaceReady.current = onDictionaryReplaceReady;
+  const integrationEditorReady = useRef(onIntegrationEditorReady); integrationEditorReady.current = onIntegrationEditorReady;
   const linkHandlers = useRef({ onLinkRequest, onItemLink, onExternalLink, readOnly });
   linkHandlers.current = { onLinkRequest, onItemLink, onExternalLink, readOnly };
   const pendingLink = useRef<(() => void) | null>(null);
@@ -147,6 +156,7 @@ export function NoteEditor({
       NoteInk,
       TaskList,
       TaskItem.configure({ nested: true }),
+      ListEditing,
       Placeholder.configure({
         placeholder: "Start writing. This space is yours…",
       }),
@@ -189,6 +199,11 @@ export function NoteEditor({
     },
   });
   useEffect(() => { editor?.setEditable(!readOnly,false); }, [editor,readOnly]);
+  useEffect(() => {
+    if (!editor || readOnly || !noteId) return;
+    integrationEditorReady.current?.({ noteId, editor });
+    return () => integrationEditorReady.current?.(null);
+  }, [editor, readOnly, noteId]);
   useEffect(() => {
     if (!editor || readOnly) return;
     dictionaryReplaceReady.current?.((word, expected) => {
@@ -400,6 +415,7 @@ export function NoteEditor({
     <>
       {(!readOnly || findVisible) && <NoteControls>
       {!readOnly && <MotionDisclosure open={formattingVisible} keepMounted reveal frequency={Math.sqrt(300)} className="focus-formatting-disclosure"><EditorToolbar editor={editor} imageLoading={imageLoading} onImageRequest={requestImage} onColorsRequest={requestColors} onFindRequest={openFind} onLinkRequest={onLinkRequest ? requestItemLink : undefined} pen={pen} changePen={changePen} predictions={predictions} onPredictionsChange={() => setPredictions(value => !value)} /></MotionDisclosure>}
+      {!readOnly && noteId && formattingVisible && writingHelpEnabled && <WritingAssist editor={editor} noteId={noteId} />}
       {find && <NoteFind editor={editor} request={find} open={findVisible} readOnly={readOnly} onClose={() => setFindVisible(false)} />}
       </NoteControls>}
       {!readOnly && <>

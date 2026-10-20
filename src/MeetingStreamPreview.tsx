@@ -21,18 +21,19 @@ export function MeetingStreamPreview({ meeting, stream, task, onCancel }: {
 
   const transcribing = activeTask?.kind === 'transcript' || meeting.processing === 'transcribing';
   const kind = activeTask && activeTask.kind !== 'recap' && activeTask.kind !== 'transcript' ? activeTask.kind : activeStream?.kind;
-  const title = transcribing ? 'Creating transcript' : activeTask?.resuming && kind ? `Continuing ${meetingLabels[kind].toLowerCase()}` : activeTask?.kind === 'recap' || (!kind && meeting.notesStatus === 'processing') ? 'Preparing meeting notes' : kind ? generating[kind] : 'Preparing meeting notes';
+  const title = transcribing ? 'Creating transcript' : kind === 'speakers' ? 'Finding speaker names locally' : activeTask?.resuming && kind ? `Continuing ${meetingLabels[kind].toLowerCase()}` : activeTask?.kind === 'recap' || (!kind && meeting.notesStatus === 'processing') ? 'Preparing meeting notes' : kind ? generating[kind] : 'Preparing meeting notes';
   const updating = activeTask?.stage === 'updating';
   const multipart = !!activeStream && activeStream.parts > 1;
   const combining = !!activeStream && activeStream.part > activeStream.parts;
   const phase = cancellation === 'stopping' ? 'Waiting for processing to stop.'
     : updating ? 'Updating your meeting…'
     : transcribing ? 'Processing recorded audio…'
-    : activeStream?.message ? 'Continuing from saved progress…'
+    : activeStream?.message ? activeStream.message
     : activeStream?.part === 0 ? 'Checking the transcript and speakers…'
     : combining ? 'Combining the transcript sections…'
     : multipart ? `Reading transcript part ${activeStream.part} of ${activeStream.parts}`
     : activeStream?.texts.some(Boolean) ? 'Writing and checking the result…'
+    : kind === 'speakers' ? 'Finding speaker names locally…'
     : kind && activeTask?.kind === 'recap' ? `${generating[kind]}…` : 'Reading the transcript…';
 
   async function cancel() {

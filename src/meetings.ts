@@ -1,37 +1,64 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { desktop } from './storage';
 
-export type MeetingWord = { text:string; start:number; end:number; confidence:number };
-export type MeetingSegment = { id: number; start: number; end: number; speaker: string; text: string; words?:MeetingWord[] };
-export type TranscriptionModel = 'deepgram' | 'gemini-3.5-transcribe-live' | 'gemini-3.5-transcribe';
-export type RequestProvider = 'chatgpt' | 'gemini' | 'openrouter';
-export const openRouterModel = 'nvidia/nemotron-3.5-lightning:free';
-export const requestProviderLabels: Record<RequestProvider, string> = { chatgpt: 'ChatGPT subscription', gemini: 'Gemini 3.8 Flash', openrouter: 'OpenRouter · NVIDIA Nemotron 3.5 Lightning (free)' };
-export const requestProviderNames: Record<RequestProvider, string> = { chatgpt: 'ChatGPT', gemini: 'Gemini', openrouter: 'OpenRouter' };
-export const geminiBillingNotice = 'Use a Gemini API key with available quota. Paid requests require active Gemini billing and sufficient credit balance (for prepaid accounts). New GCP $300 welcome credits do not cover Gemini API usage. Connecting a key does not verify its balance.';
-export const openRouterNotice = 'Free endpoint · Requests are limited. Token-limit recovery can use additional free requests. NVIDIA logs requests and may use them to improve its services. Do not send confidential meetings or personal data. No paid model fallback.';
-export type MeetingStream = { id:string; kind:MeetingKind; texts:string[]; part:number; parts:number; done:boolean; message?:string };
-export type MeetingPreferences = { transcriptionModel: TranscriptionModel; requestProvider: RequestProvider; chatgptModel: string | null };
-export const defaultMeetingPreferences: MeetingPreferences = { transcriptionModel: 'deepgram', requestProvider: 'chatgpt', chatgptModel: null };
-export const transcriptionLabels: Record<TranscriptionModel, string> = { deepgram: 'Deepgram Nova-3', 'gemini-3.5-transcribe-live': 'Gemini 3.5 Transcribe Live', 'gemini-3.5-transcribe': 'Gemini 3.5 Transcribe' };
+export type MeetingWord = { text:string; start:number; end:number; confidence?:number };
+export type SpeakerSpan = {speaker:string;start:number;end:number;textStart:number;textEnd:number};
+export type MeetingSegment = { id: number; start: number; end: number; speaker: string; text: string; originalText?:string; words?:MeetingWord[]; speakerSpans?:SpeakerSpan[]; provenance?:{provider:"moonshine";session:string;line:string}; corrected?:boolean };
+// Derived presentation only: canonical segment IDs and citations never change.
+export function speakerTurns(segment:MeetingSegment):MeetingSegment[] {
+  const spans=segment.speakerSpans?.filter(span=>span.textEnd>span.textStart);
+  if(!spans?.length)return [segment];
+  const bytes=new TextEncoder().encode(segment.text);const decoder=new TextDecoder();
+  const turns:MeetingSegment[]=[];let offset=0;
+  for(const span of spans) {
+    if(span.textStart<offset || span.textEnd>bytes.length) return [segment];
+    const prefix=decoder.decode(bytes.slice(offset,span.textStart));
+    if(prefix.trim())turns.push({...segment,speaker:'unknown',text:prefix,words:[],speakerSpans:[]});
+    turns.push({...segment,start:span.start,end:span.end,speaker:span.speaker,text:decoder.decode(bytes.slice(span.textStart,span.textEnd)),words:[],speakerSpans:[]});offset=span.textEnd;
+  }
+  const suffix=decoder.decode(bytes.slice(offset));if(suffix.trim())turns.push({...segment,speaker:'unknown',text:suffix,words:[],speakerSpans:[]});
+  return turns;
+}
+export type TranscriptionModel = 'moonshine' | 'moonshine-small' | 'deepgram';
+// Historical records remain readable; these models cannot be selected for new work.
+type StoredTranscriptionModel = TranscriptionModel | 'gemini-3.5-transcribe-live' | 'gemini-3.5-transcribe';
+export type RequestProvider = 'ollama' | 'chatgpt';
+const legacyRecoveryModel = 'nvidia/nemotron-3.5-lightning:free';
+export const requestProviderLabels: Record<RequestProvider, string> = { ollama:'Ollama · local model', chatgpt: 'ChatGPT / Codex subscription' };
+export const requestProviderNames: Record<RequestProvider, string> = { ollama:'Ollama', chatgpt: 'ChatGPT' };
+export type MeetingStream = { id:string; kind:MeetingKind | 'speakers'; texts:string[]; part:number; parts:number; done:boolean; message?:string };
+export type ReasoningEffort = 'auto' | 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type ChatGPTModel = {id:string;name:string;reasoningEfforts?: Exclude<ReasoningEffort,'auto'>[]};
+export const reasoningLabels: Record<ReasoningEffort,string> = {auto:'Model default',none:'None',low:'Low · faster',medium:'Medium · balanced',high:'High · more thorough',xhigh:'Extra high',max:'Maximum'};
+export type MeetingPreferences = { transcriptionModel: TranscriptionModel; requestProvider: RequestProvider; chatgptModel: string | null; chatgptReasoningEffort?:ReasoningEffort; ollamaModel:string; ollamaEndpoint:string };
+export const defaultMeetingPreferences: MeetingPreferences = { transcriptionModel: 'moonshine', requestProvider: 'ollama', chatgptModel: null, chatgptReasoningEffort:'auto', ollamaModel:'gemma4:e4b', ollamaEndpoint:'http://127.0.0.1:11434' };
+export const transcriptionLabels: Record<TranscriptionModel, string> = { moonshine:'Moonshine Medium · English (local)', 'moonshine-small':'Moonshine Small · English (local)', deepgram: 'Deepgram Nova-3' };
+export function normalizeMeetingPreferences(value: MeetingPreferences): MeetingPreferences {
+  return {...defaultMeetingPreferences, ...value,
+    transcriptionModel:Object.hasOwn(transcriptionLabels,value.transcriptionModel) ? value.transcriptionModel : 'moonshine',
+    requestProvider:Object.hasOwn(requestProviderLabels,value.requestProvider) ? value.requestProvider : 'chatgpt'};
+}
 export type MeetingKind = 'summary' | 'minutes' | 'actions' | 'study' | 'flashcards' | 'quiz' | 'question';
 export type SpeakerIdentity = { speakerId: string; name: string; team: string | null; aliases: string[]; confidence: 'strong' | 'tentative'; sources: number[]; reason: string };
 export const speakerIdentityLabel = (identity: SpeakerIdentity) => identity.team ? `${identity.name} (${identity.team})` : identity.name;
-export type MeetingAnalysis = { id: string; kind: MeetingKind; model: string; question: string; revision: number; createdAt: number;
-  items: { text: string; sources: number[]; owner?: string | null; deadline?: string | null }[] };
+export const analysisSections = ['overview', 'discussion', 'decisions', 'open_points', 'next_meeting', 'references'] as const;
+export type AnalysisSection = typeof analysisSections[number];
+export type MeetingAnalysis = { provider?:string; modelDigest?:string; quantization?:string; conversationId?:string | null; id: string; kind: MeetingKind; model: string; question: string; revision: number; createdAt: number;
+  items: { text: string; sources: number[]; owner?: string | null; deadline?: string | null; section?: AnalysisSection | null }[] };
 export type Meeting = { id: string; noteId: string | null; title: string; createdAt: number; duration: number; media: string | null; video: string | null;
   recording: 'saved' | 'recording' | 'paused' | 'interrupted'; processing: 'idle' | 'transcribing' | 'analyzing' | 'ready' | 'failed';
   error: string | null; revision: number; segments: MeetingSegment[]; speakers: Record<string, string>; analyses: MeetingAnalysis[];
-  speakerIdentities?: SpeakerIdentity[]; speakerIdentityRevision?: number | null;
-  speakerWarning?: string | null; deletedAt?:number | null; completedActions?:string[];
+  speakerIdentities?: SpeakerIdentity[]; speakerIdentityRevision?: number | null; chatgptSpeakerRevision?: number | null;
+  speakerWarning?: string | null; diarizationWarning?: string | null; transcriptionCursor?:number; replayCandidates?:MeetingSegment[]; deletedAt?:number | null; completedActions?:string[];
+  localRecovery?: {kind:MeetingKind;model:string;revision:number;title:string;question:string;notes:string;digest:string;checkpoints:unknown[]} | null;
   recovery?: { kind:MeetingKind; model:string; revision:number; title:string; question:string; notes:string; checkpoints:unknown[]; splits:string[] } | null;
-  transcriptionModel?: TranscriptionModel | null; transcriptionLanguage?: string | null;
+  transcriptionModel?: StoredTranscriptionModel | null; transcriptionLanguage?: string | null;
   liveTranscription?: boolean; liveComplete?: boolean; autoNotes?: boolean; notesStatus?: '' | 'processing' | 'ready' | 'failed'; stopReason?: 'manual' | 'silence' | 'shutdown' | null };
 export type IntegratedMeeting = Meeting;
-export type MeetingConnections = { deepgram: boolean; chatgpt: boolean; gemini?: boolean; openrouter?: boolean; preferences?: MeetingPreferences; email: string | null };
+export type MeetingConnections = { ollama?:boolean; moonshine?:boolean; moonshineSmall?:boolean; deepgram: boolean; chatgpt: boolean; preferences?: MeetingPreferences; email: string | null };
 export type MeetingDevice = { id: string; name: string; kind: 'microphone' | 'system' | 'video' };
 export type RecordingFeedback = { id: string; duration: number; microphone: number; system: number; paused: boolean; silentFor?: number };
-export const meetingLabels: Record<MeetingKind, string> = { summary: 'Summary', minutes: 'Key points', actions: 'Action items', study: 'Study notes', flashcards: 'Flashcards', quiz: 'Quiz', question: 'Answer' };
+export const meetingLabels: Record<MeetingKind, string> = { summary: 'Summary', minutes: 'Meeting minutes', actions: 'Action items', study: 'Study notes', flashcards: 'Flashcards', quiz: 'Quiz', question: 'Answer' };
 const key = 'scribly-meetings-preview';
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const number = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
@@ -52,19 +79,22 @@ function previewMeeting(value: unknown): value is Meeting {
     || (value.autoNotes !== undefined && typeof value.autoNotes !== 'boolean')
     || (value.liveTranscription !== undefined && typeof value.liveTranscription !== 'boolean')
     || (value.liveComplete !== undefined && typeof value.liveComplete !== 'boolean')
-    || (value.transcriptionModel !== undefined && value.transcriptionModel !== null && !Object.hasOwn(transcriptionLabels, String(value.transcriptionModel)))
+    || (value.transcriptionModel !== undefined && value.transcriptionModel !== null && !Object.hasOwn(transcriptionLabels, String(value.transcriptionModel)) && !['gemini-3.5-transcribe-live','gemini-3.5-transcribe'].includes(String(value.transcriptionModel)))
     || (value.transcriptionLanguage !== undefined && !nullableText(value.transcriptionLanguage))
     || (value.notesStatus !== undefined && !['','processing','ready','failed'].includes(String(value.notesStatus)))
     || !Array.isArray(value.segments) || !Array.isArray(value.analyses)) return false;
   const identities = value.speakerIdentities;
   const segments = value.segments;
   const identityRevision = value.speakerIdentityRevision;
+  const chatgptRevision = value.chatgptSpeakerRevision;
   const recovery = value.recovery;
   return (value.speakerWarning === undefined || nullableText(value.speakerWarning))
+    && (chatgptRevision === undefined || chatgptRevision === null || (number(chatgptRevision) && Number.isInteger(chatgptRevision) && chatgptRevision <= value.revision))
+    && (value.diarizationWarning === undefined || value.diarizationWarning === null || (typeof value.diarizationWarning === 'string' && value.diarizationWarning.length <= 2000))
     && (value.deletedAt === undefined || value.deletedAt === null || number(value.deletedAt))
     && (value.completedActions === undefined || (Array.isArray(value.completedActions) && value.completedActions.length <= 300_000 && value.completedActions.every(id => typeof id === 'string' && id.length <= 120)))
     && (recovery === undefined || recovery === null || (object(recovery) && typeof recovery.kind === 'string' && Object.hasOwn(meetingLabels,recovery.kind)
-      && recovery.model === openRouterModel && recovery.revision === value.revision && recovery.title === value.title
+      && recovery.model === legacyRecoveryModel && recovery.revision === value.revision && recovery.title === value.title
       && typeof recovery.question === 'string' && recovery.question.length <= 4000 && typeof recovery.notes === 'string' && recovery.notes.length <= 20_000
       && Array.isArray(recovery.checkpoints) && recovery.checkpoints.length <= 512 && Array.isArray(recovery.splits) && recovery.splits.length <= 512
       && recovery.splits.every((key:unknown) => typeof key === 'string' && /^[a-f0-9]{64}$/i.test(key))))
@@ -74,9 +104,14 @@ function previewMeeting(value: unknown): value is Meeting {
       && (!identities.length || number(identityRevision))
       && (identityRevision !== value.revision || identities.every(identity => identity.sources.every(id => segments.some(segment => object(segment) && segment.id === id)) && segments.some(segment => object(segment) && segment.speaker === identity.speakerId && number(segment.id) && identity.sources.includes(segment.id))))))
     && segments.every((segment: unknown, index: number) => object(segment) && segment.id === index && number(segment.start) && number(segment.end) && segment.end >= segment.start && typeof segment.text === 'string' && typeof segment.speaker === 'string'
-      && (segment.words === undefined || (Array.isArray(segment.words) && segment.words.length <= 10_000 && segment.words.every(word => object(word) && typeof word.text === 'string' && word.text.length <= 1000 && number(word.start) && number(word.end) && word.end >= word.start && number(word.confidence) && word.confidence <= 1))))
+      && (segment.corrected===undefined || typeof segment.corrected==='boolean')
+      && (segment.originalText===undefined || (typeof segment.originalText==='string' && new TextEncoder().encode(segment.originalText).length<=50_000))
+      && (segment.provenance===undefined || (object(segment.provenance) && segment.provenance.provider==='moonshine' && typeof segment.provenance.session==='string' && segment.provenance.session.length===36 && typeof segment.provenance.line==='string' && segment.provenance.line.length<=30))
+      && (segment.speakerSpans===undefined || (Array.isArray(segment.speakerSpans) && segment.speakerSpans.length<=1000 && segment.speakerSpans.every(span=>object(span) && typeof span.speaker==='string' && number(span.start) && number(span.end) && span.end>=span.start && number(span.textStart) && number(span.textEnd) && Number.isInteger(span.textStart) && Number.isInteger(span.textEnd) && span.textEnd>=span.textStart && span.textEnd<=new TextEncoder().encode(String(segment.text)).length)))
+      && (segment.words === undefined || (Array.isArray(segment.words) && segment.words.length <= 10_000 && segment.words.every(word => object(word) && typeof word.text === 'string' && word.text.length <= 1000 && number(word.start) && number(word.end) && word.end >= word.start && (word.confidence === undefined || (number(word.confidence) && word.confidence <= 1))))))
     && value.analyses.every((analysis: unknown) => object(analysis) && typeof analysis.id === 'string' && typeof analysis.kind === 'string' && Object.hasOwn(meetingLabels, analysis.kind) && typeof analysis.model === 'string' && typeof analysis.question === 'string' && number(analysis.createdAt) && number(analysis.revision) && Array.isArray(analysis.items)
-      && analysis.items.every((item: unknown) => object(item) && typeof item.text === 'string' && Array.isArray(item.sources) && item.sources.every((source: unknown) => number(source) && Number.isInteger(source)) && (item.owner === undefined || nullableText(item.owner)) && (item.deadline === undefined || nullableText(item.deadline))));
+      && analysis.items.every((item: unknown) => object(item) && typeof item.text === 'string' && Array.isArray(item.sources) && item.sources.every((source: unknown) => number(source) && Number.isInteger(source)) && (item.owner === undefined || nullableText(item.owner)) && (item.deadline === undefined || nullableText(item.deadline))
+        && (item.section === undefined || item.section === null || analysisSections.some(section => section === item.section))));
 }
 export async function listMeetings(): Promise<Meeting[]> {
   if (desktop) return invoke('meeting_list');
@@ -108,8 +143,10 @@ export async function setMeetingAction(id:string, analysisId:string, index:numbe
   await savePreviewMeeting(next); return next;
 }
 export async function updateMeeting(meeting: Meeting): Promise<Meeting> {
-  if (desktop) return invoke('meeting_update', { id: meeting.id, title: meeting.title, speakers: meeting.speakers, segments: meeting.segments });
+  if (desktop) return invoke('meeting_update', { id: meeting.id, title: meeting.title, speakers: meeting.speakers, segments: meeting.segments, expectedRevision:meeting.revision });
   const old = (await listMeetings()).find(item => item.id === meeting.id);
+  if (old && old.revision !== meeting.revision) throw Error('The transcript changed while you were reviewing it. Reopen Fix to use the current version.');
+  meeting = {...meeting,segments:meeting.segments.map(segment=>{const previous=old?.segments.find(item=>item.id===segment.id);return previous ? {...segment,originalText:previous.originalText ?? (previous.text!==segment.text ? previous.text : undefined),words:previous.text!==segment.text ? [] : segment.words,speakerSpans:previous.text!==segment.text || previous.speaker!==segment.speaker ? [] : segment.speakerSpans,corrected:previous.corrected || previous.text!==segment.text || previous.speaker!==segment.speaker} : segment;})};
   const changed = JSON.stringify(old?.segments) !== JSON.stringify(meeting.segments) || JSON.stringify(old?.speakers) !== JSON.stringify(meeting.speakers);
   const edited = { ...meeting, recovery:changed || old?.title !== meeting.title ? null : meeting.recovery, speakerWarning:changed ? null : meeting.speakerWarning, speakerIdentities: meeting.speakerIdentities?.filter(identity => old?.speakers[identity.speakerId] === meeting.speakers[identity.speakerId]), revision: (old?.revision || 0) + Number(changed) };
   await savePreviewMeeting(edited); return edited;
@@ -126,16 +163,29 @@ export function speakerLabel(meeting: Pick<Meeting, 'speakers'>, id: string) {
 export function defaultSpeakerLabel(id: string) {
   return /^\d+$/.test(id) && Number.isSafeInteger(Number(id)) ? `Speaker ${Number(id) + 1}` : 'Speaker unknown';
 }
+export function analysisGroups(analysis: MeetingAnalysis) {
+  const items = analysis.items.map((item, index) => ({ item, index }));
+  if (!['summary', 'minutes'].includes(analysis.kind) || !items.some(({ item }) => item.section)) return [{ label: null, items }];
+  const labels: Record<AnalysisSection, string> = {
+    overview: analysis.kind === 'minutes' ? 'Meeting details' : 'Overview',
+    discussion: analysis.kind === 'minutes' ? 'Agenda & discussion' : 'Key updates',
+    decisions: 'Decisions', open_points: 'Open & deferred items', next_meeting: 'Next meeting', references: 'Referenced documents',
+  };
+  return [...analysisSections, null].flatMap(section => {
+    const group = items.filter(({ item }) => (item.section || null) === section);
+    return group.length ? [{ label: section ? labels[section] : null, items: group }] : [];
+  });
+}
 export function analysisHtml(meeting: Meeting, analysis: MeetingAnalysis, sectionOnly = false) {
-  return `<h2>${sectionOnly ? meetingLabels[analysis.kind] : `${html(meeting.title)} · ${meetingLabels[analysis.kind]}`}</h2>${analysis.question ? `<p>${html(analysis.question)}</p>` : ''}<ul>${analysis.items.map(item => `<li><p>${html(item.text).replace(/\n/g, '<br>')}${item.owner ? ` · Owner: ${html(item.owner)}` : ''}${item.deadline ? ` · Due: ${html(item.deadline)}` : ''}</p><p>Source: ${item.sources.map(id => meeting.segments.find(segment => segment.id === id)).filter((segment): segment is MeetingSegment => !!segment).map(segment => html(`${speakerLabel(meeting, segment.speaker)} ${meetingTime(segment.start)}`)).join(', ')}</p></li>`).join('')}</ul>`;
+  return `<h2>${sectionOnly ? meetingLabels[analysis.kind] : `${html(meeting.title)} · ${meetingLabels[analysis.kind]}`}</h2>${analysis.question ? `<p>${html(analysis.question)}</p>` : ''}${analysisGroups(analysis).map(group => `${group.label ? `<h3>${group.label}</h3>` : ''}<ul>${group.items.map(({ item }) => `<li><p>${html(item.text).replace(/\n/g, '<br>')}${item.owner ? ` · Owner: ${html(item.owner)}` : ''}${item.deadline ? ` · Due: ${html(item.deadline)}` : ''}</p><p>Source: ${item.sources.map(id => meeting.segments.find(segment => segment.id === id)).filter((segment): segment is MeetingSegment => !!segment).map(segment => html(`${speakerLabel(meeting, segment.speaker)} ${meetingTime(segment.start)}`)).join(', ')}</p></li>`).join('')}</ul>`).join('')}`;
 }
 export function meetingMarkdown(meeting: Meeting) {
   const transcript = meeting.segments.map(segment => `[${meetingTime(segment.start)}] ${speakerLabel(meeting, segment.speaker)}: ${segment.text}`).join('\n\n');
   const latest = (['summary','actions','minutes'] as const).map(kind => [...meeting.analyses].reverse().find(result => result.kind === kind)).filter((result):result is MeetingAnalysis => !!result);
-  return `# ${meeting.title}\n\n${new Date(meeting.createdAt).toLocaleDateString()} · ${meetingTime(meeting.duration)} · ${new Set(meeting.segments.map(segment => segment.speaker)).size} people\n\nMade with AI · check times against the transcript.\n\n${latest.map(analysis => `## ${meetingLabels[analysis.kind]}${analysis.revision !== meeting.revision ? ' (earlier transcript)' : ''}\n\n${analysis.items.map((item,index) => {
+  return `# ${meeting.title}\n\nRecord created: ${new Date(meeting.createdAt).toLocaleDateString()} · ${meetingTime(meeting.duration)} · ${new Set(meeting.segments.map(segment => segment.speaker)).size} speaker labels\n\nAI draft · review against the transcript before sharing.\n\n${latest.map(analysis => `## ${meetingLabels[analysis.kind]}${analysis.revision !== meeting.revision ? ' (earlier transcript)' : ''}\n\n${analysisGroups(analysis).map(group => `${group.label ? `### ${group.label}\n\n` : ''}${group.items.map(({item,index}) => {
     const source = analysis.revision === meeting.revision ? meeting.segments.find(segment => segment.id === item.sources[0]) : null;
-    return `- ${analysis.kind === 'actions' ? `[${meeting.completedActions?.includes(`${analysis.id}:${index}`) ? 'x' : ' '}] ` : ''}${item.text}${analysis.kind === 'actions' ? ` — ${item.owner || 'Unassigned'} · ${item.deadline || 'No date agreed'}` : ''}${source ? ` (${meetingTime(source.start)})` : ''}`;
-  }).join('\n')}`).join('\n\n')}\n\n## Transcript\n\n${transcript}`;
+    return `- ${analysis.kind === 'actions' ? `[${meeting.completedActions?.includes(`${analysis.id}:${index}`) ? 'x' : ' '}] ` : ''}${item.text}${analysis.kind === 'actions' ? ` — ${item.owner || 'Owner not stated'} · ${item.deadline || 'No date agreed'}` : ''}${source ? ` (${meetingTime(source.start)})` : ''}`;
+  }).join('\n')}`).join('\n\n')}`).join('\n\n')}\n\n## Transcript\n\n${transcript}`;
 }
 export function sampleMeeting(noteId: string | null, integrated = false): Meeting {
   const segments: MeetingSegment[] = [

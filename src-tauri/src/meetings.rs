@@ -28,6 +28,14 @@ pub(crate) struct Segment {
     pub text: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub words: Vec<TranscriptWord>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub speaker_spans: Vec<SpeakerSpan>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
+    #[serde(default)]
+    pub corrected: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_text: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,7 +43,34 @@ pub(crate) struct TranscriptWord {
     pub text: String,
     pub start: f64,
     pub end: f64,
-    pub confidence: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<f64>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SpeakerSpan {
+    pub speaker: String,
+    pub start: f64,
+    pub end: f64,
+    pub text_start: usize,
+    pub text_end: usize,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Provenance {
+    pub provider: String,
+    pub session: String,
+    pub line: String,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum AnalysisSection {
+    Overview,
+    Discussion,
+    Decisions,
+    OpenPoints,
+    NextMeeting,
+    References,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,6 +81,8 @@ pub(crate) struct AnalysisItem {
     pub owner: Option<String>,
     #[serde(default)]
     pub deadline: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<AnalysisSection>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,6 +94,14 @@ pub(crate) struct Analysis {
     pub revision: u64,
     pub created_at: u64,
     pub items: Vec<AnalysisItem>,
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub model_digest: Option<String>,
+    #[serde(default)]
+    pub quantization: Option<String>,
+    #[serde(default)]
+    pub conversation_id: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -97,11 +142,17 @@ pub(crate) struct Meeting {
     pub speaker_identities: Vec<SpeakerIdentity>,
     #[serde(default)]
     pub speaker_identity_revision: Option<u64>,
+    #[serde(default)]
+    pub chatgpt_speaker_revision: Option<u64>,
     pub analyses: Vec<Analysis>,
     #[serde(default)]
     pub recovery: Option<crate::meeting_recovery::Progress>,
     #[serde(default)]
+    pub local_recovery: Option<crate::ai_conversations::LocalRecovery>,
+    #[serde(default)]
     pub speaker_warning: Option<String>,
+    #[serde(default)]
+    pub diarization_warning: Option<String>,
     #[serde(default)]
     pub live_transcription: bool,
     #[serde(default)]
@@ -116,6 +167,12 @@ pub(crate) struct Meeting {
     pub notes_status: String,
     #[serde(default)]
     pub notes_model: Option<String>,
+    #[serde(default)]
+    pub notes_provider: Option<String>,
+    #[serde(default)]
+    pub transcription_cursor: u64,
+    #[serde(default)]
+    pub replay_candidates: Vec<Segment>,
     #[serde(default)]
     pub stop_reason: Option<String>,
     #[serde(default)]
@@ -141,9 +198,12 @@ impl Meeting {
             speakers: HashMap::new(),
             speaker_identities: vec![],
             speaker_identity_revision: None,
+            chatgpt_speaker_revision: None,
             analyses: vec![],
             recovery: None,
+            local_recovery: None,
             speaker_warning: None,
+            diarization_warning: None,
             live_transcription: false,
             live_complete: false,
             transcription_model: None,
@@ -151,6 +211,9 @@ impl Meeting {
             auto_notes: false,
             notes_status: String::new(),
             notes_model: None,
+            notes_provider: None,
+            transcription_cursor: 0,
+            replay_candidates: vec![],
             stop_reason: None,
             deleted_at: None,
             completed_actions: vec![],
@@ -165,6 +228,9 @@ pub(crate) struct MeetingState {
     pub finalizing: Mutex<HashSet<String>>,
     pub auth: Mutex<Option<CancellationToken>>,
     pub credentials: tokio::sync::Mutex<()>,
+    pub local_generation: tokio::sync::Mutex<()>,
+    pub local_queue: tokio::sync::Mutex<()>,
+    pub speech_setup: tokio::sync::Mutex<()>,
 }
 pub(crate) fn folder(root: &Path, id: &str) -> Result<PathBuf, String> {
     if id.len() != 36 || uuid::Uuid::parse_str(id).is_err() {
@@ -227,6 +293,24 @@ pub(crate) fn load(app: &tauri::AppHandle, id: &str) -> Result<Meeting, String> 
             .ok_or("Meeting no longer exists")?;
         serde_json::from_value(row.get(0)).map_err(|e| e.to_string())
     })
+}
+pub(crate) async fn load_async(app: &tauri::AppHandle, id: &str) -> Result<Meeting, String> {
+    let app = app.clone();
+    let id = id.to_string();
+    tauri::async_runtime::spawn_blocking(move || load(&app, &id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+pub(crate) async fn modify_async(
+    app: &tauri::AppHandle,
+    id: &str,
+    change: impl FnOnce(&mut Meeting) -> Result<(), String> + Send + 'static,
+) -> Result<Meeting, String> {
+    let app = app.clone();
+    let id = id.to_string();
+    tauri::async_runtime::spawn_blocking(move || modify(&app, &id, change))
+        .await
+        .map_err(|e| e.to_string())?
 }
 pub(crate) fn save(app: &tauri::AppHandle, meeting: &Meeting) -> Result<(), String> {
     crate::meeting_backup::validate(meeting)?;
@@ -358,6 +442,7 @@ pub(crate) async fn meeting_update(
     title: String,
     speakers: HashMap<String, String>,
     segments: Vec<Segment>,
+    expected_revision: Option<u64>,
 ) -> Result<Meeting, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<MeetingState>();
@@ -392,6 +477,9 @@ pub(crate) async fn meeting_update(
             return Err("Invalid meeting title or speaker name".into());
         }
         let mut meeting = load(&app, &id)?;
+        if expected_revision.is_some_and(|revision| revision != meeting.revision) {
+            return Err("The transcript changed while you were reviewing it. Reopen Fix to use the current version.".into());
+        }
         if matches!(meeting.recording.as_str(), "recording" | "paused") {
             return Err("End recording before editing its transcript".into());
         }
@@ -408,10 +496,12 @@ pub(crate) async fn meeting_update(
         {
             meeting.revision += 1;
             meeting.recovery = None;
+            meeting.local_recovery = None;
             meeting.speaker_warning = None;
         }
         if meeting.title != title {
             meeting.recovery = None;
+            meeting.local_recovery = None;
         }
         meeting.title = title;
         // A changed name is a human correction and must no longer be treated as inferred.
@@ -419,17 +509,46 @@ pub(crate) async fn meeting_update(
             meeting.speakers.get(&identity.speaker_id) == speakers.get(&identity.speaker_id)
         });
         meeting.speakers = speakers;
-        meeting.segments = segments;
+        meeting.segments = segments
+            .into_iter()
+            .map(|mut segment| {
+                if let Some(old) = meeting.segments.get(segment.id) {
+                    preserve_original(old, &mut segment);
+                }
+                if meeting.segments.get(segment.id).is_some_and(|old| {
+                    old.text != segment.text
+                        || old.speaker != segment.speaker
+                        || old.start != segment.start
+                        || old.end != segment.end
+                }) {
+                    segment.corrected = true;
+                    segment.speaker_spans.clear();
+                }
+                segment
+            })
+            .collect();
         save(&app, &meeting)?;
         Ok(meeting)
     })
     .await
     .map_err(|e| e.to_string())?
 }
+fn preserve_original(old: &Segment, updated: &mut Segment) {
+    // The WebView cannot replace the preserved original. It survives repeated
+    // accepted suggestions, manual edits and restore-original requests.
+    updated.original_text = old
+        .original_text
+        .clone()
+        .or_else(|| (old.text != updated.text).then(|| old.text.clone()));
+    updated.corrected = old.corrected;
+    if old.text != updated.text {
+        updated.words.clear();
+    }
+}
 pub(crate) fn validate_segments(segments: &[Segment]) -> Result<(), String> {
     let mut total = 0;
     for (index, segment) in segments.iter().enumerate() {
-        total += segment.text.len();
+        total += segment.text.len() + segment.original_text.as_ref().map_or(0, String::len);
         if segment.id != index
             || !segment.start.is_finite()
             || !segment.end.is_finite()
@@ -438,6 +557,28 @@ pub(crate) fn validate_segments(segments: &[Segment]) -> Result<(), String> {
             || segment.end > 24.0 * 3600.0
             || segment.speaker.len() > 40
             || segment.text.len() > 50_000
+            || segment
+                .original_text
+                .as_ref()
+                .is_some_and(|text| text.len() > 50_000)
+            || segment.speaker_spans.len() > 1000
+            || segment.speaker_spans.iter().any(|span| {
+                !span.start.is_finite()
+                    || !span.end.is_finite()
+                    || span.start < segment.start
+                    || span.end < span.start
+                    || span.end > segment.end + 0.01
+                    || span.speaker.len() > 40
+                    || span.text_start > span.text_end
+                    || !segment.text.is_char_boundary(span.text_start)
+                    || !segment.text.is_char_boundary(span.text_end)
+            })
+            || segment.provenance.as_ref().is_some_and(|p| {
+                p.provider != "moonshine"
+                    || uuid::Uuid::parse_str(&p.session).is_err()
+                    || p.line.is_empty()
+                    || p.line.len() > 30
+            })
             || segment.words.len() > 10_000
             || segment.words.iter().any(|word| {
                 word.text.len() > 1000
@@ -446,8 +587,9 @@ pub(crate) fn validate_segments(segments: &[Segment]) -> Result<(), String> {
                     || word.start < 0.0
                     || word.end < word.start
                     || word.end > 86_400.0
-                    || !word.confidence.is_finite()
-                    || !(0.0..=1.0).contains(&word.confidence)
+                    || word
+                        .confidence
+                        .is_some_and(|v| !v.is_finite() || !(0.0..=1.0).contains(&v))
             })
         {
             return Err("Invalid transcript segment".into());
@@ -457,6 +599,51 @@ pub(crate) fn validate_segments(segments: &[Segment]) -> Result<(), String> {
         return Err("Transcript is too large".into());
     }
     Ok(())
+}
+#[tauri::command]
+pub(crate) async fn meeting_review_replay(
+    app: tauri::AppHandle,
+    id: String,
+    index: usize,
+    accept: bool,
+) -> Result<Meeting, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<MeetingState>();
+        let jobs = state.jobs.lock().map_err(|e| e.to_string())?;
+        if jobs.contains_key(&id) {
+            return Err("Wait for transcription before reviewing a replay candidate".into());
+        }
+        modify(&app, &id, |m| {
+            if index >= m.replay_candidates.len() || m.deleted_at.is_some() {
+                return Err("Replay candidate is unavailable".into());
+            }
+            let mut candidate = m.replay_candidates.remove(index);
+            if accept {
+                if let Some(original) = m.segments.get(candidate.id) {
+                    candidate.original_text = original.original_text.clone().or_else(|| {
+                        (original.text != candidate.text).then(|| original.text.clone())
+                    });
+                    candidate.speaker = original.speaker.clone();
+                    candidate.speaker_spans.clear();
+                    candidate.corrected = true;
+                    let target = candidate.id;
+                    m.segments[target] = candidate;
+                } else {
+                    candidate.id = m.segments.len();
+                    candidate.speaker = "unknown".into();
+                    candidate.speaker_spans.clear();
+                    candidate.corrected = true;
+                    m.segments.push(candidate);
+                }
+                m.revision += 1;
+                m.local_recovery = None;
+                m.recovery = None;
+            }
+            Ok(())
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 pub(crate) async fn meeting_trash(
@@ -598,6 +785,13 @@ pub(crate) async fn meeting_delete(app: tauri::AppHandle, id: String) -> Result<
         db(&app, |database| {
             database
                 .client
+                .execute(
+                    "DELETE FROM scribly_conversations WHERE scope='meeting' AND parent_id=$1",
+                    &[&id],
+                )
+                .map_err(|e| e.to_string())?;
+            database
+                .client
                 .execute("DELETE FROM scribly_meetings WHERE id=$1", &[&id])
                 .map_err(|e| e.to_string())?;
             Ok(())
@@ -625,9 +819,31 @@ pub(crate) fn end_job(
 ) -> Result<Meeting, String> {
     let answer = match result {
         Ok(mut meeting) => {
+            let local_analysis = meeting.processing == "analyzing"
+                && meeting
+                    .analyses
+                    .last()
+                    .is_some_and(|a| a.provider.as_deref() == Some("ollama"));
             meeting.processing = "ready".into();
             meeting.error = None;
-            save(app, &meeting).map(|()| meeting)
+            if local_analysis {
+                modify(app, id, |latest| {
+                    if latest.revision != meeting.revision || latest.deleted_at.is_some() {
+                        return Err("The transcript changed while generating. Retry with its current revision.".into());
+                    }
+                    for analysis in meeting.analyses {
+                        if !latest.analyses.iter().any(|a| a.id == analysis.id) {
+                            latest.analyses.push(analysis);
+                        }
+                    }
+                    latest.local_recovery = None;
+                    latest.processing = "ready".into();
+                    latest.error = None;
+                    Ok(())
+                })
+            } else {
+                save(app, &meeting).map(|()| meeting)
+            }
         }
         Err(error) => {
             if let Ok(mut meeting) = load(app, id) {
@@ -677,6 +893,7 @@ pub(crate) async fn meeting_archive(
             &attachment_root(&app)?,
             &destination.into_path().map_err(|e| e.to_string())?,
             include_media,
+            crate::ai_conversations::list(&app, "meeting", &meeting.id)?,
         )?;
         Ok(true)
     })
@@ -696,12 +913,28 @@ pub(crate) async fn meeting_restore(app: tauri::AppHandle) -> Result<Option<Meet
             return Ok(None);
         };
         let root = attachment_root(&app)?;
-        let meeting =
+        let (meeting, conversations) =
             crate::meeting_backup::restore(&source.into_path().map_err(|e| e.to_string())?, &root)?;
-        if let Err(error) = save(&app, &meeting) {
+        let saved = (|| {
+            crate::meeting_backup::validate(&meeting)?;
+            let document = serde_json::to_value(&meeting).map_err(|e| e.to_string())?;
+            db(&app, |db| {
+                let mut transaction = db.client.transaction().map_err(|e| e.to_string())?;
+                transaction
+                    .execute(
+                        "INSERT INTO scribly_meetings(id,document) VALUES($1,$2)",
+                        &[&meeting.id, &document],
+                    )
+                    .map_err(|e| e.to_string())?;
+                crate::ai_conversations::import_transaction(&mut transaction, &conversations)?;
+                transaction.commit().map_err(|e| e.to_string())
+            })
+        })();
+        if let Err(error) = saved {
             let _ = crate::meeting_backup::remove_directory(&root, &meeting.id);
             return Err(error);
         }
+        let _ = app.emit("meeting-changed", &meeting.id);
         Ok(Some(meeting))
     })
     .await
@@ -711,10 +944,41 @@ pub(crate) async fn meeting_restore(app: tauri::AppHandle) -> Result<Option<Meet
 mod tests {
     use super::*;
     #[test]
+    fn local_ai_cleanup_retains_first_original_across_edits_and_restore() {
+        let mut meeting = Meeting::new("Cleanup".into(), None);
+        let original: Segment = serde_json::from_value(serde_json::json!({"id":0,"start":0,"end":1,"speaker":"0","text":"hello moon shine","words":[{"text":"hello","start":0,"end":1}]})).unwrap();
+        let mut edited = original.clone();
+        edited.text = "Hello, Moonshine.".into();
+        edited.original_text = Some("untrusted replacement".into());
+        preserve_original(&original, &mut edited);
+        assert_eq!(edited.original_text.as_deref(), Some("hello moon shine"));
+        assert!(edited.words.is_empty());
+        let mut restored = edited.clone();
+        restored.text = original.text.clone();
+        restored.original_text = None;
+        preserve_original(&edited, &mut restored);
+        assert_eq!(restored.original_text, edited.original_text);
+        meeting.segments.push(restored);
+        let round_trip: Meeting =
+            serde_json::from_value(serde_json::to_value(meeting).unwrap()).unwrap();
+        assert_eq!(
+            round_trip.segments[0].original_text.as_deref(),
+            Some("hello moon shine")
+        );
+        let mut oversized = round_trip.segments;
+        oversized[0].original_text = Some("x".repeat(50_001));
+        assert!(validate_segments(&oversized).is_err());
+    }
+    #[test]
     fn transcript_and_media_boundaries() {
         assert!(folder(Path::new("root"), "../private").is_err());
         assert!(!valid_media_name("../audio.wav"));
         let mut segments = vec![Segment {
+            words: vec![],
+            speaker_spans: vec![],
+            provenance: None,
+            corrected: false,
+            original_text: None,
             id: 0,
             start: 0.0,
             end: 1.0,

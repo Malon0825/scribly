@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "scribly": { "url": "http://127.0.0.1:14327/mcp" }
+  }
+}

@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import type { LocalStatus, SpeechStatus } from './localAI';
 import { desktop } from './storage';
-import { defaultMeetingPreferences, listMeetings, savePreviewMeeting, sampleMeeting, type Meeting, type MeetingConnections, type MeetingKind, type MeetingPreferences, type MeetingStream, type RecordingFeedback } from './meetings';
+import { defaultMeetingPreferences, normalizeMeetingPreferences, listMeetings, savePreviewMeeting, sampleMeeting, type Meeting, type MeetingConnections, type MeetingKind, type MeetingPreferences, type MeetingStream, type RecordingFeedback } from './meetings';
 
 export type MeetingAITask = { id:string; kind:MeetingKind | 'recap' | 'transcript'; resuming?:boolean; stage?:'updating' };
 
 export function useMeetings(ready: boolean) {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [selectedId, select] = useState('');
-  const [connections, setConnections] = useState<MeetingConnections>({ deepgram: false, chatgpt: false, email: null });
+  const [connections, updateConnections] = useState<MeetingConnections>({ deepgram: false, chatgpt: false, email: null });
+  const setConnections=useCallback((action:SetStateAction<MeetingConnections>)=>updateConnections(current=>{
+    const next=typeof action==='function'?action(current):{...current,...action};
+    return next.preferences ? {...next,preferences:normalizeMeetingPreferences(next.preferences)} : next;
+  }),[]);
   const [feedback, setFeedback] = useState<RecordingFeedback | null>(null);
   const [streams, setStreams] = useState<Record<string,MeetingStream>>({});
-  const [interim, setInterim] = useState<{ id:string; text:string } | null>(null);
+  const [interim, setInterim] = useState<{ id:string; text:string; lagSeconds?:number } | null>(null);
   const [reminder, setReminder] = useState<{ id:string; message:string } | null>(null);
   const [busy, setBusy] = useState('');
   const [aiTask, setAITask] = useState<MeetingAITask | null>(null);
@@ -30,11 +35,15 @@ export function useMeetings(ready: boolean) {
     let live = true;
     void reload().catch(reason => { if (live) setError(String(reason)); });
     if (desktop) void invoke<MeetingConnections>('meeting_connections').then(value => { if (live) setConnections(value); }).catch(reason => { if (live) setError(String(reason)); });
+    if (desktop) {
+      void invoke<LocalStatus>('local_ai_status').then(()=>{if(live)setConnections(current=>({...current,ollama:true}));}).catch(()=>{});
+      void invoke<SpeechStatus>('local_speech_status').then(value=>{if(live)setConnections(current=>({...current,moonshine:value.medium,moonshineSmall:value.small}));}).catch(()=>{});
+    }
     const offs: (() => void)[] = [];
     if (desktop) {
       void listen('meeting-changed', () => { if (live) void reload().catch(reason => { if (live) setError(String(reason)); }); }).then(off => { if (live) offs.push(off); else off(); });
       void listen<RecordingFeedback>('meeting-recording', event => { if (live) setFeedback(event.payload); }).then(off => { if (live) offs.push(off); else off(); });
-      void listen<{ id:string; interim:string }>('meeting-live', event => { if (live) setInterim({ id:event.payload.id, text:event.payload.interim }); }).then(off => { if (live) offs.push(off); else off(); });
+      void listen<{ id:string; interim:string; lagSeconds?:number }>('meeting-live', event => { if (live) setInterim({ id:event.payload.id, text:event.payload.interim, lagSeconds:event.payload.lagSeconds }); }).then(off => { if (live) offs.push(off); else off(); });
       void listen<MeetingStream>('meeting-analysis-stream', event => { if (live) setStreams(current => { const next = {...current}; if (event.payload.done) delete next[event.payload.id]; else next[event.payload.id] = event.payload; return next; }); }).then(off => { if (live) offs.push(off); else off(); });
       void listen<{ id:string; message:string }>('meeting-silence', event => { if (live) setReminder(event.payload); }).then(off => { if (live) offs.push(off); else off(); });
     }
@@ -57,7 +66,7 @@ export function useMeetings(ready: boolean) {
   function savePreferences(change: Partial<MeetingPreferences>) {
     const value = { ...preferences, ...change };
     if (!desktop) { setConnections(current => ({ ...current, preferences: value })); return; }
-    void run('Saving meeting preferences', () => invoke<MeetingConnections>('meeting_set_preferences', { preferences: value }), setConnections);
+    void run('Saving meeting preferences', () => invoke<MeetingConnections>('meeting_set_preferences', { preferences: value }), updated => setConnections(current => ({...current,...updated})));
   }
   function selectResult(value: Meeting | null) { if (value) select(value.id); }
   function addSample(noteId: string | null, integrated = false) { void run('Loading sample', async () => { const record = sampleMeeting(noteId,integrated); await savePreviewMeeting(record); return record; }, selectResult); }

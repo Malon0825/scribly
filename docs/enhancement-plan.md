@@ -4,6 +4,10 @@ Created: October 4, 2026. Baseline: repository version 1.3.11.
 
 Purpose: make writing safer, retrieval faster, and everyday note workflows easier while preserving the existing notebook, Reference panel, and Windows conventions.
 
+Additional future proposals live in [feature drafts](features.md): Local Context Memory and deferred offline grammar checking with Harper. These drafts are not delivery commitments or completed features.
+
+The [Scribly–Codex integration plan](codex-integration-plan.md) proposes scoped local MCP tools and private plugin packaging for folder/note operations, with safe coordination of editor drafts and persistence.
+
 This roadmap tracks implemented work and remaining proposals. The storage foundation and Phases 2–6 protection, retrieval, connected-note, formatted-export and quick-capture features are included in the locally built Windows 1.3.16 installer; capacity reporting and further profiling remain open. The public release remains 1.3.11; the new installer has not been published. Phases are delivery milestones, not release dates.
 
 ## Tracking rules

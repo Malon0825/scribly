@@ -28,6 +28,9 @@ export const isTemplate = (item: Note | undefined | null) => item?.kind === "tem
 export const isLiveItem = (item: Note) => !isTemplate(item) && !item.archived && !item.deletedAt;
 export type Folder = { id: string; name: string; createdAt?: string; sidebarManual?: boolean; copyLastNote?: boolean; templateId?: string; deletedAt?: string };
 export type Workspace = {
+  /** Backup/import envelope only; native persistence consumes it into separate ledger rows. */
+  aiVersion?:1;
+  aiConversations?:import('./localAI').Conversation[];
   schemaVersion?: 2 | 3 | 4 | 5;
   folders: Folder[];
   notes: Note[];
@@ -49,9 +52,13 @@ export const plainText = (html: string) => {
   div.querySelectorAll("p,h1,h2,h3,li,pre").forEach((el) => el.append(" "));
   return (div.textContent || "").replace(/\s+/g, " ").trim();
 };
-export const textExport = (html: string) => {
-  const div = document.createElement("div");
-  div.innerHTML = html;
+export const textExport = (html: string | DocumentFragment) => {
+  let div: HTMLDivElement | DocumentFragment;
+  if (typeof html === "string") {
+    div = document.createElement("div"); div.innerHTML = html;
+  } else {
+    div = document.createDocumentFragment(); div.append(html.cloneNode(true));
+  }
   div.querySelectorAll("a[data-item-id]").forEach(link => link.append(` (Scribly item: ${link.getAttribute("data-item-id")})`));
   div
     .querySelectorAll("li")

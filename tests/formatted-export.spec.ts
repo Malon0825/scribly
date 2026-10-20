@@ -18,9 +18,15 @@ async function open(page: Page, document = workspace()) {
 }
 // These accessible labels are shared with the export dialog rather than CSS geometry.
 async function exportDialog(page: Page, folder = false) {
-  if (folder) await page.getByRole("button", { name: "Options for Work", exact: true }).click();
-  else await page.getByRole("button", { name: "Note options", exact: true }).click();
-  await page.getByRole("button", { name: folder ? "Export notes…" : "Export formatted…", exact: true }).click();
+  if (folder) {
+    await page.getByRole("button", { name: "Options for Work", exact: true }).click();
+    await page.getByRole("button", { name: "Export notes…", exact: true }).click();
+  } else {
+    await page.getByRole("button", { name: "Note options", exact: true }).click();
+    const options = page.getByRole("dialog", { name: "Note options", exact: true });
+    await options.getByRole("button", { name: "Export note", exact: true }).click();
+    await options.getByRole("button", { name: "Formatted document…", exact: true }).click();
+  }
   const dialog = page.getByRole("dialog", { name: /Export/ });
   await expect(dialog.getByRole("button", { name: "Export Markdown (.zip)", exact: true })).toBeEnabled();
   return dialog;
@@ -35,6 +41,123 @@ async function download(page: Page, name: string) {
   await page.getByRole("dialog", { name: /Export/ }).getByRole("button", { name, exact: true }).click();
   return event;
 }
+
+// Exercise the desktop render/save flow with Chromium producing real PDFs.
+// The app remains in an isolated browser notebook; native IPC is mocked here.
+async function desktopPdf(page: Page, render: (html: string) => Promise<number[]>) {
+  test.skip(process.env.PLAYWRIGHT_PREVIEW === "1", "Desktop fixture uses Vite module routing");
+  await page.route("**/src/pdfNoteExport.ts*", async route => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace(/import \{ desktop, exportArtifact \} from "([^\"]+)";/,
+      'import { exportArtifact } from "$1"; const desktop = true;');
+    await route.fulfill({ response, body });
+  });
+  await page.exposeFunction("renderPdfFixture", render);
+  await page.addInitScript(() => {
+    Object.assign(window, { __TAURI_INTERNALS__: { invoke: async (command: string, args: { html: string }) => {
+      if (command !== "render_note_pdf") throw Error(`Unexpected PDF command: ${command}`);
+      const bytes = await (window as unknown as { renderPdfFixture: (html: string) => Promise<number[]> }).renderPdfFixture(args.html);
+      return new Uint8Array(bytes).buffer;
+    } } });
+  });
+}
+
+for (const folder of [false, true]) test(`PDF export saves the captured ${folder ? "folder" : "note"} with selectable text and images`, async ({ page, context }) => {
+  await desktopPdf(page, async html => {
+    const reader = await context.newPage();
+    try {
+      await reader.setContent(html);
+      await reader.evaluate(() => Promise.all(Array.from(document.images, image => image.decode())));
+      return Array.from(await reader.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true }));
+    } finally { await reader.close(); }
+  });
+  const paragraphs = Array.from({ length: 45 }, (_, i) => `<p>PDF paragraph ${i} remains readable.</p>`).join("");
+  await open(page, workspace([note("one", "PDF draft", rich + paragraphs), note("two", "Second note", "<p>Folder export tail</p>")]));
+  await page.getByRole("textbox", { name: "Note title", exact: true }).fill("Captured PDF draft");
+  const editor = page.getByRole("textbox", { name: "Note content", exact: true });
+  await editor.click(); await page.keyboard.press("Control+End"); await page.keyboard.insertText(" Current draft tail");
+  const identity = await editor.elementHandle();
+  const dialog = await exportDialog(page, folder);
+  await expect(dialog.getByRole("button", { name: "Print", exact: true })).toBeVisible();
+  const file = await download(page, "Export PDF");
+  expect(file.suggestedFilename()).toBe(folder ? "Scribly notes.pdf" : "Captured PDF draft.pdf");
+  const pdf = await bytes(file);
+  await file.saveAs(`test-results/pdf-export-${folder ? "folder" : "note"}.pdf`);
+  expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  const { getDocument, OPS } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const loading = getDocument({ data: new Uint8Array(pdf), useSystemFonts: true });
+  try {
+    const document = await loading.promise;
+    expect(document.numPages).toBeGreaterThan(1);
+    let text = "", images = 0;
+    for (let i = 1; i <= document.numPages; i++) {
+      const page = await document.getPage(i);
+      text += (await page.getTextContent()).items.map(item => "str" in item ? item.str : "").join(" ");
+      images += (await page.getOperatorList()).fnArray.filter(op => op === OPS.paintImageXObject).length;
+    }
+    expect(text).toContain("Captured PDF draft");
+    expect(text).toContain("日本語");
+    expect(text).toContain("Completed task");
+    expect(text).toContain("PDF paragraph 44");
+    expect(text).toContain("Current draft tail");
+    expect(text.includes("Folder export tail")).toBe(folder);
+    expect(images).toBeGreaterThan(0);
+  } finally { await loading.destroy(); }
+  expect(await identity!.evaluate(node => node.isConnected)).toBe(true);
+  await expect(editor).toContainText("Current draft tail");
+});
+
+test("PDF failure allows retry and dismissal during preparation never opens a save", async ({ page, context }) => {
+  let attempts = 0;
+  let finish: ((bytes: number[]) => void) | undefined;
+  await desktopPdf(page, async html => {
+    if (++attempts === 1) throw Error("Injected PDF failure");
+    if (attempts === 3) return new Promise<number[]>(resolve => { finish = resolve; });
+    const reader = await context.newPage();
+    try { await reader.setContent(html); return Array.from(await reader.pdf()); }
+    finally { await reader.close(); }
+  });
+  await open(page);
+  const dialog = await exportDialog(page);
+  await dialog.getByRole("button", { name: "Export PDF", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Injected PDF failure");
+  expect((await bytes(await download(page, "Export PDF"))).subarray(0, 5).toString()).toBe("%PDF-");
+  const downloads: Download[] = [];
+  page.on("download", file => downloads.push(file));
+  await dialog.getByRole("button", { name: "Export PDF", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Preparing PDF…", exact: true })).toBeDisabled();
+  await expect.poll(() => !!finish).toBe(true);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  finish!([37, 80, 68, 70, 45]);
+  // A subsequent call into the page runs after the pending IPC response.
+  await expect.poll(() => page.getByRole("dialog", { name: /Export/ }).count()).toBe(0);
+  await page.waitForTimeout(100);
+  expect(downloads).toHaveLength(0);
+  await expect(page.getByRole("textbox", { name: "Note content", exact: true })).toContainText("Export heading");
+});
+
+test("browser PDF export explains the print handoff and actions fit narrow light and wide dark dialogs", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.print = function () {
+      window.dispatchEvent(new Event("beforeprint"));
+      window.dispatchEvent(new Event("afterprint"));
+    };
+  });
+  await page.setViewportSize({ width: 850, height: 600 });
+  await open(page);
+  const dialog = await exportDialog(page);
+  await dialog.getByRole("button", { name: "Export PDF", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("Choose Save as PDF");
+  await expect(dialog).not.toContainText("PDF export saved");
+  expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await dialog.screenshot({ path: "test-results/pdf-export-narrow-light.png" });
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1440, height: 920 });
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await exportDialog(page);
+  await expect(dialog.getByRole("button", { name: "Export PDF", exact: true })).toBeEnabled();
+  await dialog.screenshot({ path: "test-results/pdf-export-wide-dark.png" });
+});
 
 test("Markdown downloads a portable ZIP from the current unsaved draft", async ({ page }) => {
   await open(page);

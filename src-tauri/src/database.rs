@@ -285,6 +285,8 @@ impl Database {
             server,
         };
         db.client.batch_execute("CREATE TABLE IF NOT EXISTS still_workspace (id SMALLINT PRIMARY KEY CHECK(id=1), revision BIGINT NOT NULL DEFAULT 0, document JSONB, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()); INSERT INTO still_workspace(id) VALUES(1) ON CONFLICT(id) DO NOTHING;").map_err(database_error)?;
+        db.client.batch_execute("CREATE TABLE IF NOT EXISTS scribly_conversations (id TEXT PRIMARY KEY, scope TEXT NOT NULL, parent_id TEXT NOT NULL, created_at BIGINT NOT NULL, document JSONB NOT NULL); CREATE INDEX IF NOT EXISTS scribly_conversations_parent ON scribly_conversations(scope,parent_id);").map_err(database_error)?;
+        db.client.batch_execute("CREATE TABLE IF NOT EXISTS scribly_integration_operations (id TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,result JSONB NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','committed')),created_at TIMESTAMPTZ NOT NULL DEFAULT now());").map_err(database_error)?;
         db.client.batch_execute("ALTER TABLE still_workspace ADD COLUMN IF NOT EXISTS item_order TEXT[]; CREATE TABLE IF NOT EXISTS still_notes (id TEXT PRIMARY KEY, document JSONB NOT NULL);").map_err(database_error)?;
         db.migrate_items()?;
         db.client.batch_execute("CREATE TABLE IF NOT EXISTS still_history (id TEXT PRIMARY KEY,item_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),document JSONB NOT NULL,bytes BIGINT NOT NULL); CREATE INDEX IF NOT EXISTS still_history_item_time ON still_history(item_id,created_at DESC);").map_err(database_error)?;
@@ -384,6 +386,9 @@ impl Database {
         )
     }
     pub(crate) fn save(&mut self, mut document: Value, revision: i64) -> Result<i64, String> {
+        self.save_with_receipts(document.take(), revision, &[])
+    }
+    pub(crate) fn save_with_receipts(&mut self, mut document: Value, revision: i64, receipts: &[String]) -> Result<i64, String> {
         validate_revision(revision)?;
         validate_workspace(&document)?;
         attachments::validate(&self.root, &document)?;
@@ -397,6 +402,7 @@ impl Database {
             .iter()
             .map(|note| note["id"].as_str().unwrap().to_owned())
             .collect();
+        let imports = crate::ai_conversations::take_imports(&mut document, &order)?;
         let mut transaction = self.client.transaction().map_err(database_error)?;
         let row = transaction.query_opt("UPDATE still_workspace SET document=$1,item_order=$2,revision=revision+1,updated_at=now() WHERE id=1 AND revision=$3 RETURNING revision", &[&document, &order, &revision]).map_err(database_error)?.ok_or(CONFLICT)?;
         let next = row.try_get(0).map_err(|e| e.to_string())?;
@@ -424,10 +430,16 @@ impl Database {
             let id = note["id"].as_str().unwrap();
             transaction.execute("INSERT INTO still_notes(id,document) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET document=EXCLUDED.document", &[&id, &note]).map_err(database_error)?;
         }
+        crate::ai_conversations::import_transaction(&mut transaction, &imports)?;
+        transaction.execute("DELETE FROM scribly_conversations c WHERE c.scope='note' AND NOT EXISTS(SELECT 1 FROM still_notes n WHERE n.id=c.parent_id)", &[]).map_err(database_error)?;
+        complete_integration_operations(&mut transaction, receipts, next)?;
         transaction.commit().map_err(database_error)?;
         Ok(next)
     }
     pub(crate) fn save_delta(&mut self, delta: Value, revision: i64) -> Result<i64, String> {
+        self.save_delta_with_receipts(delta, revision, &[])
+    }
+    pub(crate) fn save_delta_with_receipts(&mut self, delta: Value, revision: i64, receipts: &[String]) -> Result<i64, String> {
         validate_revision(revision)?;
         let changed: std::collections::HashSet<String> = delta["changed"]
             .as_array()
@@ -496,6 +508,7 @@ impl Database {
         };
         after["notes"] = json!([]);
         after["schemaVersion"] = json!(5);
+        let imports = crate::ai_conversations::take_imports(&mut after, &order)?;
         transaction.execute("UPDATE still_workspace SET document=$1,item_order=$2,revision=revision+1,updated_at=now() WHERE id=1", &[&after, &order]).map_err(database_error)?;
         for note in &notes {
             let id = note["id"].as_str().unwrap();
@@ -518,11 +531,32 @@ impl Database {
             let id = note["id"].as_str().unwrap();
             transaction.execute("INSERT INTO still_notes(id,document) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET document=EXCLUDED.document", &[&id, &note]).map_err(database_error)?;
         }
+        crate::ai_conversations::import_transaction(&mut transaction, &imports)?;
+        transaction.execute("DELETE FROM scribly_conversations c WHERE c.scope='note' AND NOT EXISTS(SELECT 1 FROM still_notes n WHERE n.id=c.parent_id)", &[]).map_err(database_error)?;
+        complete_integration_operations(&mut transaction, receipts, revision + 1)?;
         transaction.commit().map_err(database_error)?;
         Ok(revision + 1)
     }
     pub(crate) fn close(mut self) -> Result<(), String> {
         self.server.close()
+    }
+    pub(crate) fn integration_operation(&mut self, id: &str) -> Result<Option<Value>, String> {
+        let row = self.client.query_opt("SELECT payload_hash,result,status FROM scribly_integration_operations WHERE id=$1", &[&id]).map_err(database_error)?;
+        Ok(row.map(|row| json!({"payloadHash":row.get::<_,String>(0),"result":row.get::<_,Value>(1),"status":row.get::<_,String>(2)})))
+    }
+    pub(crate) fn stage_integration_operation(&mut self, id: &str, hash: &str, result: &Value) -> Result<(), String> {
+        let mut tx=self.client.transaction().map_err(database_error)?;
+        // Unresolved receipts can still be referenced by a recovered draft.
+        tx.execute("DELETE FROM scribly_integration_operations WHERE status='committed' AND created_at < now()-interval '30 days'",&[]).map_err(database_error)?;
+        if let Some(row)=tx.query_opt("SELECT payload_hash,status FROM scribly_integration_operations WHERE id=$1 FOR UPDATE",&[&id]).map_err(database_error)? {
+            if row.get::<_,String>(0)!=hash {return Err("REQUEST_ID_REUSED: Different operation arguments".into());}
+            if row.get::<_,String>(1)=="committed" {return Err("ALREADY_COMMITTED: Read the operation receipt".into());}
+            tx.execute("UPDATE scribly_integration_operations SET result=$2 WHERE id=$1",&[&id,result]).map_err(database_error)?;
+        } else {
+            if tx.query_one("SELECT count(*) FROM scribly_integration_operations",&[]).map_err(database_error)?.get::<_,i64>(0)>=10000 {return Err("BUSY: Operation receipt capacity reached; older receipts expire after 30 days".into());}
+            tx.execute("INSERT INTO scribly_integration_operations(id,payload_hash,result,status) VALUES($1,$2,$3,'pending')",&[&id,&hash,result]).map_err(database_error)?;
+        }
+        tx.commit().map_err(database_error)
     }
     pub(crate) fn list_history(&mut self, item_id: &str) -> Result<Value, String> {
         let rows = self.client.query("SELECT id,item_id,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'),document->>'title',coalesce(document->>'kind','note'),bytes FROM still_history WHERE item_id=$1 ORDER BY created_at DESC,id DESC", &[&item_id]).map_err(database_error)?;
@@ -576,9 +610,70 @@ impl Database {
     }
 }
 
+fn complete_integration_operations(tx: &mut postgres::Transaction<'_>, ids: &[String], revision: i64) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    if ids.len()>32 { return Err("Too many pending integration receipts".into()); }
+    for id in ids {
+        let row=tx.query_opt("SELECT result,status FROM scribly_integration_operations WHERE id=$1 FOR UPDATE",&[&id]).map_err(database_error)?.ok_or("Missing integration receipt; preserve the recovery draft")?;
+        if row.get::<_,String>(1)=="committed" {continue;}
+        let mut result:Value=row.get(0);
+        if let Some(note_id)=result["note_id"].as_str() {
+            let note:Value=tx.query_opt("SELECT document FROM still_notes WHERE id=$1",&[&note_id]).map_err(database_error)?.ok_or("Integration target missing; preserve the recovery draft")?.get(0);
+            let version=json!([note["id"],note["folderId"],note["title"],note["kind"].as_str().unwrap_or("note"),note["content"],note["archived"],note["deletedAt"]]);
+            result["version"]=json!(format!("{:x}",Sha256::digest(serde_json::to_vec(&version).map_err(|e|e.to_string())?)));
+        }
+        result["revision"]=json!(revision);result["saved"]=json!(true);
+        tx.execute("UPDATE scribly_integration_operations SET result=$2,status='committed',created_at=now() WHERE id=$1",&[&id,&result]).map_err(database_error)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "Starts bundled PostgreSQL in an isolated temporary profile"]
+    fn integration_receipts_commit_with_full_and_delta_saves_and_survive_restart() {
+        let root = std::env::temp_dir().join(format!("scribly-integration-test-{}", uuid::Uuid::new_v4()));
+        let runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/postgres");
+        let mut db = Database::open(root.clone(), runtime.clone()).unwrap();
+        let id = format!("{}:{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
+        let ids = vec![id.clone()];
+        let mut document = json!({"schemaVersion":5,"theme":"light","activeId":"n","referenceId":null,"folders":[],"notes":[{"id":"n","title":"Report","content":"<p>Original 日本語</p>","folderId":null,"createdAt":"now","updatedAt":"now","archived":false}]});
+        db.stage_integration_operation(&id,"hash",&json!({"note_id":"n"})).unwrap();
+        assert!(db.save_with_receipts(document.clone(),1,&ids).is_err());
+        assert_eq!(db.integration_operation(&id).unwrap().unwrap()["status"],"pending");
+        assert_eq!(db.save_with_receipts(document.clone(),0,&ids).unwrap(),1);
+        let committed=db.integration_operation(&id).unwrap().unwrap();
+        assert_eq!(committed["result"]["saved"],true);
+        assert_eq!(committed["result"]["revision"],1);
+        assert_eq!(committed["result"]["version"].as_str().unwrap().len(),64);
+        assert!(db.stage_integration_operation(&id,"other",&json!({})).unwrap_err().contains("REQUEST_ID_REUSED"));
+        assert!(db.stage_integration_operation(&id,"hash",&json!({})).unwrap_err().contains("ALREADY_COMMITTED"));
+        document["notes"][0]["content"]=json!("<p>Appended 日本語</p>");
+        assert!(db.save_with_receipts(document.clone(),1,&["missing".into()]).is_err());
+        assert_eq!(db.load().unwrap()["document"]["notes"][0]["content"],"<p>Original 日本語</p>");
+        let second=format!("{}:{}",uuid::Uuid::new_v4(),uuid::Uuid::new_v4());
+        db.stage_integration_operation(&second,"second",&json!({"note_id":"n"})).unwrap();
+        let mut metadata=document.clone();metadata.as_object_mut().unwrap().remove("notes");
+        assert_eq!(db.save_delta_with_receipts(json!({"metadata":metadata,"order":["n"],"changed":[document["notes"][0]]}),1,&[second.clone()]).unwrap(),2);
+        let appended=db.integration_operation(&second).unwrap().unwrap();
+        assert_ne!(committed["result"]["version"],appended["result"]["version"]);
+        assert_eq!(appended["result"]["revision"],2);
+        db.close().unwrap();
+        let mut reopened=Database::open(root.clone(),runtime).unwrap();
+        assert_eq!(reopened.load().unwrap()["document"],document);
+        assert_eq!(reopened.integration_operation(&id).unwrap().unwrap(),committed);
+        assert_eq!(reopened.integration_operation(&second).unwrap().unwrap(),appended);
+        let pending=format!("{}:{}",uuid::Uuid::new_v4(),uuid::Uuid::new_v4());
+        reopened.stage_integration_operation(&pending,"pending",&json!({"note_id":"n"})).unwrap();
+        reopened.client.execute("UPDATE scribly_integration_operations SET created_at=now()-interval '31 days' WHERE id=$1 OR id=$2",&[&pending,&id]).unwrap();
+        reopened.stage_integration_operation(&format!("{}:{}",uuid::Uuid::new_v4(),uuid::Uuid::new_v4()),"fresh",&json!({"note_id":"n"})).unwrap();
+        assert!(reopened.integration_operation(&id).unwrap().is_none());
+        assert_eq!(reopened.integration_operation(&pending).unwrap().unwrap()["status"],"pending");
+        reopened.close().unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn revisions_stay_within_the_frontend_safe_integer_range() {
         for revision in [-1, MAX_REVISION, i64::MAX] {

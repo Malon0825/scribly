@@ -249,6 +249,7 @@ pub(crate) async fn save_workspace(
     app: tauri::AppHandle,
     document: Value,
     revision: i64,
+    integration_receipts: Option<Vec<String>>,
 ) -> Result<i64, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<DatabaseState>();
@@ -256,7 +257,7 @@ pub(crate) async fn save_workspace(
         guard
             .as_mut()
             .ok_or("The notebook database has not opened yet")?
-            .save(document, revision)
+            .save_with_receipts(document, revision, &integration_receipts.unwrap_or_default())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -266,6 +267,7 @@ pub(crate) async fn save_workspace_delta(
     app: tauri::AppHandle,
     delta: Value,
     revision: i64,
+    integration_receipts: Option<Vec<String>>,
 ) -> Result<i64, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<DatabaseState>();
@@ -273,7 +275,7 @@ pub(crate) async fn save_workspace_delta(
         guard
             .as_mut()
             .ok_or("The notebook database has not opened yet")?
-            .save_delta(delta, revision)
+            .save_delta_with_receipts(delta, revision, &integration_receipts.unwrap_or_default())
     })
     .await
     .map_err(|e| e.to_string())?

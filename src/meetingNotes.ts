@@ -1,4 +1,4 @@
-import { analysisHtml, meetingLabels, meetingTime, speakerLabel, type IntegratedMeeting, type Meeting, type MeetingAnalysis } from './meetings';
+import { analysisGroups, analysisHtml, meetingLabels, meetingTime, speakerLabel, type IntegratedMeeting, type Meeting, type MeetingAnalysis } from './meetings';
 import { itemHref } from './itemLinks';
 import { isLiveItem, isBoard, type MeetingNote, type Note, type Workspace } from './types';
 
@@ -150,7 +150,7 @@ function personalDocument(content:string, meeting:Meeting) {
     if (source?.session === meeting.id && source.html === node.innerHTML) node.remove();
   }
   for (const analysis of meeting.analyses) {
-    for (const variant of [analysisHtml(meeting,analysis,true),analysisHtml(meeting,analysis,true).replace('<h2>Key points</h2>','<h2>Meeting minutes</h2>')]) {
+    for (const variant of [analysisHtml(meeting,analysis,true),analysisHtml(meeting,analysis,true).replace('<h2>Meeting minutes</h2>','<h2>Key points</h2>')]) {
       const generated = Array.from(new DOMParser().parseFromString(variant,'text/html').body.children);
       const blocks = Array.from(doc.body.children);
       for (let index = 0; index <= blocks.length - generated.length; index++) {
@@ -171,7 +171,7 @@ function personalDocument(content:string, meeting:Meeting) {
     for (let index = 0; index < blocks.length - 1; index++) {
       const heading = blocks[index], question = analysis.question ? blocks[index + 1] : null;
       const listIndex = index + (question ? 2 : 1), list = blocks[listIndex];
-      if (heading.tagName !== 'H2' || ![meetingLabels[analysis.kind],analysis.kind === 'minutes' ? 'Meeting minutes' : meetingLabels[analysis.kind]].includes(heading.textContent || '') || list?.tagName !== 'UL'
+      if (heading.tagName !== 'H2' || ![meetingLabels[analysis.kind],analysis.kind === 'minutes' ? 'Key points' : meetingLabels[analysis.kind]].includes(heading.textContent || '') || list?.tagName !== 'UL'
         || (question && (question.tagName !== 'P' || question.textContent !== analysis.question))) continue;
       const items = Array.from(list.children);
       if (items.length !== analysis.items.length || !items.every((node,i) => {
@@ -216,13 +216,16 @@ export function meetingSummaryContent(content:string, meeting:Meeting, results:M
     if (editedIds.includes(result.id)) return Array.from(stored.body.children).filter(node => node.getAttribute('data-meeting-analysis') === result.id).map(node => node.outerHTML).join('');
     const tag = `data-meeting-analysis="${escape(result.id)}"`;
     const actions = result.kind === 'actions';
-    const list = result.items.map((item,index) => {
-      const source = result.revision === meeting.revision ? meeting.segments.find(segment => segment.id === item.sources[0]) : null;
-      const citation = source ? ` <button data-meeting-citation="${escape(JSON.stringify({session:meeting.id,segment:source.id,revision:meeting.revision,label:meetingTime(source.start)}))}">${meetingTime(source.start)}</button>` : '';
-      const key = `${result.id}:${index}`;
-      return `<li${actions ? ` data-type="taskItem" data-checked="${meeting.completedActions?.includes(key) || false}" data-meeting-action="${escape(key)}"` : ''}><p>${escape(item.text).replace(/\n/g,'<br>')}${citation}</p>${actions ? `<p>${escape(item.owner || 'Unassigned')} · ${escape(item.deadline || 'No date agreed')}</p>` : ''}</li>`;
+    const groups = analysisGroups(result).map(group => {
+      const list = group.items.map(({item,index}) => {
+        const source = result.revision === meeting.revision ? meeting.segments.find(segment => segment.id === item.sources[0]) : null;
+        const citation = source ? ` <button data-meeting-citation="${escape(JSON.stringify({session:meeting.id,segment:source.id,revision:meeting.revision,label:meetingTime(source.start)}))}">${meetingTime(source.start)}</button>` : '';
+        const key = `${result.id}:${index}`;
+        return `<li${actions ? ` data-type="taskItem" data-checked="${meeting.completedActions?.includes(key) || false}" data-meeting-action="${escape(key)}"` : ''}><p>${escape(item.text).replace(/\n/g,'<br>')}${citation}</p>${actions ? `<p>${escape(item.owner || 'Owner not stated')} · ${escape(item.deadline || 'No date agreed')}</p>` : ''}</li>`;
+      }).join('');
+      return `${group.label ? `<h3 ${tag}>${group.label}</h3>` : ''}<ul ${tag}${actions ? ' data-type="taskList"' : ''}>${list}</ul>`;
     }).join('');
-    return `<h2 ${tag}>${meetingLabels[result.kind]}</h2>${result.question ? `<p ${tag}>${escape(result.question)}</p>` : ''}${result.items.length ? `<ul ${tag}${actions ? ' data-type="taskList"' : ''}>${list}</ul>` : `<p ${tag}>${actions ? 'No action items were identified.' : 'No relevant details were identified.'}</p>`}`;
+    return `<h2 ${tag}>${meetingLabels[result.kind]}</h2>${result.kind === 'minutes' ? `<p ${tag}>Draft minutes · review against the transcript before sharing.</p>` : ''}${result.question ? `<p ${tag}>${escape(result.question)}</p>` : ''}${result.items.length ? groups : `<p ${tag}>${actions ? 'No agreed action items were identified.' : 'No relevant details were identified.'}</p>`}`;
   }).join('') + meetingPersonalContent(content,meeting);
 }
 
