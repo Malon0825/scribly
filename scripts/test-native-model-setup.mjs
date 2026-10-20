@@ -12,6 +12,8 @@ if(!browser)throw Error('Diagnostic WebView unavailable');
 const page=browser.contexts()[0].pages().find(p=>!new URL(p.url()).searchParams.has('capture'));
 const invoke=(command,args={})=>page.evaluate(({command,args})=>window.__TAURI_INTERNALS__.invoke(command,args),{command,args});
 await page.getByRole('textbox',{name:'Note content',exact:true}).waitFor({timeout:30000});
+// The release UI can paint the starter note before its first autosave commits.
+await expect.poll(async()=>(await invoke('load_workspace')).document?.activeId,{timeout:15000}).toBeTruthy();
 const original=await invoke('load_workspace');
 if(!resolve(original.dataPath).startsWith(profile))throw Error('Notebook isolation check failed');
 const initial=await invoke('meeting_connections');
